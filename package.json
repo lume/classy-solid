@@ -1,0 +1,72 @@
+{
+	"name": "classy-solid",
+	"version": "0.0.0",
+	"description": "Solid.js reactivity patterns for classes, and class components.",
+	"author": "Joe Pea <joe@trusktr.io>",
+	"license": "MIT",
+	"homepage": "http://github.com/lume/classy-solid#readme",
+	"type": "module",
+	"main": "dist/index.js",
+	"// main": "The 'main' field is fallback for legacy Node.js that has no type:module support, otherwise Node 13.2+ ignores it if type:module is set.",
+	"types": "dist/index.d.ts",
+	"scripts": {
+		"LUME SCRIPTS XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX": "",
+		"clean": "lume clean",
+		"build": "lume build",
+		"dev": "lume dev",
+		"typecheck": "lume typecheck",
+		"typecheck:watch": "lume typecheckWatch",
+		"test": "lume test",
+		"test:debug": "lume testDebug",
+		"prettier": "lume prettier",
+		"prettier:check": "lume prettierCheck",
+		"release:patch": "lume releasePatch",
+		"release:minor": "lume releaseMinor",
+		"release:major": "lume releaseMajor",
+		"version": "lume versionHook",
+		"postversion": "lume postVersionHook",
+		"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX OTHER SCRIPTS": "",
+		"prepare": "npm run build"
+	},
+	"dependencies": {
+		"lowclass": "^5.0.0",
+		"solid-js": "^1.3.13"
+	},
+	"devDependencies": {
+		"@lume/cli": "^0.7.0",
+		"prettier": "^2.0.0",
+		"typescript": "4.4.3"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+ssh://git@github.com/lume/classy-solid.git"
+	},
+	"bugs": {
+		"url": "https://github.com/lume/variable/issues"
+	},
+	"keywords": [
+		"components",
+		"dep tracking reactivity",
+		"dep-tracking-reactivity",
+		"lume",
+		"reactive coding",
+		"reactive computation",
+		"reactive programming",
+		"reactive variables",
+		"reactive",
+		"reactive-coding",
+		"reactive-computation",
+		"reactive-programming",
+		"reactive-variables",
+		"reactive-effects",
+		"reactivity",
+		"solid",
+		"solid-js",
+		"solid.js",
+		"solidjs",
+		"true-reactivity",
+		"ts",
+		"typescript",
+		"web-components"
+	]
+}

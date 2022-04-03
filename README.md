@@ -123,9 +123,9 @@ class Counter {
 
 	increment() {
 		// These are more readable:
-		this.count.set(this.count.get() + 1)
+		this.count(this.count() + 1)
 		// or
-		this.count.set(c => c + 1)
+		this.count(c => c + 1)
 	}
 }
 ```

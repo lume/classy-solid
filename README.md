@@ -5,16 +5,16 @@ and for using `class`es as Solid components (f.e. in a JSX template).
 
 #### `npm install classy-solid --save`
 
-## API and Usage
+# API and Usage
 
 Note, these docs assume you have basic knowledge of [Solid.js](https://solidjs.com) first.
 
-### `@reactive`
+## `@reactive`
 
 Mark a class with this decorator if it will have reactive properties (properties
 backed by Solid signals). See `@signal` below for an example.
 
-### `@signal`
+## `@signal`
 
 Decorate a property of a class with `@signal` to make it reactive (backed by a
 Solid signal). Be sure to decorate a class that has reactive properties with the
@@ -40,7 +40,125 @@ createEffect(() => {
 })
 ```
 
-### `createSignalObject()`
+## `@component`
+
+A decorator for using classes as Solid components.
+
+Note, the `@component` decorator is still being refined, subject to change in
+the next few releases.
+
+Examples:
+
+### Plain JS
+
+```jsx
+import {component, reactive, signal} from 'classy-solid'
+
+@component
+@reactive
+class MyComp {
+	@signal last = 'none'
+
+	onMount() {
+		console.log('mounted')
+	}
+
+	template(props) {
+		// here we use `props` passed in, or the signal on `this` which is also
+		// treated as a prop
+		return (
+			<h1>
+				Hello, my name is {props.first} {this.last}
+			</h1>
+		)
+	}
+}
+
+render(() => <MyComp first="Joe" last="Pea" />, document.body)
+```
+
+Note: You only need the `@reactive` decorator if you will use `@signal`
+properties in your class. Make sure the `@component` decorator comes _before_
+the `@reactive` decorator, or else a runtime error will let you know. :)
+
+Without decorators, for plain JS users who don't have decorator setups in their
+build yet (note, the new decorators proposal reached stage 3! So this will
+change soon!):
+
+```jsx
+import {component, reactive, signal} from 'classy-solid'
+
+const MyComp = component(
+	reactive(
+		class MyComp {
+			static signalProperties = ['last']
+
+			last = 'none'
+
+			onMount() {
+				console.log('mounted')
+			}
+
+			template(props) {
+				// here we use `props` passed in, or the signal on `this` which
+				// is also a prop on the outside.
+				return (
+					<h1>
+						Hello, my name is {props.first} {this.last}
+					</h1>
+				)
+			}
+		},
+	),
+)
+
+render(() => <MyComp first="Joe" last="Pea" />, document.body)
+```
+
+### TypeScript
+
+```tsx
+import {component, reactive, signal, Props} from 'classy-solid'
+
+@component
+@reactive
+class MyComp {
+	// This defines prop types for JSX. Note, this property does not actually
+	// need to exist at runtime, hence the `!` to tell TS not to worry about it
+	// being undefined.
+	PropTypes!: Props<this, 'last' | 'count' | 'first'>
+
+	@signal last = 'none'
+	@signal first = 'none'
+	@signal count = 123
+
+	// This property will not appear in the JSX prop types, because we did not
+	// list it in the PropTypes definition.
+	foo = 'blah'
+
+	onMount() {
+		console.log('mounted')
+	}
+
+	template(props: this['PropTypes']) {
+		// Note, unlike the plain JS example, we had to define a `first`
+		// property on the class, or else it would not have a type definition
+		// here. Plain JS has no types, so no issue there.
+		return (
+			<h1>
+				Hello, my name is {props.first} {this.last}. The count is {this.count}
+			</h1>
+		)
+	}
+}
+
+render(() => <MyComp first="Joe" last="Pea" count={456} />, document.body)
+```
+
+If you're using TypeScript syntax, there's no reason not to use decorators
+because TS has support for it.
+
+## `createSignalObject()`
 
 Returns a Solid signal in the form of an object with `.get` and `.set` methods,
 instead of an array tuple.
@@ -84,7 +202,7 @@ class Counter {
 }
 ```
 
-### `createSignalFunction()`
+## `createSignalFunction()`
 
 Returns a Solid signal in the form of a single overloaded function for both
 getting and setting the signal, instead of an array tuple. Call the function
@@ -130,7 +248,7 @@ class Counter {
 }
 ```
 
-### `signalify()`
+## `signalify()`
 
 Use this to convert properties on an object into Solid signal-backed properties.
 

@@ -1,5 +1,4 @@
-// TODO make sure LUME uses {equals: false} for signals if needed.
-
+export * from './component.js'
 export * from './createDeferredEffect.js'
 export * from './createSignalFunction.js'
 export * from './createSignalObject.js'

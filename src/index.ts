@@ -5,4 +5,4 @@ export * from './createSignalObject.js'
 export * from './decorators/index.js'
 export * from './signalify.js'
 
-export const version = '0.1.0'
+export const version = '0.1.1'

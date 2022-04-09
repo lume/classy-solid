@@ -66,7 +66,7 @@ export function component<T extends Constructor>(
 declare module 'solid-js' {
 	namespace JSX {
 		interface ElementClass {
-			template?(): JSX.Element
+			template?(props: Record<string, unknown>): JSX.Element
 		}
 
 		interface ElementAttributesProperty {

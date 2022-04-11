@@ -15,7 +15,7 @@ interface PossiblyReactiveConstructor {
 /**
  * A decorator for using classes as Solid components.
  *
- * Example (plain JS):
+ * Example (JS without types):
  *
  * ```js
  * @component

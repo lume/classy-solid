@@ -33,15 +33,22 @@ function isClass(obj: unknown): obj is AnyClass {
 // Defines a reactive accessor on obj.
 function createSignalAccessors<T extends ObjWithReactifiedProps>(obj: T, props: (keyof T)[]) {
 	for (const prop of props) {
+		// TODO handle symbol properties, not just string properties.
+		if (typeof prop === 'symbol') continue
+
 		if (obj.__reactifiedProps__?.has(prop)) continue
 
 		const initialValue = obj[prop]
-		createSignalAccessor(obj, prop)
+		createSignalAccessor(
+			obj,
+			// @ts-expect-error prop is not a symbol (and VS Code still shows this ts-expect-error is not used)
+			prop,
+		)
 		obj[prop] = initialValue
 	}
 }
 
-function createSignalAccessor<T extends ObjWithReactifiedProps>(obj: T, propName: keyof T): void {
+function createSignalAccessor<T extends ObjWithReactifiedProps>(obj: T, propName: Exclude<keyof T, symbol>): void {
 	const vName = 'v_' + propName
 
 	// XXX If obj already has vName, skip making an accessor? I think perhaps

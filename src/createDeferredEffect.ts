@@ -1,15 +1,6 @@
-import {
-	createSignal as _createSignal,
-	createEffect,
-	onCleanup,
-	getOwner,
-	runWithOwner,
-	Signal,
-	Accessor,
-	Setter,
-} from 'solid-js'
+import {createSignal as _createSignal, createEffect, onCleanup, getOwner, runWithOwner} from 'solid-js'
 
-import type {EffectFunction, EffectOptions, SignalOptions} from 'solid-js/types/reactive/signal'
+import type {EffectFunction} from 'solid-js/types/reactive/signal'
 
 const effectQueue: Set<EffectFunction<any>> = new Set()
 let runningEffects = false
@@ -22,12 +13,10 @@ let currentEffect: EffectFunction<any> = () => {}
 // dependencies, so that when signals change, we are aware which dependenct
 // effects needs to be moved to the end of the effect queue while running
 // deferred effects in a microtask.
-export function createSignal<T>(): Signal<T | undefined>
-export function createSignal<T>(value: T, options?: SignalOptions<T>): Signal<T>
-export function createSignal<T>(value?: T, options?: SignalOptions<T>): Signal<T | undefined> {
-	let [_get, _set] = _createSignal(value as any, options)
+export let createSignal = ((value, options) => {
+	let [_get, _set] = _createSignal(value, options)
 
-	const get: Accessor<T> = () => {
+	const get = (() => {
 		if (!runningEffects) return _get()
 
 		let deps = effectDeps.get(currentEffect)
@@ -35,9 +24,9 @@ export function createSignal<T>(value?: T, options?: SignalOptions<T>): Signal<T
 		deps.add(_set)
 
 		return _get()
-	}
+	}) as typeof _get
 
-	const set: Setter<T | undefined> = v => {
+	const set = (v => {
 		if (!runningEffects) return _set(v as any)
 
 		// This is inefficient, for proof of concept, unable to use Solid
@@ -53,30 +42,16 @@ export function createSignal<T>(value?: T, options?: SignalOptions<T>): Signal<T
 		}
 
 		return _set(v as any)
-	}
+	}) as typeof _set
 
 	return [get, set]
-}
+}) as typeof _createSignal
 
 let effectTaskIsScheduled = false
 
 // TODO Option so the first run is deferred instead of immediate? This already
 // happens outside of a root.
-export function createDeferredEffect<Next, Init = Next>(
-	fn: EffectFunction<Init | Next, Next>,
-	value: Init,
-	options?: EffectOptions,
-): void
-export function createDeferredEffect<Next, Init = undefined>(
-	..._: undefined extends Init
-		? [fn: EffectFunction<Init | Next, Next>, value?: Init, options?: EffectOptions]
-		: [fn: EffectFunction<Init | Next, Next>, value: Init, options?: EffectOptions]
-): void
-export function createDeferredEffect<Next, Init = Next>(
-	fn: EffectFunction<Init | Next, Next>,
-	value: Init,
-	options?: EffectOptions,
-): void {
+export const createDeferredEffect = ((fn, value, options) => {
 	let initial = true
 
 	createEffect(
@@ -118,7 +93,7 @@ export function createDeferredEffect<Next, Init = Next>(
 			effectDeps.delete(fn)
 			effectQueue.delete(fn)
 		})
-}
+}) as typeof createEffect
 
 function runEffects() {
 	runningEffects = true

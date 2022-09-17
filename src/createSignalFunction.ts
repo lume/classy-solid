@@ -1,4 +1,5 @@
-import {createSignal} from './createDeferredEffect.js'
+// import {createSignal} from './createDeferredEffect.js'
+import {createSignal} from 'solid-js'
 import type {Setter} from 'solid-js'
 import type {SignalOptions} from 'solid-js/types/reactive/signal'
 
@@ -61,9 +62,7 @@ export function createSignalFunction<T>(value?: T, options?: SignalOptions<T>): 
 	const [get, set] = createSignal<T>(value as T, options)
 
 	return function (value) {
-		if (arguments.length === 0) {
-			return get()
-		}
+		if (arguments.length === 0) return get()
 		return set(value)
 	} as SignalFunction<T>
 }

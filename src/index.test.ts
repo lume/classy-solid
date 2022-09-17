@@ -1,5 +1,16 @@
-import {createComputed, createRoot} from 'solid-js'
-import {createSignalObject, reactive, signalify, createSignalFunction, signal, createDeferredEffect} from './index.js'
+import {createComputed, createRoot, createSignal} from 'solid-js'
+import {createMutable} from 'solid-js/store'
+import {render} from 'solid-js/web'
+import html from 'solid-js/html'
+import {
+	createSignalObject,
+	reactive,
+	signalify,
+	createSignalFunction,
+	signal,
+	createDeferredEffect,
+	component,
+} from './index.js'
 
 describe('classy-solid', () => {
 	describe('createSignalObject()', () => {
@@ -115,24 +126,7 @@ describe('classy-solid', () => {
 		})
 	})
 
-	describe('@reactive, @signal, and reactify', () => {
-		it('does not prevent superclass constructor from receiving subclass constructor args', () => {
-			@reactive
-			class Insect {
-				constructor(public result: number) {}
-			}
-
-			class Butterfly extends Insect {
-				constructor(arg: number) {
-					super(arg * 2)
-				}
-			}
-
-			const b = new Butterfly(4)
-
-			expect(b.result).toBe(8)
-		})
-
+	describe('@reactive, @signal, and signalify', () => {
 		it('makes class properties reactive, using class and property/accessor decorators', () => {
 			@reactive
 			class Butterfly {
@@ -153,6 +147,36 @@ describe('classy-solid', () => {
 			testButterflyProps(b)
 		})
 
+		it('does not prevent superclass constructor from receiving subclass constructor args', () => {
+			@reactive
+			class Insect {
+				constructor(public double: number) {}
+			}
+
+			@reactive
+			class Butterfly extends Insect {
+				@signal colors = 3
+				_wingSize = 2
+
+				@signal
+				get wingSize() {
+					return this._wingSize
+				}
+				set wingSize(s: number) {
+					this._wingSize = s
+				}
+
+				constructor(arg: number) {
+					super(arg * 2)
+				}
+			}
+
+			const b = new Butterfly(4)
+
+			expect(b.double).toBe(8)
+			testButterflyProps(b)
+		})
+
 		it('makes class properties reactive, not using any decorators, specified in the constructor', () => {
 			class Butterfly {
 				colors = 3
@@ -166,16 +190,26 @@ describe('classy-solid', () => {
 				}
 
 				constructor() {
-					signalify(this, ['colors', 'wingSize'])
+					signalify(this, 'colors', 'wingSize')
 				}
 			}
 
 			const b = new Butterfly()
 
 			testButterflyProps(b)
+
+			// quick type check:
+			const b2 = new Butterfly()
+			signalify(
+				b2,
+				'colors',
+				'wingSize',
+				// @ts-expect-error "foo" is not a property on Butterfly
+				'foo',
+			)
 		})
 
-		it('makes class properties reactive, with properties defined in the constructor', () => {
+		it('makes class properties reactive, with signalify in the constructor', () => {
 			class Butterfly {
 				colors: number
 				_wingSize: number
@@ -191,7 +225,7 @@ describe('classy-solid', () => {
 					this.colors = 3
 					this._wingSize = 2
 
-					signalify(this, ['colors', 'wingSize'])
+					signalify(this, 'colors', 'wingSize')
 				}
 			}
 
@@ -200,114 +234,16 @@ describe('classy-solid', () => {
 			testButterflyProps(b)
 		})
 
-		it('makes class properties reactive, using only class decorator, specified via static prop', () => {
-			@reactive
-			class Butterfly {
-				static signalProperties = ['colors', 'wingSize']
-
-				colors = 3
-				_wingSize = 2
-
-				get wingSize() {
-					return this._wingSize
-				}
-				set wingSize(s: number) {
-					this._wingSize = s
-				}
-			}
-
-			const b = new Butterfly()
-			testButterflyProps(b)
-		})
-
-		it('makes class properties reactive, using only class decorator, specified via static prop, properties defined in the constructor', () => {
-			@reactive
-			class Butterfly {
-				static signalProperties = ['colors', 'wingSize']
-
-				colors: number
-				_wingSize: number
-
-				get wingSize() {
-					return this._wingSize
-				}
-				set wingSize(s: number) {
-					this._wingSize = s
-				}
-
-				constructor() {
-					this.colors = 3
-					this._wingSize = 2
-				}
-			}
-
-			const b = new Butterfly()
-			testButterflyProps(b)
-		})
-
-		it('makes class properties reactive, not using any decorators, specified via static prop', () => {
-			class Butterfly {
-				static signalProperties = ['colors', 'wingSize']
-
-				colors = 3
-				_wingSize = 2
-
-				get wingSize() {
-					return this._wingSize
-				}
-				set wingSize(s: number) {
-					this._wingSize = s
-				}
-
-				constructor() {
-					signalify(this, Butterfly)
-				}
-			}
-
-			const b = new Butterfly()
-			testButterflyProps(b)
-		})
-
-		it('makes class properties reactive, not using any decorators, specified via static prop, properties defined in the constructor', () => {
-			class Butterfly {
-				static signalProperties = ['colors', 'wingSize']
-
-				colors: number
-				_wingSize: number
-
-				get wingSize() {
-					return this._wingSize
-				}
-				set wingSize(s: number) {
-					this._wingSize = s
-				}
-
-				constructor() {
-					this.colors = 3
-					this._wingSize = 2
-
-					signalify(this, Butterfly)
-					this.colors
-					signalify(this, ['colors'])
-				}
-			}
-
-			const b = new Butterfly()
-			testButterflyProps(b)
-		})
-
-		it('can be used on a function-style class, with properties in the constructor', () => {
+		it('works with a function-style class, with signalify in the constructor', () => {
 			function Butterfly() {
 				// @ts-ignore
 				this.colors = 3
 				// @ts-ignore
 				this._wingSize = 2
 
-				// @ts-ignore
-				signalify(this, Butterfly)
+				// @ts-ignore no type checking for ES5-style classes.
+				signalify(this, 'colors', 'wingSize')
 			}
-
-			Butterfly.signalProperties = ['colors', 'wingSize']
 
 			Butterfly.prototype = {
 				get wingSize() {
@@ -323,60 +259,10 @@ describe('classy-solid', () => {
 			testButterflyProps(b)
 		})
 
-		it('can be used on a function-style class, with properties on the prototype, reactify with static signalProperties in constructor', () => {
+		it('works with a function-style class, with properties on the prototype, and signalify in constructor', () => {
 			function Butterfly() {
-				// @ts-ignore
-				signalify(this, Butterfly)
-			}
-
-			Butterfly.signalProperties = ['colors', 'wingSize']
-
-			Butterfly.prototype = {
-				colors: 3,
-				_wingSize: 2,
-
-				get wingSize() {
-					return this._wingSize
-				},
-				set wingSize(s: number) {
-					this._wingSize = s
-				},
-			}
-
-			// @ts-ignore
-			const b = new Butterfly()
-			testButterflyProps(b)
-		})
-
-		it('can be used on a function-style class, with properties on the prototype, reactify with static signalProperties on the prototype', () => {
-			function Butterfly() {}
-
-			Butterfly.signalProperties = ['colors', 'wingSize']
-
-			Butterfly.prototype = {
-				colors: 3,
-				_wingSize: 2,
-
-				get wingSize() {
-					return this._wingSize
-				},
-				set wingSize(s: number) {
-					this._wingSize = s
-				},
-			}
-
-			// @ts-ignore
-			signalify(Butterfly.prototype, Butterfly)
-
-			// @ts-ignore
-			const b = new Butterfly()
-			testButterflyProps(b)
-		})
-
-		it('can be used on a function-style class, with properties on the prototype, reactify with specific props in constructor', () => {
-			function Butterfly() {
-				// @ts-ignore
-				signalify(this, ['colors', 'wingSize'])
+				// @ts-ignore no type checking for ES5-style classes.
+				signalify(this, 'colors', 'wingSize')
 			}
 
 			Butterfly.prototype = {
@@ -391,12 +277,12 @@ describe('classy-solid', () => {
 				},
 			}
 
-			// @ts-ignore
+			// @ts-ignore no type checking for ES5-style classes.
 			const b = new Butterfly()
 			testButterflyProps(b)
 		})
 
-		it('can be used on a function-style class, with properties on the prototype, reactify with specific props on the prototype', () => {
+		it('can be used on a function-style class, with properties on the prototype, and signalify on the prototype', () => {
 			function Butterfly() {}
 
 			Butterfly.prototype = {
@@ -411,24 +297,21 @@ describe('classy-solid', () => {
 				},
 			}
 
-			signalify(Butterfly.prototype, ['colors', 'wingSize'])
+			signalify(Butterfly.prototype, 'colors', 'wingSize')
 
-			// @ts-ignore
+			// @ts-ignore no type checking for ES5-style classes.
 			const b = new Butterfly()
 			testButterflyProps(b)
 		})
 
-		it('can be used on a function-style class, with properties in the constructor, reactive applied to constructor', () => {
-			let Butterfly = function Butterfly() {
+		it('can be used on a function-style class, with properties in the constructor, and signalify on the prototype', () => {
+			function Butterfly() {
 				// @ts-ignore
 				this.colors = 3
 				// @ts-ignore
 				this._wingSize = 2
 			}
 
-			// @ts-ignore
-			Butterfly.signalProperties = ['colors', 'wingSize']
-
 			Butterfly.prototype = {
 				get wingSize() {
 					return this._wingSize
@@ -438,92 +321,230 @@ describe('classy-solid', () => {
 				},
 			}
 
-			Butterfly = reactive(Butterfly)
+			signalify(Butterfly.prototype, 'colors', 'wingSize')
 
 			// @ts-ignore
 			const b = new Butterfly()
 			testButterflyProps(b)
 		})
 
-		it('can be used on a function-style class, with properties on the prototype, reactive applied to constructor', () => {
-			let Butterfly = function Butterfly() {}
+		it('throws an error when @signal is used without @reactive', async () => {
+			expect(() => {
+				// user forgot to use @reactive here
+				class Foo {
+					@signal foo = 'hoo'
+				}
 
-			// @ts-ignore
-			Butterfly.signalProperties = ['colors', 'wingSize']
+				Foo
 
-			Butterfly.prototype = {
-				colors: 3,
-				_wingSize: 2,
+				@reactive
+				class Bar {
+					@signal bar = 123
+				}
 
-				get wingSize() {
-					return this._wingSize
-				},
-				set wingSize(s: number) {
-					this._wingSize = s
-				},
-			}
+				new Bar()
+			}).toThrowMatching(err => err.message.includes('Did you forget'))
 
-			Butterfly = reactive(Butterfly)
+			// TODO how to check for an error thrown from a microtask?
+			// (window.addEventListener('error') seems not to work)
+			//
+			// It just won't work, the error seems to never fire here in the
+			// tests, but it works fine when testing manually in Chrome.
 
-			// @ts-ignore
-			const b = new Butterfly()
-			testButterflyProps(b)
+			// const errPromise = new Promise<ErrorEvent>(r => window.addEventListener('error', e => r(e), {once: true}))
+
+			// @reactive
+			// class Foo {
+			// 	@signal foo = 'hoo'
+			// }
+
+			// Foo
+
+			// // user forgot to use @reactive here
+			// class Bar {
+			// 	@signal bar = 123
+			// }
+
+			// Bar
+
+			// const err = await errPromise
+
+			// expect(err.message).toContain('Did you forget')
 		})
 
-		it('can be used on a function-style class, with properties in the constructor, reactive applied to specific prototype properties', () => {
-			let Butterfly = function Butterfly() {
-				// @ts-ignore
-				this.colors = 3
-				// @ts-ignore
-				this._wingSize = 2
+		it('works with function values', () => {
+			// This test ensures that functions are handled propertly, because
+			// if passed without being wrapped to a signal setter it will be
+			// called immediately with the previous value and be expected to
+			// return a new value, instead of being set as the actual new value.
+
+			@reactive
+			class Doer {
+				@signal do: (() => unknown) | null = null
 			}
 
-			// @ts-ignore
-			Butterfly.signalProperties = ['colors', 'wingSize']
+			const doer = new Doer()
 
-			Butterfly.prototype = {
-				get wingSize() {
-					return this._wingSize
-				},
-				set wingSize(s: number) {
-					this._wingSize = s
-				},
+			expect(doer.do).toBe(null)
+
+			const newFunc = () => 123
+			doer.do = newFunc
+
+			expect(doer.do).toBe(newFunc)
+			expect(doer.do()).toBe(123)
+		})
+	})
+
+	describe('@component', () => {
+		it('allows to define a class using class syntax', () => {
+			let onMountCalled = false
+			let onCleanupCalled = false
+
+			@component
+			class CoolComp {
+				onMount() {
+					onMountCalled = true
+				}
+
+				onCleanup() {
+					onCleanupCalled = true
+				}
+
+				template(props: any) {
+					expect(props.foo).toBe(123)
+					return html`<div>hello classes!</div>`
+				}
 			}
 
-			signal(Butterfly.prototype, 'colors')
-			signal(Butterfly.prototype, 'wingSize')
-			Butterfly = reactive(Butterfly)
+			const root = document.createElement('div')
+			document.body.append(root)
 
-			// @ts-ignore
-			const b = new Butterfly()
-			testButterflyProps(b)
+			const dispose = render(() => html`<${CoolComp} foo=${123} />`, root)
+
+			expect(root.textContent).toBe('hello classes!')
+			expect(onMountCalled).toBeTrue()
+			expect(onCleanupCalled).toBeFalse()
+
+			dispose()
+			root.remove()
+
+			expect(onCleanupCalled).toBeTrue()
+
+			// throws on non-class use
+			expect(() => {
+				class CoolComp {
+					// @ts-ignore
+					@component
+					onMount() {}
+				}
+				CoolComp
+			}).toThrow()
 		})
 
-		it('can be used on a function-style class, with properties on the prototype, reactive applied to specific prototype properties', () => {
-			let Butterfly = function Butterfly() {}
+		it('works in tandem with @reactive and @signal for reactivity', async () => {
+			@component
+			@reactive
+			class CoolComp {
+				@signal foo = 0
+				@signal bar = 0
 
-			// @ts-ignore
-			Butterfly.signalProperties = ['colors', 'wingSize']
-
-			Butterfly.prototype = {
-				colors: 3,
-				_wingSize: 2,
-
-				get wingSize() {
-					return this._wingSize
-				},
-				set wingSize(s: number) {
-					this._wingSize = s
-				},
+				template() {
+					return html`<div>foo: ${() => this.foo}, bar: ${() => this.bar}</div>`
+				}
 			}
 
-			signal(Butterfly.prototype, 'colors')
-			signal(Butterfly.prototype, 'wingSize')
-			Butterfly = reactive(Butterfly)
+			const root = document.createElement('div')
+			document.body.append(root)
 
-			// @ts-ignore
-			const b = new Butterfly()
-			testButterflyProps(b)
+			const [a, setA] = createSignal(1)
+			const b = createSignalFunction(2)
+
+			// FIXME Why do we need `() => b()` instead of just `b` here? Does `html`
+			// check the `length` of the function and do something based on
+			// that? Or does it get passed to a @signal property's setter and
+			// receives the previous value?
+			const dispose = render(() => html`<${CoolComp} foo=${a} bar=${() => b()} />`, root)
+
+			expect(root.textContent).toBe('foo: 1, bar: 2')
+
+			setA(3)
+			b(4)
+
+			expect(root.textContent).toBe('foo: 3, bar: 4')
+
+			dispose()
+			root.remove()
+		})
+
+		it('works without decorators', () => {
+			const CoolComp = component(
+				class CoolComp {
+					foo = 0
+					bar = 0
+
+					constructor() {
+						signalify(this)
+					}
+
+					template() {
+						return html`<div>foo: ${() => this.foo}, bar: ${() => this.bar}</div>`
+					}
+				},
+			)
+
+			const root = document.createElement('div')
+			document.body.append(root)
+
+			const [a, setA] = createSignal(1)
+			const b = createSignalFunction(2)
+
+			// FIXME Why do we need `() => b()` instead of just `b` here? Does `html`
+			// check the `length` of the function and do something based on
+			// that? Or does it get passed to a @signal property's setter and
+			// receives the previous value?
+			const dispose = render(() => html`<${CoolComp} foo=${a} bar=${() => b()} />`, root)
+
+			expect(root.textContent).toBe('foo: 1, bar: 2')
+
+			setA(3)
+			b(4)
+
+			expect(root.textContent).toBe('foo: 3, bar: 4')
+
+			dispose()
+			root.remove()
+		})
+
+		// FIXME not working, the spread doesn't seem to do anything.
+		xit('works with reactive spreads', async () => {
+			@component
+			@reactive
+			class CoolComp {
+				@signal foo = 0
+				@signal bar = 0
+
+				template() {
+					return html`<div>foo: ${() => this.foo}, bar: ${() => this.bar}</div>`
+				}
+			}
+
+			const root = document.createElement('div')
+			document.body.append(root)
+
+			let o = createMutable<any>({o: {foo: 123}})
+
+			// neither of these work
+			// const dispose = render(() => html`<${CoolComp} ...${() => o.o} />`, root)
+			const dispose = render(() => html`<${CoolComp} ...${o.o} />`, root)
+
+			expect(root.textContent).toBe('foo: 123, bar: 0')
+
+			o.o = {bar: 456}
+
+			expect(root.textContent).toBe('foo: 123, bar: 456')
+
+			dispose()
+			root.remove()
 		})
 	})
 })

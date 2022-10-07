@@ -6,4 +6,4 @@ export * from './signalify.js'
 
 export * from './decorators/index.js'
 
-export const version = '0.1.4'
+export const version = '0.2.0'

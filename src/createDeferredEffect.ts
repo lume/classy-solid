@@ -1,3 +1,5 @@
+// TODO switch to non-dep-tracking non-queue-modifying deferred signals, because those do not break with regular effects.
+
 import {createSignal as _createSignal, createEffect, onCleanup, getOwner, runWithOwner} from 'solid-js'
 
 import type {EffectFunction} from 'solid-js/types/reactive/signal'
@@ -11,7 +13,7 @@ let currentEffect: EffectFunction<any> = () => {}
 
 // Override createSignal in order to implement custom tracking of effect
 // dependencies, so that when signals change, we are aware which dependenct
-// effects needs to be moved to the end of the effect queue while running
+// effects need to be moved to the end of the effect queue while running
 // deferred effects in a microtask.
 export let createSignal = ((value, options) => {
 	let [_get, _set] = _createSignal(value, options)

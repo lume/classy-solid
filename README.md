@@ -11,7 +11,7 @@ Note, these docs assume you have basic knowledge of [Solid.js](https://solidjs.c
 
 ## `@reactive`
 
-Mark a class with this decorator if it will have reactive properties (properties
+Mark a class with this decorator if it will have signal properties (properties
 backed by Solid signals). See `@signal` below for an example.
 
 ## `@signal`
@@ -24,11 +24,16 @@ Solid signal). Be sure to decorate a class that has signal properties with the
 import {reactive, signal} from 'classy-solid'
 import {createEffect} from 'solid-js'
 
+export
 @reactive
 class Car {
 	@signal engineOn = false
 	@signal sound = 'vroom'
 }
+```
+
+```js
+import {Car} from './Car'
 
 const car = new Car()
 
@@ -60,7 +65,8 @@ following methods:
 > **Note** All props passed into a class component get mapped to class
 > properties, regardless if the property is reactive or not. This means you can,
 > for example, forgo the `@reactive` and `@signal` decorators and use your own
-> accessors to handle changes in some other way.
+> accessors to handle changes in some other way as you wish, or use existing
+> classes that have properties implemented in their own way.
 
 Examples:
 
@@ -68,34 +74,55 @@ Examples:
 
 #### With compiler support
 
-Babel, for example, allows use of decorators and JSX:
+Currently the best way to write JavaScript code with `classy-solid` is if you have a
+build setup in place (soon decorators will be native in JavaScript engines and a
+build step will not be necessary for decorators, but will still be necessary for
+JSX templates).
+
+The [Babel](https://babeljs.io/) compiler, for example, allows use of decorators and JSX:
 
 ```jsx
 import {component, reactive, signal} from 'classy-solid'
+import {onMount, onCleanup, createEffect} from 'solid-js'
 
+export
 @component
 @reactive
 class MyComp {
 	@signal last = 'none'
+	@signal count = 1
 
 	h1
 
 	onMount() {
-		console.log('h1 element:', this.h1)
+		console.log('h1 element reference:', this.h1)
+
+		this.int = setInterval(() => this.count++, 1000)
+
+		// Clean up like this,
+		onCleanup(() => clearInterval(this.int))
 	}
 
+	// or clean up like this.
 	onCleanup() {
-		console.log('cleaned up')
+		clearInterval(this.int)
 	}
 
 	template(props) {
+		// The class is in a Solid reactive context. You can also use onMount or
+		// other Solid APIs like usual. The template() method is a Solid
+		// function component that has access to `this`. For example, the
+		// following two lines of standard Solid code would work fine here:
+		onMount(() => console.log('mounted'))
+		createEffect(() => console.log('count:', this.count))
+
 		// Here we show that passed-in `props` can be used directly. All
 		// props are automatically mapped to same-name properties on the
 		// class instance, which is why the passed in `last={}` prop is
 		// accessible as `this.last`.
 		return (
 			<h1 ref={this.h1}>
-				Hello, my name is {props.first} {this.last}!
+				Hello, my name is {props.first} {this.last}! The count is {this.count}.
 			</h1>
 		)
 	}
@@ -107,55 +134,65 @@ render(() => <MyComp first="Joe" last="Pea" />, document.body)
 > **Note** You only need the `@reactive` decorator if you will use `@signal`
 > properties in your class, regardless if your class is a component or not.
 
-> **Warning** Make sure the `@component` decorator comes _before_ the
-> `@reactive` decorator, or else a runtime error will let you know. :)
-
 #### Without compiler support
 
 > **Note** The new decorators proposal reached stage 3, so JavaScript will have
 > decorators natively soon and won't require compiler support.
 
-For plain JS users who don't have build setups yet , use the `component` and
-`reactive` decorators as regular function calls, define a static
-`signalProperties` array that lists any properties that should be reactive
-(backed by Solid signals), and use Solid's [`html` template
+For plain JS users without build setups, use `component` and `signalify` with
+normal function calls, and use Solid's [`html` template
 tag](https://github.com/solidjs/solid/tree/main/packages/solid/html) for
 templating:
 
+TODO @component needs to be updated to stage 3
+
 ```jsx
-import {component, reactive} from 'classy-solid'
+import {component, signalify} from 'classy-solid'
 import html from 'solid-js/html'
 
 const MyComp = component(
-	reactive(
-		class MyComp {
-			static signalProperties = ['last']
+	class MyComp {
+		last = 'none'
+		count = 1
 
-			last = 'none'
+		h1
 
-			h1
+		constructor() {
+			signalify(this, 'last', 'count')
+			// Or, to signalify all properties:
+			// signalify(this)
+		}
 
-			onMount() {
-				console.log('h1 element:', this.h1)
-			}
+		onMount() {
+			console.log('h1 element:', this.h1)
 
-			onCleanup() {
-				console.log('cleaned up')
-			}
+			this.int = setInterval(() => this.count++, 1000)
 
-			template(props) {
-				return html`<h1 ref=${el => (this.h1 = el)}>Hello, my name is ${() => props.first} ${() => this.last}!</h1>`
-			}
-		},
-	),
+			// Clean up like this,
+			onCleanup(() => clearInterval(this.int))
+		}
+
+		// or clean up like this.
+		onCleanup() {
+			clearInterval(this.int)
+		}
+
+		template(props) {
+			onMount(() => console.log('mounted'))
+			createEffect(() => console.log('count:', this.count))
+
+			return html`<h1 ref=${el => (this.h1 = el)}>Hello, my name is ${() => props.first} ${() => this.last}!</h1>`
+		}
+	},
 )
 
 render(() => html`<${MyComp} first="Joe" last="Pea" />`, document.body)
 ```
 
-For reference, here's the same example, using only the `component` decorator,
-but with custom properties that wire up Solid signals manually, which is the
-equivalent of what the `@reactive` and `@signal` decorators do under the hood:
+For reference, here's the same example using the `component` decorator as a
+regular function, but with accessor properties that wire up Solid signals
+manually, which is essentially the equivalent of what the `@reactive` and `@signal`
+decorators do under the hood for convenience:
 
 ```jsx
 import {component} from 'classy-solid'
@@ -177,17 +214,37 @@ const MyComp = component(
 			set(value)
 		}
 
+		#count = createSignal(1)
+
+		get count() {
+			const [get] = this.#count
+			return get()
+		}
+		set count(value) {
+			const [, set] = this.#count
+			set(value)
+		}
+
 		h1
 
 		onMount() {
 			console.log('h1 element:', this.h1)
+
+			this.int = setInterval(() => this.count++, 1000)
+
+			// Clean up like this,
+			onCleanup(() => clearInterval(this.int))
 		}
 
+		// or clean up like this.
 		onCleanup() {
-			console.log('cleaned up')
+			clearInterval(this.int)
 		}
 
 		template(props) {
+			onMount(() => console.log('mounted'))
+			createEffect(() => console.log('count:', this.count))
+
 			return html`<h1 ref=${el => (this.h1 = el)}>Hello, my name is ${() => props.first} ${() => this.last}!</h1>`
 		}
 	},
@@ -198,10 +255,13 @@ render(() => html`<${MyComp} first="Joe" last="Pea" />`, document.body)
 
 ### TypeScript
 
-If you're using TypeScript syntax, there's no reason not to use decorators and
-JSX because TS has support for both.
+TypeScript does not yet support stage 3 decorators, so you'll have to use
+Babel's TypeScript preset to compile TypeScript code after type checking with
+TypeScript (Babel's transform won't perform type checking, it only strips types
+when converting to JavaScript).
 
-> **Note** The same rules apply here as with decorators in the previous JavaScript section.
+> **Note** The same rules apply here as with decorators in the previous
+> JavaScript section, and the only difference here is added type checking.
 
 ```tsx
 import {component, reactive, signal, Props} from 'classy-solid'
@@ -372,7 +432,7 @@ const obj = {
 }
 
 // Make only the 'foo' and 'bar' properties reactive (backed by Solid signals).
-signalify(obj, ['foo', 'bar'])
+signalify(obj, 'foo', 'bar')
 
 // ...
 
@@ -391,11 +451,13 @@ const obj = signalify(
 		baz: 3,
 	},
 	// Make only the 'foo' and 'bar' properties reactive (backed by Solid signals).
-	['foo', 'bar'],
+	'foo',
+	'bar',
 )
 ```
 
-If you want to make all properties signal-backed, then omitting the array will internally use `Object.keys(obj)` as a default:
+If you want to make all properties signal-backed, then omitting the property
+names in the call will internally use `Object.keys(obj)` as a default:
 
 ```js
 // Make all properties reactive signals
@@ -414,7 +476,7 @@ const obj = signalify(test = {...})
 console.log(obj === test) // true
 ```
 
-Signalify certain properties in a class (alternative to decorators):
+Signalify properties in a class (alternative to decorators):
 
 ```js
 import {signalify} from 'class-solid'
@@ -427,7 +489,7 @@ class Counter {
 	constructor() {
 		// Make only the 'count' variable reactive (signal-backed). The 'on'
 		// variable remains a regular property.
-		signalify(this, ['count'])
+		signalify(this, 'count')
 	}
 }
 
@@ -458,27 +520,9 @@ class Counter {
 }
 ```
 
-Another way to describe which properties are reactive is with a static
-`signalProperties` array and passing the constructor to `signalify`, which is
-exactly what the decorators are syntax sugar for:
-
-```js
-class Counter {
-	count = 0
-	on = true
-
-	static signalProperties = ['count']
-
-	constructor() {
-		// Only 'count' will be signal-backed:
-		signalify(this, this.constructor)
-	}
-}
-```
-
-Note how with decorators, the code is more DRY and concise, because we don't have to repeat
-the `count` word twice, therefore reducing some surface area for human mistakes,
-and we don't have to write a `constructor`:
+Note how with decorators, the code is more DRY and concise, because we don't
+have to express the `count` word more than once, therefore reducing some surface
+area for human mistakes, and we don't have to write a `constructor`:
 
 ```js
 @reactive

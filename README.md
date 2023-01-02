@@ -3,35 +3,63 @@
 Tools for `class`-based reactivity powered by [Solid.js](https://solidjs.com),
 and for using `class`es as Solid components (f.e. in a JSX template).
 
+# Install
+
 #### `npm install classy-solid --save`
 
-# API and Usage
+> **Note** If you do not have or do not wish to use a build tool, see the
+> [Without compiler support](#without-compiler-support) section for plain
+> JavaScript usage without decorators.
 
-Note, these docs assume you have basic knowledge of [Solid.js](https://solidjs.com) first.
+> **Note** `classy-solid` works only with the latest stage-3 decorators. Legacy
+> decoraators are no longer supported, as we've moved onto the official decorator
+> format finally blessed by the TC39 EcmasScript language design committee.
 
-## Usage with Vite
-Using classy-solid with Vite may result in the following error
+## Vite Setup
+
+Using `classy-solid` with Vite may result in the following error because
+decorators are not yet released natively into JavaScript engines (but they will
+be soon!). For now, a Babel configuration must be provided to compile the syntax
+for decorators.
+
 ```
 Support for the experimental syntax 'decorators' isn't currently enabled
 ```
 
-To use solid-classy with Vite, first run the following
+To use `classy-solid` with Vite (or [Solid Start](https://start.solidjs.com/getting-started/what-is-solidstart)), we need to set up the Babel configuration for
+the Solid.js Vite plugin. First run the following:
+
 ```
-npm install --save-dev @babel/plugin-proposal-decorators @babel/plugin-proposal-class-properties
+npm install --save-dev @babel/plugin-proposal-decorators
 ```
-Then update your `vite.config.js` to reflect the following
+
+Then update your `vite.config.js` to use the Babel plugin:
+
 ```js
 // ...
 solidPlugin({
-     babel: {
-          plugins: [
-               ["@babel/plugin-proposal-decorators", { legacy: true }],
-               "@babel/plugin-proposal-class-properties",
-          ]
-     },
-}),
+	babel: {
+		plugins: [['@babel/plugin-proposal-decorators', {version: '2022-03'}]],
+	},
+})
 // ...
 ```
+
+## Babel Setup
+
+Similar to the Vite Setup above, you'll specify in your
+[Babel config file](https://babeljs.io/docs/en/configuration)
+the same `@babel/plugin-proposal-decorators` plugin.
+
+```js
+// ...
+plugins: [['@babel/plugin-proposal-decorators', {version: '2022-03'}]]
+// ...
+```
+
+# API and Usage
+
+Note, these docs assume you have basic knowledge of [Solid.js](https://solidjs.com) first.
 
 ## `@reactive`
 

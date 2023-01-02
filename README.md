@@ -12,7 +12,7 @@ and for using `class`es as Solid components (f.e. in a JSX template).
 > JavaScript usage without decorators.
 
 > **Note** `classy-solid` works only with the latest stage-3 decorators. Legacy
-> decoraators are no longer supported, as we've moved onto the official decorator
+> decorators are no longer supported, as we've moved onto the official decorator
 > format finally blessed by the TC39 EcmasScript language design committee.
 
 ## Vite Setup

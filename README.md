@@ -5,7 +5,7 @@ and for using `class`es as Solid components (f.e. in a JSX template).
 
 # Install
 
-#### `npm install classy-solid --save`
+#### `npm install classy-solid`
 
 > **Note** If you do not have or do not wish to use a build tool, see the
 > [Without compiler support](#without-compiler-support) section for plain

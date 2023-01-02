@@ -9,6 +9,30 @@ and for using `class`es as Solid components (f.e. in a JSX template).
 
 Note, these docs assume you have basic knowledge of [Solid.js](https://solidjs.com) first.
 
+## Usage with Vite
+Using classy-solid with Vite may result in the following error
+```
+Support for the experimental syntax 'decorators' isn't currently enabled
+```
+
+To use solid-classy with Vite, first run the following
+```
+npm install --save-dev @babel/plugin-proposal-decorators @babel/plugin-proposal-class-properties
+```
+Then update your `vite.config.js` to reflect the following
+```js
+// ...
+solidPlugin({
+     babel: {
+          plugins: [
+               ["@babel/plugin-proposal-decorators", { legacy: true }],
+               "@babel/plugin-proposal-class-properties",
+          ]
+     },
+}),
+// ...
+```
+
 ## `@reactive`
 
 Mark a class with this decorator if it will have signal properties (properties

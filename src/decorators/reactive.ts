@@ -1,11 +1,14 @@
 import type {Constructor} from 'lowclass'
-import {classFinishers, getPropsToSignalify} from './signal.js'
+import {getKey, getPropsToSignalify, resetPropsToSignalify} from './signal.js'
 import {getCreateSignalAccessor} from '../signalify.js'
 import type {DecoratedValue, DecoratorContext} from './types.js'
 
-const propsToSignalify = getPropsToSignalify()
-const createSignalAccessor = getCreateSignalAccessor()
+/**
+ * Access key for classy-solid private internal APIs.
+ */
+const accessKey = getKey()
 
+const createSignalAccessor = getCreateSignalAccessor()
 const hasOwnProperty = Object.prototype.hasOwnProperty
 
 /**
@@ -43,13 +46,16 @@ export function reactive(...args: any[]): any {
 
 	if (kind !== 'class') throw new TypeError('The @reactive decorator is only for use on classes.')
 
-	const props = new Map(propsToSignalify)
-	propsToSignalify.clear()
+	const props = getPropsToSignalify(accessKey)
 
-	// When these are called, each of the `@signal` decorators of the decorated
-	// class will have the final list of props to signalify.
-	for (const finisher of classFinishers) finisher(props)
-	classFinishers.length = 0
+	// For the current class decorated with @reactive, we reset the map, so that
+	// for the next class decorated with @reactive we track only that nex
+	// class's properties that were decorated with @signal. We do this because
+	// field decorators do not have access to the class or its prototype.
+	//
+	// In the future maybe we can use decorator metadata for this
+	// (https://github.com/tc39/proposal-decorator-metadata)?
+	resetPropsToSignalify(accessKey)
 
 	return class Reactive extends (value as Constructor) {
 		constructor(...args: any[]) {

@@ -1,15 +1,40 @@
 import type {DecoratorArgs, PropKey, PropSpec} from './types.js'
 
 let propsToSignalify = new Map<PropKey, PropSpec>()
+let accessKey: symbol | null = null
 
-let gotPropsToSignalify = false
-export function getPropsToSignalify() {
-	if (gotPropsToSignalify) throw new Error('Export "signalProps" is internal to classy-solid only.')
-	gotPropsToSignalify = true
+/**
+ * Provides a key for accessing internal APIs. If any other module tries to get
+ * this, an error will be thrown, and signal and reactive decorators will not
+ * work.
+ */
+export function getKey() {
+	if (accessKey) throw new Error('Attempted use of classy-solid internals.')
+	accessKey = Symbol()
+	return accessKey
+}
+
+/**
+ * This function provides propsToSignalify to only one external module
+ * (reactive.ts). The purpose of this is to keep the API private for reactive.ts
+ * only, otherwise an error will be thrown that breaks signal/reactive
+ * functionality.
+ */
+export function getPropsToSignalify(key: symbol) {
+	if (key !== accessKey) throw new Error('Attempted use of classy-solid internals.')
 	return propsToSignalify
 }
 
-export const classFinishers: ((propsToSignalify: Map<PropKey, PropSpec>) => void)[] = []
+/**
+ * Only the module that first gets the key can call this function (it should be
+ * reactive.ts)
+ */
+export function resetPropsToSignalify(key: symbol) {
+	if (key !== accessKey) throw new Error('Attempted use of classy-solid internals.')
+	propsToSignalify = new Map<PropKey, PropSpec>()
+}
+
+// export const classFinishers: ((propsToSignalify: Map<PropKey, PropSpec>) => void)[] = []
 
 /**
  * @decorator
@@ -45,13 +70,7 @@ export const classFinishers: ((propsToSignalify: Map<PropKey, PropSpec>) => void
  */
 export function signal(...args: any[]): any {
 	const [_, {kind, name, private: isPrivate, static: isStatic}] = args as DecoratorArgs
-
-	let props = propsToSignalify
-
-	// The function added here gets called by @reactive, which passes the final
-	// set of props to signalify into here so that the field initializer can use
-	// it.
-	classFinishers.push(propsToSignalify => (props = propsToSignalify))
+	const props = propsToSignalify
 
 	if (isPrivate) throw new Error('@signal is not supported on private fields yet.')
 	if (isStatic) throw new Error('@signal is not supported on static fields yet.')
@@ -70,21 +89,32 @@ export function signal(...args: any[]): any {
 		throw new Error('The @signal decorator is only for use on fields, accessors, getters, and setters.')
 	}
 
-	queueReactiveDecoratorChecker()
+	// @prod-prune
+	queueReactiveDecoratorChecker(props)
 }
 
 let checkerQueued = false
 
-function queueReactiveDecoratorChecker() {
+/**
+ * This throws an error in some cases of an end dev forgetting to decorate a
+ * class with @reactive if they used @signal on that class's fields.
+ *
+ * This doesn't work all the time, only when the very last class decorated is
+ * missing @reactive, but something is better than nothing. There's another
+ * similar check performed in the @reactive decorator.
+ */
+function queueReactiveDecoratorChecker(props: Map<PropKey, PropSpec>) {
 	if (checkerQueued) return
 	checkerQueued = true
 
 	queueMicrotask(() => {
 		checkerQueued = false
 
-		if (propsToSignalify.size) {
+		// If the refs are still equal, it means @reactive did not run (forgot
+		// to decorate a class that uses @signal with @reactive).
+		if (props === propsToSignalify) {
 			throw new Error(
-				`Stray @signal-decorated properties detected: ${[...propsToSignalify.keys()].join(
+				`Stray @signal-decorated properties detected: ${[...props.keys()].join(
 					', ',
 				)}. Did you forget to use the \`@reactive\` decorator on a class that has properties decorated with \`@signal\`?`,
 			)

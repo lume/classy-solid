@@ -68,6 +68,10 @@ export function signalify(obj: Obj, ...props: [] | [Map<PropKey, PropSpec>] | Pr
 }
 
 let gotCreateSignalAccessor = false
+
+/**
+ * This ensures that `createSignalAccessor` is kept internal to classy-solid only.
+ */
 export function getCreateSignalAccessor() {
 	if (gotCreateSignalAccessor) throw new Error('Export "createSignalAccessor" is internal to classy-solid only.')
 	gotCreateSignalAccessor = true

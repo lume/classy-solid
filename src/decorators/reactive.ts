@@ -42,9 +42,10 @@ const hasOwnProperty = Object.prototype.hasOwnProperty
  * ```
  */
 export function reactive(...args: any[]): any {
-	const [value, {kind}] = args as [DecoratedValue, DecoratorContext]
+	const [value, context] = args as [DecoratedValue, DecoratorContext]
 
-	if (kind !== 'class') throw new TypeError('The @reactive decorator is only for use on classes.')
+	if (typeof value !== 'function' || (context && context.kind !== 'class'))
+		throw new TypeError('The @reactive decorator is only for use on classes.')
 
 	const props = getPropsToSignalify(accessKey)
 

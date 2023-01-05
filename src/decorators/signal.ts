@@ -34,8 +34,6 @@ export function resetPropsToSignalify(key: symbol) {
 	propsToSignalify = new Map<PropKey, PropSpec>()
 }
 
-// export const classFinishers: ((propsToSignalify: Map<PropKey, PropSpec>) => void)[] = []
-
 /**
  * @decorator
  * Decorate properties of a class with `@signal` to back them with Solid

@@ -112,7 +112,8 @@ function queueReactiveDecoratorChecker(props: Map<PropKey, PropSpec>) {
 		// to decorate a class that uses @signal with @reactive).
 		if (props === propsToSignalify) {
 			throw new Error(
-				`Stray @signal-decorated properties detected: ${[...props.keys()].join(
+				// Array.from(map.keys()) instead of [...map.keys()] because it breaks in Oculus browser.
+				`Stray @signal-decorated properties detected: ${Array.from(props.keys()).join(
 					', ',
 				)}. Did you forget to use the \`@reactive\` decorator on a class that has properties decorated with \`@signal\`?`,
 			)

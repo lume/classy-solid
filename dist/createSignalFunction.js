@@ -2,17 +2,13 @@
 // un-typesafe until we update.
 
 // import {createSignal} from './createDeferredEffect.js'
-import {createSignal} from 'solid-js'
+import { createSignal } from 'solid-js';
 // import type {Setter} from 'solid-js'
-import type {SignalOptions} from 'solid-js/types/reactive/signal'
 
 /**
  * A single function that with no args passed reads a signal, otherwise sets a
  * signal just like a Setter does.
- */
-// export type SignalFunction<T> = {(): T} & Setter<T> // FIXME broke in 1.7.9
-export type SignalFunction<T> = {(v?: T | ((prev: T) => T)): T}
-
+ */ // export type SignalFunction<T> = {(): T} & Setter<T> // FIXME broke in 1.7.9
 /**
  * Create a Solid signal wrapped as a single function that gets the value when
  * no arguments are passed in, and sets the value when an argument is passed in.
@@ -60,14 +56,12 @@ export type SignalFunction<T> = {(v?: T | ((prev: T) => T)): T}
  *
  * See also `createSignalObject` for another pattern.
  */
-export function createSignalFunction<T>(): SignalFunction<T | undefined>
-export function createSignalFunction<T>(value: T, options?: SignalOptions<T>): SignalFunction<T>
-export function createSignalFunction<T>(value?: T, options?: SignalOptions<T>): SignalFunction<T> {
-	const [get, set] = createSignal<T>(value as T, options)
-
-	return function (value) {
-		if (arguments.length === 0) return get()
-		// @ts-ignore FIXME break from Solid 1.7.9 with older TypeScript.
-		return set(value)
-	} as SignalFunction<T>
+export function createSignalFunction(value, options) {
+  const [get, set] = createSignal(value, options);
+  return function (value) {
+    if (arguments.length === 0) return get();
+    // @ts-ignore FIXME break from Solid 1.7.9 with older TypeScript.
+    return set(value);
+  };
 }
+//# sourceMappingURL=createSignalFunction.js.map

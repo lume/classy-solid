@@ -1,0 +1,2 @@
+export declare function decoratorAbstraction(decorator: (prototype: any, propName: string, _descriptor?: PropertyDescriptor) => void, handlerOrProtoOrFactoryArg?: any, propName?: string, descriptor?: PropertyDescriptor): any;
+//# sourceMappingURL=decoratorAbstraction.d.ts.map

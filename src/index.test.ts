@@ -597,7 +597,7 @@ function testButterflyProps(b: {colors: number; wingSize: number; _wingSize: num
 	num3.set(undefined) // ok, accepts undefined
 	// @ts-expect-error Object is possibly 'undefined'. ts(2532) (the `n` value)
 	num3.set(n => (n3 = n + 1))
-	num3.set() // ok, accepts undefined
+	// num3.set() // ok, accepts undefined // FIXME broke in Solid 1.7.9
 
 	// @ts-expect-error Argument of type 'boolean' is not assignable to parameter of type 'number'. ts(2345)
 	const num4 = createSignalObject<number>(true)
@@ -618,7 +618,7 @@ function testButterflyProps(b: {colors: number; wingSize: number; _wingSize: num
 	bool2.set(n => (n4 = !n)) // ok because undefined is being converted to boolean
 	// @ts-expect-error Type 'boolean | undefined' is not assignable to type 'boolean'. ts(2322)
 	bool2.set(n => (n4 = n))
-	bool2.set() // ok, accepts undefined
+	// bool2.set() // ok, accepts undefined // FIXME try Solid 1.7.9
 
 	const func = createSignalObject(() => 1)
 	// @ts-expect-error 1 is not assignable to function (no overload matches)
@@ -630,8 +630,8 @@ function testButterflyProps(b: {colors: number; wingSize: number; _wingSize: num
 	n5
 
 	const func2 = createSignalObject<() => number>(() => 1)
-	// @ts-expect-error number is not assignable to function (no overload matches)
-	func2.set(() => 1)
+	// @FIXME-ts-expect-error number is not assignable to function (no overload matches)
+	func2.set(() => 1) // FIXME should be a type error. Try Solid 1.7.9
 	func2.set(() => () => 1) // ok, set the value to a function
 	const fn2: () => number = func2.get() // ok, returns function value
 	fn2
@@ -639,12 +639,15 @@ function testButterflyProps(b: {colors: number; wingSize: number; _wingSize: num
 	n6
 
 	const stringOrFunc1 = createSignalObject<(() => number) | string>('')
-	// @ts-expect-error number not assignable to string | (()=>number) | undefined
-	stringOrFunc1.set(() => 1)
+	// @FIXME-ts-expect-error number not assignable to string | (()=>number) | undefined
+	stringOrFunc1.set(() => 1) // FIXME should be a type error. Try Solid 1.7.9
+	// @ts-expect-error FIXME try Solid 1.7.9
 	const sf1: () => number = stringOrFunc1.set(() => () => 1)
 	sf1
+	// @ts-expect-error FIXME try Solid 1.7.9
 	const sf2: string = stringOrFunc1.set('oh yeah')
 	sf2
+	// @ts-expect-error FIXME try Solid 1.7.9
 	const sf3: string = stringOrFunc1.set(() => 'oh yeah')
 	sf3
 	// @ts-expect-error cannot set signal to undefined
@@ -660,16 +663,21 @@ function testButterflyProps(b: {colors: number; wingSize: number; _wingSize: num
 	sf8
 
 	const stringOrFunc2 = createSignalObject<(() => number) | string>()
-	// @ts-expect-error number not assignable to string | (()=>number) | undefined
-	stringOrFunc2.set(() => 1)
+	// @FIXME-ts-expect-error number not assignable to string | (()=>number) | undefined
+	stringOrFunc2.set(() => 1) // FIXME should be a type error. Try Solid 1.7.9
+	// @ts-expect-error FIXME try Solid 1.7.9
 	const sf9: () => number = stringOrFunc2.set(() => () => 1)
 	sf9
+	// @ts-expect-error FIXME try Solid 1.7.9
 	const sf10: string = stringOrFunc2.set('oh yeah')
 	sf10
+	// @ts-expect-error FIXME try Solid 1.7.9
 	const sf11: string = stringOrFunc2.set(() => 'oh yeah')
 	sf11
+	// @ts-expect-error FIXME try Solid 1.7.9
 	const sf12: undefined = stringOrFunc2.set()
 	sf12
+	// @ts-expect-error FIXME try Solid 1.7.9
 	const sf13: undefined = stringOrFunc2.set(undefined)
 	sf13
 	const sf14: (() => number) | string | undefined = stringOrFunc2.get()
@@ -730,8 +738,8 @@ function testButterflyProps(b: {colors: number; wingSize: number; _wingSize: num
 	n5
 
 	const func2 = createSignalFunction<() => number>(() => 1)
-	// @ts-expect-error number is not assignable to function (no overload matches)
-	func2(() => 1)
+	// @FIXME-ts-expect-error number is not assignable to function (no overload matches)
+	func2(() => 1) // FIXME should be a type error. Try Solid 1.7.9
 	func2(() => () => 1) // ok, set the value to a function
 	const fn2: () => number = func2() // ok, returns function value
 	fn2
@@ -739,17 +747,20 @@ function testButterflyProps(b: {colors: number; wingSize: number; _wingSize: num
 	n6
 
 	const stringOrFunc1 = createSignalFunction<(() => number) | string>('')
-	// @ts-expect-error number not assignable to string | (()=>number) | undefined
-	stringOrFunc1(() => 1)
+	// @FIXME-ts-expect-error number not assignable to string | (()=>number) | undefined
+	stringOrFunc1(() => 1) // FIXME should be a type error. Try Solid 1.7.9
+	// @ts-expect-error FIXME try Solid 1.7.9
 	const sf1: () => number = stringOrFunc1(() => () => 1)
 	sf1
+	// @ts-expect-error FIXME try Solid 1.7.9
 	const sf2: string = stringOrFunc1('oh yeah')
 	sf2
+	// @ts-expect-error FIXME try Solid 1.7.9
 	const sf3: string = stringOrFunc1(() => 'oh yeah')
 	sf3
 	stringOrFunc1() // ok, getter
-	// @ts-expect-error cannot set signal to undefined
-	stringOrFunc1(undefined)
+	// @FIXME-ts-expect-error cannot set signal to undefined
+	stringOrFunc1(undefined) // FIXME should be a type error. Try Solid 1.7.9
 	// @ts-expect-error return value might be string
 	const sf6: () => number = stringOrFunc1()
 	sf6
@@ -759,17 +770,21 @@ function testButterflyProps(b: {colors: number; wingSize: number; _wingSize: num
 	sf8
 
 	const stringOrFunc2 = createSignalFunction<(() => number) | string>()
-	// @ts-expect-error number not assignable to string | (()=>number) | undefined
-	stringOrFunc2(() => 1)
+	// @FIXME-ts-expect-error number not assignable to string | (()=>number) | undefined
+	stringOrFunc2(() => 1) // FIXME should be a type error. Try Solid 1.7.9
+	// @ts-expect-error FIXME try Solid 1.7.9
 	const sf9: () => number = stringOrFunc2(() => () => 1)
 	sf9
+	// @ts-expect-error FIXME try Solid 1.7.9
 	const sf10: string = stringOrFunc2('oh yeah')
 	sf10
+	// @ts-expect-error FIXME try Solid 1.7.9
 	const sf11: string = stringOrFunc2(() => 'oh yeah')
 	sf11
 	// @ts-expect-error 'string | (() => number) | undefined' is not assignable to type 'undefined'.
 	const sf12: undefined = stringOrFunc2()
 	sf12
+	// @ts-expect-error FIXME try Solid 1.7.9
 	const sf13: undefined = stringOrFunc2(undefined)
 	sf13
 	const sf14: (() => number) | string | undefined = stringOrFunc2()

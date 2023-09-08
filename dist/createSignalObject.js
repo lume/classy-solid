@@ -1,17 +1,8 @@
-import {createSignal} from './createDeferredEffect.js'
-import type {SignalOptions} from 'solid-js/types/reactive/signal'
-import type {Signal} from 'solid-js/types/reactive/signal'
+import { createSignal } from './createDeferredEffect.js';
 
 /**
  * A signal represented as an object with .get and .set methods.
  */
-export interface SignalObject<T> {
-	/** Gets the signal value. */
-	get: Signal<T>[0]
-	/** Sets the signal value. */
-	// set: Signal<T>[1] // FIXME broke in Solid 1.7.9
-	set: (v: T | ((prev: T) => T)) => T
-}
 
 /**
  * Create a Solid signal wrapped in the form of an object with `.get` and `.set`
@@ -58,9 +49,12 @@ export interface SignalObject<T> {
  *
  * See also `createSignalFunction` for another pattern.
  */
-export function createSignalObject<T>(): SignalObject<T | undefined>
-export function createSignalObject<T>(value: T, options?: SignalOptions<T>): SignalObject<T>
-export function createSignalObject<T>(value?: T, options?: SignalOptions<T>): SignalObject<T> {
-	const [get, set] = createSignal<T>(value as T, options)
-	return {get, set}
+
+export function createSignalObject(value, options) {
+  const [get, set] = createSignal(value, options);
+  return {
+    get,
+    set
+  };
 }
+//# sourceMappingURL=createSignalObject.js.map

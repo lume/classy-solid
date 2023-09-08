@@ -1,0 +1,1 @@
+{"version":3,"file":"signal.d.ts","sourceRoot":"","sources":["../../src/decorators/signal.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAgB,OAAO,EAAE,QAAQ,EAAC,MAAM,YAAY,CAAA;AAUhE,wBAAgB,MAAM,WAIrB;AAQD,wBAAgB,mBAAmB,CAAC,GAAG,EAAE,MAAM,0BAG9C;AAMD,wBAAgB,qBAAqB,CAAC,GAAG,EAAE,MAAM,QAGhD;AAkCD,wBAAgB,MAAM,CAAC,GAAG,IAAI,EAAE,GAAG,EAAE,GAAG,GAAG,CAuB1C"}

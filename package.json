@@ -34,7 +34,6 @@
 		"version": "lume versionHook",
 		"postversion": "lume postVersionHook",
 		"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX OTHER SCRIPTS": "",
-		"prepare": "npm run build",
 		"example": "live-server . --open=example"
 	},
 	"dependencies": {

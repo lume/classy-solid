@@ -34,7 +34,7 @@
 		"version": "lume versionHook",
 		"postversion": "lume postVersionHook",
 		"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX OTHER SCRIPTS": "",
-		"example": "live-server . --open=example"
+		"example": "five-server . --open=example"
 	},
 	"dependencies": {
 		"lowclass": "^5.0.0",
@@ -43,7 +43,7 @@
 	"devDependencies": {
 		"@lume/cli": "^0.10.0",
 		"lit-dom-expressions": "^0.34.12",
-		"live-server": "^1.2.2",
+		"five-server": "^0.3.1",
 		"prettier": "^2.0.0",
 		"typescript": "^4.6.3"
 	},

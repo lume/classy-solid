@@ -1,3 +1,4 @@
+import { getListener, untrack } from 'solid-js';
 import { getKey, getPropsToSignalify, resetPropsToSignalify } from './signal.js';
 import { getCreateSignalAccessor } from '../signalify.js';
 /**
@@ -40,29 +41,34 @@ const hasOwnProperty = Object.prototype.hasOwnProperty;
 export function reactive(...args) {
   const [value, context] = args;
   if (typeof value !== 'function' || context && context.kind !== 'class') throw new TypeError('The @reactive decorator is only for use on classes.');
+  const Class = value;
   const props = getPropsToSignalify(accessKey);
 
   // For the current class decorated with @reactive, we reset the map, so that
-  // for the next class decorated with @reactive we track only that nex
+  // for the next class decorated with @reactive we track only that next
   // class's properties that were decorated with @signal. We do this because
   // field decorators do not have access to the class or its prototype.
   //
   // In the future maybe we can use decorator metadata for this
   // (https://github.com/tc39/proposal-decorator-metadata)?
   resetPropsToSignalify(accessKey);
-  return class Reactive extends value {
+  class ReactiveDecorator extends Class {
     constructor(...args) {
-      super(...args);
+      let instance;
+      if (getListener()) untrack(() => instance = Reflect.construct(Class, args, new.target)); // super()
+      else super(...args), instance = this;
       for (const [prop, {
         initialValue
       }] of props) {
         // @prod-prune
-        if (!(hasOwnProperty.call(this, prop) || hasOwnProperty.call(value.prototype, prop))) {
+        if (!(hasOwnProperty.call(instance, prop) || hasOwnProperty.call(Class.prototype, prop))) {
           throw new Error(`Property "${prop.toString()}" not found on object. Did you forget to use the \`@reactive\` decorator on a class that has properties decorated with \`@signal\`?`);
         }
-        createSignalAccessor(this, prop, initialValue);
+        createSignalAccessor(instance, prop, initialValue);
       }
+      return instance;
     }
-  };
+  }
+  return ReactiveDecorator;
 }
 //# sourceMappingURL=reactive.js.map

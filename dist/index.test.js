@@ -1,7 +1,18 @@
-function applyDecs2203Factory() { function createAddInitializerMethod(e, t) { return function (r) { !function (e, t) { if (e.v) throw new Error("attempted to call " + t + " after decoration was finished"); }(t, "addInitializer"), assertCallable(r, "An initializer"), e.push(r); }; } function memberDec(e, t, r, a, n, i, s, o) { var c; switch (n) { case 1: c = "accessor"; break; case 2: c = "method"; break; case 3: c = "getter"; break; case 4: c = "setter"; break; default: c = "field"; } var l, u, f = { kind: c, name: s ? "#" + t : t, static: i, private: s }, p = { v: !1 }; 0 !== n && (f.addInitializer = createAddInitializerMethod(a, p)), 0 === n ? s ? (l = r.get, u = r.set) : (l = function () { return this[t]; }, u = function (e) { this[t] = e; }) : 2 === n ? l = function () { return r.value; } : (1 !== n && 3 !== n || (l = function () { return r.get.call(this); }), 1 !== n && 4 !== n || (u = function (e) { r.set.call(this, e); })), f.access = l && u ? { get: l, set: u } : l ? { get: l } : { set: u }; try { return e(o, f); } finally { p.v = !0; } } function assertCallable(e, t) { if ("function" != typeof e) throw new TypeError(t + " must be a function"); } function assertValidReturnValue(e, t) { var r = typeof t; if (1 === e) { if ("object" !== r || null === t) throw new TypeError("accessor decorators must return an object with get, set, or init properties or void 0"); void 0 !== t.get && assertCallable(t.get, "accessor.get"), void 0 !== t.set && assertCallable(t.set, "accessor.set"), void 0 !== t.init && assertCallable(t.init, "accessor.init"); } else if ("function" !== r) { var a; throw a = 0 === e ? "field" : 10 === e ? "class" : "method", new TypeError(a + " decorators must return a function or void 0"); } } function applyMemberDec(e, t, r, a, n, i, s, o) { var c, l, u, f, p, d, h = r[0]; if (s ? c = 0 === n || 1 === n ? { get: r[3], set: r[4] } : 3 === n ? { get: r[3] } : 4 === n ? { set: r[3] } : { value: r[3] } : 0 !== n && (c = Object.getOwnPropertyDescriptor(t, a)), 1 === n ? u = { get: c.get, set: c.set } : 2 === n ? u = c.value : 3 === n ? u = c.get : 4 === n && (u = c.set), "function" == typeof h) void 0 !== (f = memberDec(h, a, c, o, n, i, s, u)) && (assertValidReturnValue(n, f), 0 === n ? l = f : 1 === n ? (l = f.init, p = f.get || u.get, d = f.set || u.set, u = { get: p, set: d }) : u = f);else for (var v = h.length - 1; v >= 0; v--) { var g; if (void 0 !== (f = memberDec(h[v], a, c, o, n, i, s, u))) assertValidReturnValue(n, f), 0 === n ? g = f : 1 === n ? (g = f.init, p = f.get || u.get, d = f.set || u.set, u = { get: p, set: d }) : u = f, void 0 !== g && (void 0 === l ? l = g : "function" == typeof l ? l = [l, g] : l.push(g)); } if (0 === n || 1 === n) { if (void 0 === l) l = function (e, t) { return t; };else if ("function" != typeof l) { var y = l; l = function (e, t) { for (var r = t, a = 0; a < y.length; a++) r = y[a].call(e, r); return r; }; } else { var m = l; l = function (e, t) { return m.call(e, t); }; } e.push(l); } 0 !== n && (1 === n ? (c.get = u.get, c.set = u.set) : 2 === n ? c.value = u : 3 === n ? c.get = u : 4 === n && (c.set = u), s ? 1 === n ? (e.push(function (e, t) { return u.get.call(e, t); }), e.push(function (e, t) { return u.set.call(e, t); })) : 2 === n ? e.push(u) : e.push(function (e, t) { return u.call(e, t); }) : Object.defineProperty(t, a, c)); } function pushInitializers(e, t) { t && e.push(function (e) { for (var r = 0; r < t.length; r++) t[r].call(e); return e; }); } return function (e, t, r) { var a = []; return function (e, t, r) { for (var a, n, i = new Map(), s = new Map(), o = 0; o < r.length; o++) { var c = r[o]; if (Array.isArray(c)) { var l, u, f = c[1], p = c[2], d = c.length > 3, h = f >= 5; if (h ? (l = t, 0 != (f -= 5) && (u = n = n || [])) : (l = t.prototype, 0 !== f && (u = a = a || [])), 0 !== f && !d) { var v = h ? s : i, g = v.get(p) || 0; if (!0 === g || 3 === g && 4 !== f || 4 === g && 3 !== f) throw new Error("Attempted to decorate a public method/accessor that has the same name as a previously decorated public method/accessor. This is not currently supported by the decorators plugin. Property name was: " + p); !g && f > 2 ? v.set(p, f) : v.set(p, !0); } applyMemberDec(e, l, c, p, f, h, d, u); } } pushInitializers(e, a), pushInitializers(e, n); }(a, e, t), function (e, t, r) { if (r.length > 0) { for (var a = [], n = t, i = t.name, s = r.length - 1; s >= 0; s--) { var o = { v: !1 }; try { var c = r[s](n, { kind: "class", name: i, addInitializer: createAddInitializerMethod(a, o) }); } finally { o.v = !0; } void 0 !== c && (assertValidReturnValue(10, c), n = c); } e.push(n, function () { for (var e = 0; e < a.length; e++) a[e].call(n); }); } }(a, e, r), a; }; }
-var applyDecs2203Impl;
-function _applyDecs(e, t, r) { return (applyDecs2203Impl = applyDecs2203Impl || applyDecs2203Factory())(e, t, r); }
-import { createComputed, createRoot, createSignal } from 'solid-js';
+function createAddInitializerMethod(initializers, decoratorFinishedRef) { return function (initializer) { assertNotFinished(decoratorFinishedRef, "addInitializer"), assertCallable(initializer, "An initializer"), initializers.push(initializer); }; }
+function assertInstanceIfPrivate(has, target) { if (!has(target)) throw new TypeError("Attempted to access private element on non-instance"); }
+function memberDec(dec, thisArg, name, desc, initializers, kind, isStatic, isPrivate, value, hasPrivateBrand) { var kindStr; switch (kind) { case 1: kindStr = "accessor"; break; case 2: kindStr = "method"; break; case 3: kindStr = "getter"; break; case 4: kindStr = "setter"; break; default: kindStr = "field"; } var get, set, ctx = { kind: kindStr, name: isPrivate ? "#" + name : name, static: isStatic, private: isPrivate }, decoratorFinishedRef = { v: !1 }; if (0 !== kind && (ctx.addInitializer = createAddInitializerMethod(initializers, decoratorFinishedRef)), isPrivate || 0 !== kind && 2 !== kind) { if (2 === kind) get = function (target) { return assertInstanceIfPrivate(hasPrivateBrand, target), desc.value; };else { var t = 0 === kind || 1 === kind; (t || 3 === kind) && (get = isPrivate ? function (target) { return assertInstanceIfPrivate(hasPrivateBrand, target), desc.get.call(target); } : function (target) { return desc.get.call(target); }), (t || 4 === kind) && (set = isPrivate ? function (target, value) { assertInstanceIfPrivate(hasPrivateBrand, target), desc.set.call(target, value); } : function (target, value) { desc.set.call(target, value); }); } } else get = function (target) { return target[name]; }, 0 === kind && (set = function (target, v) { target[name] = v; }); var has = isPrivate ? hasPrivateBrand.bind() : function (target) { return name in target; }; ctx.access = get && set ? { get: get, set: set, has: has } : get ? { get: get, has: has } : { set: set, has: has }; try { return dec.call(thisArg, value, ctx); } finally { decoratorFinishedRef.v = !0; } }
+function assertNotFinished(decoratorFinishedRef, fnName) { if (decoratorFinishedRef.v) throw new Error("attempted to call " + fnName + " after decoration was finished"); }
+function assertCallable(fn, hint) { if ("function" != typeof fn) throw new TypeError(hint + " must be a function"); }
+function assertValidReturnValue(kind, value) { var type = typeof value; if (1 === kind) { if ("object" !== type || null === value) throw new TypeError("accessor decorators must return an object with get, set, or init properties or void 0"); void 0 !== value.get && assertCallable(value.get, "accessor.get"), void 0 !== value.set && assertCallable(value.set, "accessor.set"), void 0 !== value.init && assertCallable(value.init, "accessor.init"); } else if ("function" !== type) { var hint; throw hint = 0 === kind ? "field" : 5 === kind ? "class" : "method", new TypeError(hint + " decorators must return a function or void 0"); } }
+function curryThis1(fn) { return function () { return fn(this); }; }
+function curryThis2(fn) { return function (value) { fn(this, value); }; }
+function applyMemberDec(ret, base, decInfo, decoratorsHaveThis, name, kind, isStatic, isPrivate, initializers, hasPrivateBrand) { var desc, init, value, newValue, get, set, decs = decInfo[0]; decoratorsHaveThis || Array.isArray(decs) || (decs = [decs]), isPrivate ? desc = 0 === kind || 1 === kind ? { get: curryThis1(decInfo[3]), set: curryThis2(decInfo[4]) } : 3 === kind ? { get: decInfo[3] } : 4 === kind ? { set: decInfo[3] } : { value: decInfo[3] } : 0 !== kind && (desc = Object.getOwnPropertyDescriptor(base, name)), 1 === kind ? value = { get: desc.get, set: desc.set } : 2 === kind ? value = desc.value : 3 === kind ? value = desc.get : 4 === kind && (value = desc.set); for (var inc = decoratorsHaveThis ? 2 : 1, i = decs.length - 1; i >= 0; i -= inc) { var newInit; if (void 0 !== (newValue = memberDec(decs[i], decoratorsHaveThis ? decs[i - 1] : void 0, name, desc, initializers, kind, isStatic, isPrivate, value, hasPrivateBrand))) assertValidReturnValue(kind, newValue), 0 === kind ? newInit = newValue : 1 === kind ? (newInit = newValue.init, get = newValue.get || value.get, set = newValue.set || value.set, value = { get: get, set: set }) : value = newValue, void 0 !== newInit && (void 0 === init ? init = newInit : "function" == typeof init ? init = [init, newInit] : init.push(newInit)); } if (0 === kind || 1 === kind) { if (void 0 === init) init = function (instance, init) { return init; };else if ("function" != typeof init) { var ownInitializers = init; init = function (instance, init) { for (var value = init, i = ownInitializers.length - 1; i >= 0; i--) value = ownInitializers[i].call(instance, value); return value; }; } else { var originalInitializer = init; init = function (instance, init) { return originalInitializer.call(instance, init); }; } ret.push(init); } 0 !== kind && (1 === kind ? (desc.get = value.get, desc.set = value.set) : 2 === kind ? desc.value = value : 3 === kind ? desc.get = value : 4 === kind && (desc.set = value), isPrivate ? 1 === kind ? (ret.push(function (instance, args) { return value.get.call(instance, args); }), ret.push(function (instance, args) { return value.set.call(instance, args); })) : 2 === kind ? ret.push(value) : ret.push(function (instance, args) { return value.call(instance, args); }) : Object.defineProperty(base, name, desc)); }
+function applyMemberDecs(Class, decInfos, instanceBrand) { for (var protoInitializers, staticInitializers, staticBrand, ret = [], existingProtoNonFields = new Map(), existingStaticNonFields = new Map(), i = 0; i < decInfos.length; i++) { var decInfo = decInfos[i]; if (Array.isArray(decInfo)) { var base, initializers, kind = decInfo[1], name = decInfo[2], isPrivate = decInfo.length > 3, decoratorsHaveThis = 16 & kind, isStatic = !!(8 & kind), hasPrivateBrand = instanceBrand; if (kind &= 7, isStatic ? (base = Class, 0 !== kind && (initializers = staticInitializers = staticInitializers || []), isPrivate && !staticBrand && (staticBrand = function (_) { return _checkInRHS(_) === Class; }), hasPrivateBrand = staticBrand) : (base = Class.prototype, 0 !== kind && (initializers = protoInitializers = protoInitializers || [])), 0 !== kind && !isPrivate) { var existingNonFields = isStatic ? existingStaticNonFields : existingProtoNonFields, existingKind = existingNonFields.get(name) || 0; if (!0 === existingKind || 3 === existingKind && 4 !== kind || 4 === existingKind && 3 !== kind) throw new Error("Attempted to decorate a public method/accessor that has the same name as a previously decorated public method/accessor. This is not currently supported by the decorators plugin. Property name was: " + name); existingNonFields.set(name, !(!existingKind && kind > 2) || kind); } applyMemberDec(ret, base, decInfo, decoratorsHaveThis, name, kind, isStatic, isPrivate, initializers, hasPrivateBrand); } } return pushInitializers(ret, protoInitializers), pushInitializers(ret, staticInitializers), ret; }
+function pushInitializers(ret, initializers) { initializers && ret.push(function (instance) { for (var i = 0; i < initializers.length; i++) initializers[i].call(instance); return instance; }); }
+function applyClassDecs(targetClass, classDecs, decoratorsHaveThis) { if (classDecs.length) { for (var initializers = [], newClass = targetClass, name = targetClass.name, inc = decoratorsHaveThis ? 2 : 1, i = classDecs.length - 1; i >= 0; i -= inc) { var decoratorFinishedRef = { v: !1 }; try { var nextNewClass = classDecs[i].call(decoratorsHaveThis ? classDecs[i - 1] : void 0, newClass, { kind: "class", name: name, addInitializer: createAddInitializerMethod(initializers, decoratorFinishedRef) }); } finally { decoratorFinishedRef.v = !0; } void 0 !== nextNewClass && (assertValidReturnValue(5, nextNewClass), newClass = nextNewClass); } return [newClass, function () { for (var i = 0; i < initializers.length; i++) initializers[i].call(newClass); }]; } }
+function _applyDecs(targetClass, memberDecs, classDecs, classDecsHaveThis, instanceBrand) { return { e: applyMemberDecs(targetClass, memberDecs, instanceBrand), get c() { return applyClassDecs(targetClass, classDecs, classDecsHaveThis); } }; }
+function _checkInRHS(value) { if (Object(value) !== value) throw TypeError("right-hand side of 'in' should be an object, got " + (null !== value ? typeof value : "null")); return value; }
+import { createComputed, createEffect, createRoot, createSignal, untrack } from 'solid-js';
 import { createMutable } from 'solid-js/store';
 import { render } from 'solid-js/web';
 import html from 'solid-js/html';
@@ -87,7 +98,7 @@ describe('classy-solid', () => {
       await Promise.resolve();
       expect(runCount).withContext('d').toBe(3);
 
-      // Stops the autorun from re-running. It can now be garbage collected.
+      // Stops the effect from re-running. It can now be garbage collected.
       stop();
       count(3);
       count(4);
@@ -110,7 +121,12 @@ describe('classy-solid', () => {
       var _initClass, _init_colors, _initProto;
       let _Butterfly;
       class Butterfly {
-        static #_ = [_init_colors, _initProto, _Butterfly, _initClass] = _applyDecs(this, [[signal, 3, "wingSize"], [signal, 0, "colors"]], [reactive]);
+        static {
+          ({
+            e: [_init_colors, _initProto],
+            c: [_Butterfly, _initClass]
+          } = _applyDecs(this, [[signal, 3, "wingSize"], [signal, 0, "colors"]], [reactive]));
+        }
         colors = (_initProto(this), _init_colors(this, 3));
         _wingSize = 2;
         get wingSize() {
@@ -119,7 +135,9 @@ describe('classy-solid', () => {
         set wingSize(s) {
           this._wingSize = s;
         }
-        static #_2 = _initClass();
+        static {
+          _initClass();
+        }
       }
       const b = new _Butterfly();
       testButterflyProps(b);
@@ -128,15 +146,24 @@ describe('classy-solid', () => {
       var _initClass2, _initClass3, _init_colors2, _initProto2;
       let _Insect;
       class Insect {
-        static #_ = [_Insect, _initClass2] = _applyDecs(this, [], [reactive]);
+        static {
+          [_Insect, _initClass2] = _applyDecs(this, [], [reactive]).c;
+        }
         constructor(double) {
           this.double = double;
         }
-        static #_2 = _initClass2();
+        static {
+          _initClass2();
+        }
       }
       let _Butterfly2;
       class Butterfly extends _Insect {
-        static #_ = [_init_colors2, _initProto2, _Butterfly2, _initClass3] = _applyDecs(this, [[signal, 3, "wingSize"], [signal, 0, "colors"]], [reactive]);
+        static {
+          ({
+            e: [_init_colors2, _initProto2],
+            c: [_Butterfly2, _initClass3]
+          } = _applyDecs(this, [[signal, 3, "wingSize"], [signal, 0, "colors"]], [reactive]));
+        }
         colors = (_initProto2(this), _init_colors2(this, 3));
         _wingSize = 2;
         get wingSize() {
@@ -148,7 +175,9 @@ describe('classy-solid', () => {
         constructor(arg) {
           super(arg * 2);
         }
-        static #_2 = _initClass3();
+        static {
+          _initClass3();
+        }
       }
       const b = new _Butterfly2(4);
       expect(b.double).toBe(8);
@@ -281,15 +310,24 @@ describe('classy-solid', () => {
         var _init_foo, _initClass4, _init_bar;
         // user forgot to use @reactive here
         class Foo {
-          static #_ = [_init_foo] = _applyDecs(this, [[signal, 0, "foo"]], []);
+          static {
+            [_init_foo] = _applyDecs(this, [[signal, 0, "foo"]], []).e;
+          }
           foo = _init_foo(this, 'hoo');
         }
         Foo;
         let _Bar;
         class Bar {
-          static #_ = [_init_bar, _Bar, _initClass4] = _applyDecs(this, [[signal, 0, "bar"]], [reactive]);
+          static {
+            ({
+              e: [_init_bar],
+              c: [_Bar, _initClass4]
+            } = _applyDecs(this, [[signal, 0, "bar"]], [reactive]));
+          }
           bar = _init_bar(this, 123);
-          static #_2 = _initClass4();
+          static {
+            _initClass4();
+          }
         }
         new _Bar();
       }).toThrowMatching(err => err.message.includes('Did you forget'));
@@ -330,9 +368,16 @@ describe('classy-solid', () => {
       // return a new value, instead of being set as the actual new value.
 
       class Doer {
-        static #_ = [_init_do, _Doer, _initClass5] = _applyDecs(this, [[signal, 0, "do"]], [reactive]);
+        static {
+          ({
+            e: [_init_do],
+            c: [_Doer, _initClass5]
+          } = _applyDecs(this, [[signal, 0, "do"]], [reactive]));
+        }
         do = _init_do(this, null);
-        static #_2 = _initClass5();
+        static {
+          _initClass5();
+        }
       }
       const doer = new _Doer();
       expect(doer.do).toBe(null);
@@ -341,15 +386,121 @@ describe('classy-solid', () => {
       expect(doer.do).toBe(newFunc);
       expect(doer.do()).toBe(123);
     });
+    it('show that signalify causes constructor to be reactive when used manually instead of decorators', () => {
+      class Foo {
+        amount = 3;
+        constructor() {
+          signalify(this, 'amount');
+        }
+      }
+      class Bar extends Foo {
+        double = 0;
+        constructor() {
+          super();
+          signalify(this, 'double');
+          this.double = this.amount * 2; // this tracks access of .amount
+        }
+      }
+
+      let count = 0;
+      let b;
+      createEffect(() => {
+        b = new Bar(); // tracks .amount
+        count++;
+      });
+      expect(count).toBe(1);
+      b.amount = 4; // triggers
+
+      expect(count).toBe(2);
+    });
+    it('show how to manually untrack constructors when not using decorators', () => {
+      class Foo {
+        amount = 3;
+        constructor() {
+          signalify(this, 'amount');
+        }
+      }
+      class Bar extends Foo {
+        double = 0;
+        constructor() {
+          super();
+          signalify(this, 'double');
+          untrack(() => {
+            this.double = this.amount * 2;
+          });
+        }
+      }
+      let count = 0;
+      let b;
+      createEffect(() => {
+        b = new Bar(); // does not track .amount
+        count++;
+      });
+      expect(count).toBe(1);
+      b.amount = 4; // will not trigger
+
+      expect(count).toBe(1);
+    });
+    it('automatically does not track reactivity in constructors when using decorators', () => {
+      var _initClass6, _init_amount, _initClass7, _init_double;
+      let _Foo;
+      class Foo {
+        static {
+          ({
+            e: [_init_amount],
+            c: [_Foo, _initClass6]
+          } = _applyDecs(this, [[signal, 0, "amount"]], [reactive]));
+        }
+        amount = _init_amount(this, 3);
+        static {
+          _initClass6();
+        }
+      }
+      let _Bar2;
+      class Bar extends _Foo {
+        static {
+          ({
+            e: [_init_double],
+            c: [_Bar2, _initClass7]
+          } = _applyDecs(this, [[signal, 0, "double"]], [reactive]));
+        }
+        double = _init_double(this, 0);
+        constructor() {
+          super();
+          this.double = this.amount * 2; // this read of .amount should not be tracked
+        }
+        static {
+          _initClass7();
+        }
+      }
+      let b;
+      let count = 0;
+      function noLoop() {
+        createEffect(() => {
+          b = new _Bar2(); // this should not track
+          count++;
+        });
+      }
+      expect(noLoop).not.toThrow();
+      const b2 = b;
+      b.amount = 4; // hence this should not trigger
+
+      // If the effect ran only once initially, not when setting b.colors,
+      // then both variables should reference the same instance
+      expect(b).toBe(b2);
+      expect(count).toBe(1);
+    });
   });
   describe('@component', () => {
     it('allows to define a class using class syntax', () => {
-      var _initClass6;
+      var _initClass8;
       let onMountCalled = false;
       let onCleanupCalled = false;
       let _CoolComp;
       class CoolComp {
-        static #_ = [_CoolComp, _initClass6] = _applyDecs(this, [], [component]);
+        static {
+          [_CoolComp, _initClass8] = _applyDecs(this, [], [component]).c;
+        }
         onMount() {
           onMountCalled = true;
         }
@@ -360,7 +511,9 @@ describe('classy-solid', () => {
           expect(props.foo).toBe(123);
           return html`<div>hello classes!</div>`;
         }
-        static #_2 = _initClass6();
+        static {
+          _initClass8();
+        }
       }
       const root = document.createElement('div');
       document.body.append(root);
@@ -376,7 +529,9 @@ describe('classy-solid', () => {
       expect(() => {
         var _initProto3;
         class CoolComp {
-          static #_ = [_initProto3] = _applyDecs(this, [[component, 2, "onMount"]], []);
+          static {
+            [_initProto3] = _applyDecs(this, [[component, 2, "onMount"]], []).e;
+          }
           constructor(...args) {
             _initProto3(this);
           }
@@ -387,16 +542,23 @@ describe('classy-solid', () => {
       }).toThrow();
     });
     it('works in tandem with @reactive and @signal for reactivity', async () => {
-      var _initClass7, _init_foo2, _init_bar2;
+      var _initClass9, _init_foo2, _init_bar2;
       let _CoolComp2;
       class CoolComp {
-        static #_ = [_init_foo2, _init_bar2, _CoolComp2, _initClass7] = _applyDecs(this, [[signal, 0, "foo"], [signal, 0, "bar"]], [component, reactive]);
+        static {
+          ({
+            e: [_init_foo2, _init_bar2],
+            c: [_CoolComp2, _initClass9]
+          } = _applyDecs(this, [[signal, 0, "foo"], [signal, 0, "bar"]], [component, reactive]));
+        }
         foo = _init_foo2(this, 0);
         bar = _init_bar2(this, 0);
         template() {
           return html`<div>foo: ${() => this.foo}, bar: ${() => this.bar}</div>`;
         }
-        static #_2 = _initClass7();
+        static {
+          _initClass9();
+        }
       }
       const root = document.createElement('div');
       document.body.append(root);
@@ -446,16 +608,23 @@ describe('classy-solid', () => {
 
     // FIXME not working, the spread doesn't seem to do anything.
     xit('works with reactive spreads', async () => {
-      var _initClass8, _init_foo3, _init_bar3;
+      var _initClass10, _init_foo3, _init_bar3;
       let _CoolComp3;
       class CoolComp {
-        static #_ = [_init_foo3, _init_bar3, _CoolComp3, _initClass8] = _applyDecs(this, [[signal, 0, "foo"], [signal, 0, "bar"]], [component, reactive]);
+        static {
+          ({
+            e: [_init_foo3, _init_bar3],
+            c: [_CoolComp3, _initClass10]
+          } = _applyDecs(this, [[signal, 0, "foo"], [signal, 0, "bar"]], [component, reactive]));
+        }
         foo = _init_foo3(this, 0);
         bar = _init_bar3(this, 0);
         template() {
           return html`<div>foo: ${() => this.foo}, bar: ${() => this.bar}</div>`;
         }
-        static #_2 = _initClass8();
+        static {
+          _initClass10();
+        }
       }
       const root = document.createElement('div');
       document.body.append(root);

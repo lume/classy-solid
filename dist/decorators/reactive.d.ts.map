@@ -1,1 +1,1 @@
-{"version":3,"file":"reactive.d.ts","sourceRoot":"","sources":["../../src/decorators/reactive.ts"],"names":[],"mappings":"AA2CA,wBAAgB,QAAQ,CAAC,GAAG,IAAI,EAAE,GAAG,EAAE,GAAG,GAAG,CAiC5C"}
+{"version":3,"file":"reactive.d.ts","sourceRoot":"","sources":["../../src/decorators/reactive.ts"],"names":[],"mappings":"AA4CA,wBAAgB,QAAQ,CAAC,GAAG,IAAI,EAAE,GAAG,EAAE,GAAG,GAAG,CAyC5C"}

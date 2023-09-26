@@ -67,7 +67,9 @@ export function createSignalFunction<T>(value?: T, options?: SignalOptions<T>): 
 
 	return function (value) {
 		if (arguments.length === 0) return get()
-		// @ts-ignore FIXME break from Solid 1.7.9 with older TypeScript.
-		return set(value)
+		return set(
+			// @ts-ignore FIXME its ok, value is defined (even if `undefined`)
+			value,
+		)
 	} as SignalFunction<T>
 }

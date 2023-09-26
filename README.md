@@ -454,21 +454,10 @@ class Counter {
 ## `signalify()`
 
 Use this to convert properties on an object into Solid signal-backed properties.
-
-There are two ways to use this: either by defining which properties to convert
-to signal-backed properties by providing an array as property names in the
-second arg, which is useful on plain objects, or by passing in `this` and
-`this.constructor` within the `constructor` of a class that has reactive
-properties listed in a static `signalProperties` array (this is what the
-@reactive and @signal decorators end up doing behind the scenes).
+This is what `@signal` uses behind the scenes.
 
 This can be useful with plain objects, as well with `class`es in situations
 where decorators are unavailable or undesired.
-
-In some cases, using `signalify` is more desirable than Solid's `createMutable`
-because the original object will be in use, rather than a `Proxy`. This can be
-useful, for example, for patching 3rd-party objects to make them reactive,
-whereas it would not be possible with `createMutable`.
 
 Here are some examples. Make certain properties on an object reactive
 signal-backed properties:
@@ -492,6 +481,11 @@ createEffect(() => {
 	console.log(obj.foo, obj.bar)
 })
 ```
+
+In some cases, using `signalify` is more desirable than Solid's `createMutable`
+because the original object is not wrapped in a `Proxy`. This can be useful for
+patching 3rd-party objects to make them reactive, whereas it would not be
+possible with `createMutable`.
 
 Note, it returns the same object passed in, so you can write this:
 

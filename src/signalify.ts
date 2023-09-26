@@ -126,7 +126,11 @@ function createSignalAccessor<T extends object>(
 			delete descriptor.get
 			delete descriptor.set
 		} else {
-			// initialValue = descriptor.value
+			// If there was a value descriptor, trust it as the source of truth
+			// for initialVal. For example, if the user class modifies the value
+			// after the initializer, it will have a different value than what
+			// we tracked from the initializer.
+			initialVal = descriptor.value
 
 			// if it isn't writable, we don't need to make a reactive variable because
 			// the value won't change

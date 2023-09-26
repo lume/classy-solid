@@ -1,4 +1,4 @@
-import {createComputed, createRoot, createSignal} from 'solid-js'
+import {createComputed, createEffect, createRoot, createSignal, untrack} from 'solid-js'
 import {createMutable} from 'solid-js/store'
 import {render} from 'solid-js/web'
 import html from 'solid-js/html'
@@ -104,7 +104,7 @@ describe('classy-solid', () => {
 
 			expect(runCount).withContext('d').toBe(3)
 
-			// Stops the autorun from re-running. It can now be garbage collected.
+			// Stops the effect from re-running. It can now be garbage collected.
 			stop()
 
 			count(3)
@@ -392,6 +392,115 @@ describe('classy-solid', () => {
 
 			expect(doer.do).toBe(newFunc)
 			expect(doer.do()).toBe(123)
+		})
+
+		it('show that signalify causes constructor to be reactive when used manually instead of decorators', () => {
+			class Foo {
+				amount = 3
+
+				constructor() {
+					signalify(this, 'amount')
+				}
+			}
+
+			class Bar extends Foo {
+				double = 0
+
+				constructor() {
+					super()
+					signalify(this, 'double')
+					this.double = this.amount * 2 // this tracks access of .amount
+				}
+			}
+
+			let count = 0
+			let b!: Bar
+
+			createEffect(() => {
+				b = new Bar() // tracks .amount
+				count++
+			})
+
+			expect(count).toBe(1)
+
+			b.amount = 4 // triggers
+
+			expect(count).toBe(2)
+		})
+
+		it('show how to manually untrack constructors when not using decorators', () => {
+			class Foo {
+				amount = 3
+
+				constructor() {
+					signalify(this, 'amount')
+				}
+			}
+
+			class Bar extends Foo {
+				double = 0
+
+				constructor() {
+					super()
+					signalify(this, 'double')
+
+					untrack(() => {
+						this.double = this.amount * 2
+					})
+				}
+			}
+
+			let count = 0
+			let b!: Bar
+
+			createEffect(() => {
+				b = new Bar() // does not track .amount
+				count++
+			})
+
+			expect(count).toBe(1)
+
+			b.amount = 4 // will not trigger
+
+			expect(count).toBe(1)
+		})
+
+		it('automatically does not track reactivity in constructors when using decorators', () => {
+			@reactive
+			class Foo {
+				@signal amount = 3
+			}
+
+			@reactive
+			class Bar extends Foo {
+				@signal double = 0
+
+				constructor() {
+					super()
+					this.double = this.amount * 2 // this read of .amount should not be tracked
+				}
+			}
+
+			let b: Bar
+			let count = 0
+
+			function noLoop() {
+				createEffect(() => {
+					b = new Bar() // this should not track
+					count++
+				})
+			}
+
+			expect(noLoop).not.toThrow()
+
+			const b2 = b!
+
+			b!.amount = 4 // hence this should not trigger
+
+			// If the effect ran only once initially, not when setting b.colors,
+			// then both variables should reference the same instance
+			expect(b!).toBe(b2)
+			expect(count).toBe(1)
 		})
 	})
 

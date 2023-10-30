@@ -25,7 +25,7 @@
 		"typecheck": "lume typecheck",
 		"typecheck:watch": "lume typecheckWatch",
 		"test": "lume test",
-		"test:debug": "lume testDebug",
+		"test:watch": "lume test --watch",
 		"prettier": "lume prettier",
 		"prettier:check": "lume prettierCheck",
 		"release:patch": "lume releasePatch",

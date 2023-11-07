@@ -1,17 +1,18 @@
-function createAddInitializerMethod(initializers, decoratorFinishedRef) { return function (initializer) { assertNotFinished(decoratorFinishedRef, "addInitializer"), assertCallable(initializer, "An initializer"), initializers.push(initializer); }; }
-function assertInstanceIfPrivate(has, target) { if (!has(target)) throw new TypeError("Attempted to access private element on non-instance"); }
-function memberDec(dec, thisArg, name, desc, initializers, kind, isStatic, isPrivate, value, hasPrivateBrand) { var kindStr; switch (kind) { case 1: kindStr = "accessor"; break; case 2: kindStr = "method"; break; case 3: kindStr = "getter"; break; case 4: kindStr = "setter"; break; default: kindStr = "field"; } var get, set, ctx = { kind: kindStr, name: isPrivate ? "#" + name : name, static: isStatic, private: isPrivate }, decoratorFinishedRef = { v: !1 }; if (0 !== kind && (ctx.addInitializer = createAddInitializerMethod(initializers, decoratorFinishedRef)), isPrivate || 0 !== kind && 2 !== kind) { if (2 === kind) get = function (target) { return assertInstanceIfPrivate(hasPrivateBrand, target), desc.value; };else { var t = 0 === kind || 1 === kind; (t || 3 === kind) && (get = isPrivate ? function (target) { return assertInstanceIfPrivate(hasPrivateBrand, target), desc.get.call(target); } : function (target) { return desc.get.call(target); }), (t || 4 === kind) && (set = isPrivate ? function (target, value) { assertInstanceIfPrivate(hasPrivateBrand, target), desc.set.call(target, value); } : function (target, value) { desc.set.call(target, value); }); } } else get = function (target) { return target[name]; }, 0 === kind && (set = function (target, v) { target[name] = v; }); var has = isPrivate ? hasPrivateBrand.bind() : function (target) { return name in target; }; ctx.access = get && set ? { get: get, set: set, has: has } : get ? { get: get, has: has } : { set: set, has: has }; try { return dec.call(thisArg, value, ctx); } finally { decoratorFinishedRef.v = !0; } }
-function assertNotFinished(decoratorFinishedRef, fnName) { if (decoratorFinishedRef.v) throw new Error("attempted to call " + fnName + " after decoration was finished"); }
-function assertCallable(fn, hint) { if ("function" != typeof fn) throw new TypeError(hint + " must be a function"); }
-function assertValidReturnValue(kind, value) { var type = typeof value; if (1 === kind) { if ("object" !== type || null === value) throw new TypeError("accessor decorators must return an object with get, set, or init properties or void 0"); void 0 !== value.get && assertCallable(value.get, "accessor.get"), void 0 !== value.set && assertCallable(value.set, "accessor.set"), void 0 !== value.init && assertCallable(value.init, "accessor.init"); } else if ("function" !== type) { var hint; throw hint = 0 === kind ? "field" : 5 === kind ? "class" : "method", new TypeError(hint + " decorators must return a function or void 0"); } }
-function curryThis1(fn) { return function () { return fn(this); }; }
-function curryThis2(fn) { return function (value) { fn(this, value); }; }
-function applyMemberDec(ret, base, decInfo, decoratorsHaveThis, name, kind, isStatic, isPrivate, initializers, hasPrivateBrand) { var desc, init, value, newValue, get, set, decs = decInfo[0]; decoratorsHaveThis || Array.isArray(decs) || (decs = [decs]), isPrivate ? desc = 0 === kind || 1 === kind ? { get: curryThis1(decInfo[3]), set: curryThis2(decInfo[4]) } : 3 === kind ? { get: decInfo[3] } : 4 === kind ? { set: decInfo[3] } : { value: decInfo[3] } : 0 !== kind && (desc = Object.getOwnPropertyDescriptor(base, name)), 1 === kind ? value = { get: desc.get, set: desc.set } : 2 === kind ? value = desc.value : 3 === kind ? value = desc.get : 4 === kind && (value = desc.set); for (var inc = decoratorsHaveThis ? 2 : 1, i = decs.length - 1; i >= 0; i -= inc) { var newInit; if (void 0 !== (newValue = memberDec(decs[i], decoratorsHaveThis ? decs[i - 1] : void 0, name, desc, initializers, kind, isStatic, isPrivate, value, hasPrivateBrand))) assertValidReturnValue(kind, newValue), 0 === kind ? newInit = newValue : 1 === kind ? (newInit = newValue.init, get = newValue.get || value.get, set = newValue.set || value.set, value = { get: get, set: set }) : value = newValue, void 0 !== newInit && (void 0 === init ? init = newInit : "function" == typeof init ? init = [init, newInit] : init.push(newInit)); } if (0 === kind || 1 === kind) { if (void 0 === init) init = function (instance, init) { return init; };else if ("function" != typeof init) { var ownInitializers = init; init = function (instance, init) { for (var value = init, i = ownInitializers.length - 1; i >= 0; i--) value = ownInitializers[i].call(instance, value); return value; }; } else { var originalInitializer = init; init = function (instance, init) { return originalInitializer.call(instance, init); }; } ret.push(init); } 0 !== kind && (1 === kind ? (desc.get = value.get, desc.set = value.set) : 2 === kind ? desc.value = value : 3 === kind ? desc.get = value : 4 === kind && (desc.set = value), isPrivate ? 1 === kind ? (ret.push(function (instance, args) { return value.get.call(instance, args); }), ret.push(function (instance, args) { return value.set.call(instance, args); })) : 2 === kind ? ret.push(value) : ret.push(function (instance, args) { return value.call(instance, args); }) : Object.defineProperty(base, name, desc)); }
-function applyMemberDecs(Class, decInfos, instanceBrand) { for (var protoInitializers, staticInitializers, staticBrand, ret = [], existingProtoNonFields = new Map(), existingStaticNonFields = new Map(), i = 0; i < decInfos.length; i++) { var decInfo = decInfos[i]; if (Array.isArray(decInfo)) { var base, initializers, kind = decInfo[1], name = decInfo[2], isPrivate = decInfo.length > 3, decoratorsHaveThis = 16 & kind, isStatic = !!(8 & kind), hasPrivateBrand = instanceBrand; if (kind &= 7, isStatic ? (base = Class, 0 !== kind && (initializers = staticInitializers = staticInitializers || []), isPrivate && !staticBrand && (staticBrand = function (_) { return _checkInRHS(_) === Class; }), hasPrivateBrand = staticBrand) : (base = Class.prototype, 0 !== kind && (initializers = protoInitializers = protoInitializers || [])), 0 !== kind && !isPrivate) { var existingNonFields = isStatic ? existingStaticNonFields : existingProtoNonFields, existingKind = existingNonFields.get(name) || 0; if (!0 === existingKind || 3 === existingKind && 4 !== kind || 4 === existingKind && 3 !== kind) throw new Error("Attempted to decorate a public method/accessor that has the same name as a previously decorated public method/accessor. This is not currently supported by the decorators plugin. Property name was: " + name); existingNonFields.set(name, !(!existingKind && kind > 2) || kind); } applyMemberDec(ret, base, decInfo, decoratorsHaveThis, name, kind, isStatic, isPrivate, initializers, hasPrivateBrand); } } return pushInitializers(ret, protoInitializers), pushInitializers(ret, staticInitializers), ret; }
-function pushInitializers(ret, initializers) { initializers && ret.push(function (instance) { for (var i = 0; i < initializers.length; i++) initializers[i].call(instance); return instance; }); }
-function applyClassDecs(targetClass, classDecs, decoratorsHaveThis) { if (classDecs.length) { for (var initializers = [], newClass = targetClass, name = targetClass.name, inc = decoratorsHaveThis ? 2 : 1, i = classDecs.length - 1; i >= 0; i -= inc) { var decoratorFinishedRef = { v: !1 }; try { var nextNewClass = classDecs[i].call(decoratorsHaveThis ? classDecs[i - 1] : void 0, newClass, { kind: "class", name: name, addInitializer: createAddInitializerMethod(initializers, decoratorFinishedRef) }); } finally { decoratorFinishedRef.v = !0; } void 0 !== nextNewClass && (assertValidReturnValue(5, nextNewClass), newClass = nextNewClass); } return [newClass, function () { for (var i = 0; i < initializers.length; i++) initializers[i].call(newClass); }]; } }
-function _applyDecs(targetClass, memberDecs, classDecs, classDecsHaveThis, instanceBrand) { return { e: applyMemberDecs(targetClass, memberDecs, instanceBrand), get c() { return applyClassDecs(targetClass, classDecs, classDecsHaveThis); } }; }
-function _checkInRHS(value) { if (Object(value) !== value) throw TypeError("right-hand side of 'in' should be an object, got " + (null !== value ? typeof value : "null")); return value; }
+function createAddInitializerMethod(e, t) { return function (r) { assertNotFinished(t, "addInitializer"), assertCallable(r, "An initializer"), e.push(r); }; }
+function assertInstanceIfPrivate(e, t) { if (!e(t)) throw new TypeError("Attempted to access private element on non-instance"); }
+function memberDec(e, t, r, a, n, i, s, o, c, l, u) { var f; switch (i) { case 1: f = "accessor"; break; case 2: f = "method"; break; case 3: f = "getter"; break; case 4: f = "setter"; break; default: f = "field"; } var d, p, h = { kind: f, name: o ? "#" + r : r, static: s, private: o, metadata: u }, v = { v: !1 }; if (0 !== i && (h.addInitializer = createAddInitializerMethod(n, v)), o || 0 !== i && 2 !== i) { if (2 === i) d = function (e) { return assertInstanceIfPrivate(l, e), a.value; };else { var y = 0 === i || 1 === i; (y || 3 === i) && (d = o ? function (e) { return assertInstanceIfPrivate(l, e), a.get.call(e); } : function (e) { return a.get.call(e); }), (y || 4 === i) && (p = o ? function (e, t) { assertInstanceIfPrivate(l, e), a.set.call(e, t); } : function (e, t) { a.set.call(e, t); }); } } else d = function (e) { return e[r]; }, 0 === i && (p = function (e, t) { e[r] = t; }); var m = o ? l.bind() : function (e) { return r in e; }; h.access = d && p ? { get: d, set: p, has: m } : d ? { get: d, has: m } : { set: p, has: m }; try { return e.call(t, c, h); } finally { v.v = !0; } }
+function assertNotFinished(e, t) { if (e.v) throw new Error("attempted to call " + t + " after decoration was finished"); }
+function assertCallable(e, t) { if ("function" != typeof e) throw new TypeError(t + " must be a function"); }
+function assertValidReturnValue(e, t) { var r = typeof t; if (1 === e) { if ("object" !== r || null === t) throw new TypeError("accessor decorators must return an object with get, set, or init properties or void 0"); void 0 !== t.get && assertCallable(t.get, "accessor.get"), void 0 !== t.set && assertCallable(t.set, "accessor.set"), void 0 !== t.init && assertCallable(t.init, "accessor.init"); } else if ("function" !== r) { var a; throw a = 0 === e ? "field" : 5 === e ? "class" : "method", new TypeError(a + " decorators must return a function or void 0"); } }
+function curryThis1(e) { return function () { return e(this); }; }
+function curryThis2(e) { return function (t) { e(this, t); }; }
+function applyMemberDec(e, t, r, a, n, i, s, o, c, l, u) { var f, d, p, h, v, y, m = r[0]; a || Array.isArray(m) || (m = [m]), o ? f = 0 === i || 1 === i ? { get: curryThis1(r[3]), set: curryThis2(r[4]) } : 3 === i ? { get: r[3] } : 4 === i ? { set: r[3] } : { value: r[3] } : 0 !== i && (f = Object.getOwnPropertyDescriptor(t, n)), 1 === i ? p = { get: f.get, set: f.set } : 2 === i ? p = f.value : 3 === i ? p = f.get : 4 === i && (p = f.set); for (var g = a ? 2 : 1, b = m.length - 1; b >= 0; b -= g) { var I; if (void 0 !== (h = memberDec(m[b], a ? m[b - 1] : void 0, n, f, c, i, s, o, p, l, u))) assertValidReturnValue(i, h), 0 === i ? I = h : 1 === i ? (I = h.init, v = h.get || p.get, y = h.set || p.set, p = { get: v, set: y }) : p = h, void 0 !== I && (void 0 === d ? d = I : "function" == typeof d ? d = [d, I] : d.push(I)); } if (0 === i || 1 === i) { if (void 0 === d) d = function (e, t) { return t; };else if ("function" != typeof d) { var w = d; d = function (e, t) { for (var r = t, a = w.length - 1; a >= 0; a--) r = w[a].call(e, r); return r; }; } else { var M = d; d = function (e, t) { return M.call(e, t); }; } e.push(d); } 0 !== i && (1 === i ? (f.get = p.get, f.set = p.set) : 2 === i ? f.value = p : 3 === i ? f.get = p : 4 === i && (f.set = p), o ? 1 === i ? (e.push(function (e, t) { return p.get.call(e, t); }), e.push(function (e, t) { return p.set.call(e, t); })) : 2 === i ? e.push(p) : e.push(function (e, t) { return p.call(e, t); }) : Object.defineProperty(t, n, f)); }
+function applyMemberDecs(e, t, r, a) { for (var n, i, s, o = [], c = new Map(), l = new Map(), u = 0; u < t.length; u++) { var f = t[u]; if (Array.isArray(f)) { var d, p, h = f[1], v = f[2], y = f.length > 3, m = 16 & h, g = !!(8 & h), b = r; if (h &= 7, g ? (d = e, 0 !== h && (p = i = i || []), y && !s && (s = function (t) { return _checkInRHS(t) === e; }), b = s) : (d = e.prototype, 0 !== h && (p = n = n || [])), 0 !== h && !y) { var I = g ? l : c, w = I.get(v) || 0; if (!0 === w || 3 === w && 4 !== h || 4 === w && 3 !== h) throw new Error("Attempted to decorate a public method/accessor that has the same name as a previously decorated public method/accessor. This is not currently supported by the decorators plugin. Property name was: " + v); I.set(v, !(!w && h > 2) || h); } applyMemberDec(o, d, f, m, v, h, g, y, p, b, a); } } return pushInitializers(o, n), pushInitializers(o, i), o; }
+function pushInitializers(e, t) { t && e.push(function (e) { for (var r = 0; r < t.length; r++) t[r].call(e); return e; }); }
+function applyClassDecs(e, t, r, a) { if (t.length) { for (var n = [], i = e, s = e.name, o = r ? 2 : 1, c = t.length - 1; c >= 0; c -= o) { var l = { v: !1 }; try { var u = t[c].call(r ? t[c - 1] : void 0, i, { kind: "class", name: s, addInitializer: createAddInitializerMethod(n, l), metadata: a }); } finally { l.v = !0; } void 0 !== u && (assertValidReturnValue(5, u), i = u); } return [defineMetadata(i, a), function () { for (var e = 0; e < n.length; e++) n[e].call(i); }]; } }
+function defineMetadata(e, t) { return Object.defineProperty(e, Symbol.metadata || Symbol.for("Symbol.metadata"), { configurable: !0, enumerable: !0, value: t }); }
+function _applyDecs(e, t, r, a, n, i) { if (arguments.length >= 6) var s = i[Symbol.metadata || Symbol.for("Symbol.metadata")]; var o = Object.create(void 0 === s ? null : s), c = applyMemberDecs(e, t, n, o); return r.length || defineMetadata(e, o), { e: c, get c() { return applyClassDecs(e, r, a, o); } }; }
+function _checkInRHS(e) { if (Object(e) !== e) throw TypeError("right-hand side of 'in' should be an object, got " + (null !== e ? typeof e : "null")); return e; }
 import { createComputed, createEffect, createRoot, createSignal, untrack } from 'solid-js';
 import { createMutable } from 'solid-js/store';
 import { render } from 'solid-js/web';
@@ -86,34 +87,34 @@ describe('classy-solid', () => {
       foo(3);
 
       // Still 1 because the deferred effect didn't run yet, it will in the next microtask.
-      expect(runCount).withContext('a').toBe(1);
+      expect(runCount).toBe(1);
       await Promise.resolve();
 
       // It ran only once in the previous microtask (batched), not once per signal write.
-      expect(runCount).withContext('b').toBe(2);
+      expect(runCount).toBe(2);
       count(3);
       count(4);
       foo(5);
-      expect(runCount).withContext('c').toBe(2);
+      expect(runCount).toBe(2);
       await Promise.resolve();
-      expect(runCount).withContext('d').toBe(3);
+      expect(runCount).toBe(3);
 
       // Stops the effect from re-running. It can now be garbage collected.
       stop();
       count(3);
       count(4);
       foo(5);
-      expect(runCount).withContext('c').toBe(3);
+      expect(runCount).toBe(3);
       await Promise.resolve();
 
       // Still the same because it was stopped, so it didn't run in the
       // macrotask prior to the await.
-      expect(runCount).withContext('e').toBe(3);
+      expect(runCount).toBe(3);
 
       // Double check just in case (the wrong implementation would make it
       // skip two microtasks before running).
       await Promise.resolve();
-      expect(runCount).withContext('f').toBe(3);
+      expect(runCount).toBe(3);
     });
   });
   describe('@reactive, @signal, and signalify', () => {
@@ -143,7 +144,7 @@ describe('classy-solid', () => {
       testButterflyProps(b);
     });
     it('does not prevent superclass constructor from receiving subclass constructor args', () => {
-      var _initClass2, _initClass3, _init_colors2, _initProto2;
+      var _initClass2, _initClass3, _init_colors2, _initProto2, _Insect2;
       let _Insect;
       class Insect {
         static {
@@ -157,12 +158,12 @@ describe('classy-solid', () => {
         }
       }
       let _Butterfly2;
-      class Butterfly extends _Insect {
+      class Butterfly extends (_Insect2 = _Insect) {
         static {
           ({
             e: [_init_colors2, _initProto2],
             c: [_Butterfly2, _initClass3]
-          } = _applyDecs(this, [[signal, 3, "wingSize"], [signal, 0, "colors"]], [reactive]));
+          } = _applyDecs(this, [[signal, 3, "wingSize"], [signal, 0, "colors"]], [reactive], 0, void 0, _Insect2));
         }
         colors = (_initProto2(this), _init_colors2(this, 3));
         _wingSize = 2;
@@ -330,7 +331,7 @@ describe('classy-solid', () => {
           }
         }
         new _Bar();
-      }).toThrowMatching(err => err.message.includes('Did you forget'));
+      }).toThrow('Did you forget');
 
       // TODO how to check for an error thrown from a microtask?
       // (window.addEventListener('error') seems not to work)
@@ -442,7 +443,7 @@ describe('classy-solid', () => {
       expect(count).toBe(1);
     });
     it('automatically does not track reactivity in constructors when using decorators', () => {
-      var _initClass6, _init_amount, _initClass7, _init_double;
+      var _initClass6, _init_amount, _initClass7, _init_double, _Foo2;
       let _Foo;
       class Foo {
         static {
@@ -457,12 +458,12 @@ describe('classy-solid', () => {
         }
       }
       let _Bar2;
-      class Bar extends _Foo {
+      class Bar extends (_Foo2 = _Foo) {
         static {
           ({
             e: [_init_double],
             c: [_Bar2, _initClass7]
-          } = _applyDecs(this, [[signal, 0, "double"]], [reactive]));
+          } = _applyDecs(this, [[signal, 0, "double"]], [reactive], 0, void 0, _Foo2));
         }
         double = _init_double(this, 0);
         constructor() {
@@ -519,11 +520,11 @@ describe('classy-solid', () => {
       document.body.append(root);
       const dispose = render(() => html`<${_CoolComp} foo=${123} />`, root);
       expect(root.textContent).toBe('hello classes!');
-      expect(onMountCalled).toBeTrue();
-      expect(onCleanupCalled).toBeFalse();
+      expect(onMountCalled).toBe(true);
+      expect(onCleanupCalled).toBe(false);
       dispose();
       root.remove();
-      expect(onCleanupCalled).toBeTrue();
+      expect(onCleanupCalled).toBe(true);
 
       // throws on non-class use
       expect(() => {
@@ -539,7 +540,7 @@ describe('classy-solid', () => {
           onMount() {}
         }
         CoolComp;
-      }).toThrow();
+      }).toThrow('component decorator should only be used on a class');
     });
     it('works in tandem with @reactive and @signal for reactivity', async () => {
       var _initClass9, _init_foo2, _init_bar2;
@@ -820,28 +821,25 @@ function testButterflyProps(b) {
   const n5 = func()();
   n5;
   const func2 = createSignalFunction(() => 1);
-  // @FIXME-ts-expect-error number is not assignable to function (no overload matches)
-  func2(() => 1); // FIXME should be a type error. Try Solid 1.7.9
+  // @ts-expect-error number is not assignable to function (no overload matches)
+  func2(() => 1);
   func2(() => () => 1); // ok, set the value to a function
   const fn2 = func2(); // ok, returns function value
   fn2;
   const n6 = func2()();
   n6;
   const stringOrFunc1 = createSignalFunction('');
-  // @FIXME-ts-expect-error number not assignable to string | (()=>number) | undefined
-  stringOrFunc1(() => 1); // FIXME should be a type error. Try Solid 1.7.9
-  // @ts-expect-error FIXME try Solid 1.7.9
+  // @ts-expect-error number not assignable to string | (()=>number) | undefined
+  stringOrFunc1(() => 1);
   const sf1 = stringOrFunc1(() => () => 1);
   sf1;
-  // @ts-expect-error FIXME try Solid 1.7.9
   const sf2 = stringOrFunc1('oh yeah');
   sf2;
-  // @ts-expect-error FIXME try Solid 1.7.9
   const sf3 = stringOrFunc1(() => 'oh yeah');
   sf3;
   stringOrFunc1(); // ok, getter
-  // @FIXME-ts-expect-error cannot set signal to undefined
-  stringOrFunc1(undefined); // FIXME should be a type error. Try Solid 1.7.9
+  // @ts-expect-error cannot set signal to undefined
+  stringOrFunc1(undefined);
   // @ts-expect-error return value might be string
   const sf6 = stringOrFunc1();
   sf6;
@@ -850,21 +848,17 @@ function testButterflyProps(b) {
   const sf8 = stringOrFunc1();
   sf8;
   const stringOrFunc2 = createSignalFunction();
-  // @FIXME-ts-expect-error number not assignable to string | (()=>number) | undefined
-  stringOrFunc2(() => 1); // FIXME should be a type error. Try Solid 1.7.9
-  // @ts-expect-error FIXME try Solid 1.7.9
+  // @ts-expect-error number not assignable to string | (()=>number) | undefined
+  stringOrFunc2(() => 1);
   const sf9 = stringOrFunc2(() => () => 1);
   sf9;
-  // @ts-expect-error FIXME try Solid 1.7.9
   const sf10 = stringOrFunc2('oh yeah');
   sf10;
-  // @ts-expect-error FIXME try Solid 1.7.9
   const sf11 = stringOrFunc2(() => 'oh yeah');
   sf11;
   // @ts-expect-error 'string | (() => number) | undefined' is not assignable to type 'undefined'.
   const sf12 = stringOrFunc2();
   sf12;
-  // @ts-expect-error FIXME try Solid 1.7.9
   const sf13 = stringOrFunc2(undefined);
   sf13;
   const sf14 = stringOrFunc2();

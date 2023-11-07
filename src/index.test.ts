@@ -87,22 +87,22 @@ describe('classy-solid', () => {
 			foo(3)
 
 			// Still 1 because the deferred effect didn't run yet, it will in the next microtask.
-			expect(runCount).withContext('a').toBe(1)
+			expect(runCount).toBe(1)
 
 			await Promise.resolve()
 
 			// It ran only once in the previous microtask (batched), not once per signal write.
-			expect(runCount).withContext('b').toBe(2)
+			expect(runCount).toBe(2)
 
 			count(3)
 			count(4)
 			foo(5)
 
-			expect(runCount).withContext('c').toBe(2)
+			expect(runCount).toBe(2)
 
 			await Promise.resolve()
 
-			expect(runCount).withContext('d').toBe(3)
+			expect(runCount).toBe(3)
 
 			// Stops the effect from re-running. It can now be garbage collected.
 			stop()
@@ -111,18 +111,18 @@ describe('classy-solid', () => {
 			count(4)
 			foo(5)
 
-			expect(runCount).withContext('c').toBe(3)
+			expect(runCount).toBe(3)
 
 			await Promise.resolve()
 
 			// Still the same because it was stopped, so it didn't run in the
 			// macrotask prior to the await.
-			expect(runCount).withContext('e').toBe(3)
+			expect(runCount).toBe(3)
 
 			// Double check just in case (the wrong implementation would make it
 			// skip two microtasks before running).
 			await Promise.resolve()
-			expect(runCount).withContext('f').toBe(3)
+			expect(runCount).toBe(3)
 		})
 	})
 
@@ -343,7 +343,7 @@ describe('classy-solid', () => {
 				}
 
 				new Bar()
-			}).toThrowMatching(err => err.message.includes('Did you forget'))
+			}).toThrow('Did you forget')
 
 			// TODO how to check for an error thrown from a microtask?
 			// (window.addEventListener('error') seems not to work)
@@ -531,13 +531,13 @@ describe('classy-solid', () => {
 			const dispose = render(() => html`<${CoolComp} foo=${123} />`, root)
 
 			expect(root.textContent).toBe('hello classes!')
-			expect(onMountCalled).toBeTrue()
-			expect(onCleanupCalled).toBeFalse()
+			expect(onMountCalled).toBe(true)
+			expect(onCleanupCalled).toBe(false)
 
 			dispose()
 			root.remove()
 
-			expect(onCleanupCalled).toBeTrue()
+			expect(onCleanupCalled).toBe(true)
 
 			// throws on non-class use
 			expect(() => {
@@ -547,7 +547,7 @@ describe('classy-solid', () => {
 					onMount() {}
 				}
 				CoolComp
-			}).toThrow()
+			}).toThrow('component decorator should only be used on a class')
 		})
 
 		it('works in tandem with @reactive and @signal for reactivity', async () => {
@@ -847,8 +847,8 @@ function testButterflyProps(b: {colors: number; wingSize: number; _wingSize: num
 	n5
 
 	const func2 = createSignalFunction<() => number>(() => 1)
-	// @FIXME-ts-expect-error number is not assignable to function (no overload matches)
-	func2(() => 1) // FIXME should be a type error. Try Solid 1.7.9
+	// @ts-expect-error number is not assignable to function (no overload matches)
+	func2(() => 1)
 	func2(() => () => 1) // ok, set the value to a function
 	const fn2: () => number = func2() // ok, returns function value
 	fn2
@@ -856,20 +856,17 @@ function testButterflyProps(b: {colors: number; wingSize: number; _wingSize: num
 	n6
 
 	const stringOrFunc1 = createSignalFunction<(() => number) | string>('')
-	// @FIXME-ts-expect-error number not assignable to string | (()=>number) | undefined
-	stringOrFunc1(() => 1) // FIXME should be a type error. Try Solid 1.7.9
-	// @ts-expect-error FIXME try Solid 1.7.9
+	// @ts-expect-error number not assignable to string | (()=>number) | undefined
+	stringOrFunc1(() => 1)
 	const sf1: () => number = stringOrFunc1(() => () => 1)
 	sf1
-	// @ts-expect-error FIXME try Solid 1.7.9
 	const sf2: string = stringOrFunc1('oh yeah')
 	sf2
-	// @ts-expect-error FIXME try Solid 1.7.9
 	const sf3: string = stringOrFunc1(() => 'oh yeah')
 	sf3
 	stringOrFunc1() // ok, getter
-	// @FIXME-ts-expect-error cannot set signal to undefined
-	stringOrFunc1(undefined) // FIXME should be a type error. Try Solid 1.7.9
+	// @ts-expect-error cannot set signal to undefined
+	stringOrFunc1(undefined)
 	// @ts-expect-error return value might be string
 	const sf6: () => number = stringOrFunc1()
 	sf6
@@ -879,21 +876,17 @@ function testButterflyProps(b: {colors: number; wingSize: number; _wingSize: num
 	sf8
 
 	const stringOrFunc2 = createSignalFunction<(() => number) | string>()
-	// @FIXME-ts-expect-error number not assignable to string | (()=>number) | undefined
-	stringOrFunc2(() => 1) // FIXME should be a type error. Try Solid 1.7.9
-	// @ts-expect-error FIXME try Solid 1.7.9
+	// @ts-expect-error number not assignable to string | (()=>number) | undefined
+	stringOrFunc2(() => 1)
 	const sf9: () => number = stringOrFunc2(() => () => 1)
 	sf9
-	// @ts-expect-error FIXME try Solid 1.7.9
 	const sf10: string = stringOrFunc2('oh yeah')
 	sf10
-	// @ts-expect-error FIXME try Solid 1.7.9
 	const sf11: string = stringOrFunc2(() => 'oh yeah')
 	sf11
 	// @ts-expect-error 'string | (() => number) | undefined' is not assignable to type 'undefined'.
 	const sf12: undefined = stringOrFunc2()
 	sf12
-	// @ts-expect-error FIXME try Solid 1.7.9
 	const sf13: undefined = stringOrFunc2(undefined)
 	sf13
 	const sf14: (() => number) | string | undefined = stringOrFunc2()

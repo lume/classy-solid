@@ -3,15 +3,14 @@
 
 // import {createSignal} from './createDeferredEffect.js'
 import {createSignal} from 'solid-js'
-// import type {Setter} from 'solid-js'
+import type {Setter} from 'solid-js'
 import type {SignalOptions} from 'solid-js/types/reactive/signal'
 
 /**
  * A single function that with no args passed reads a signal, otherwise sets a
  * signal just like a Setter does.
  */
-// export type SignalFunction<T> = {(): T} & Setter<T> // FIXME broke in 1.7.9
-export type SignalFunction<T> = {(v?: T | ((prev: T) => T)): T}
+export type SignalFunction<T> = {(): T} & Setter<T> // FIXME broke in 1.7.9
 
 /**
  * Create a Solid signal wrapped as a single function that gets the value when

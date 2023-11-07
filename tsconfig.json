@@ -1,7 +1,3 @@
 {
-	"extends": "./node_modules/@lume/cli/config/ts.config.json",
-	"compilerOptions": {
-		"isolatedModules": true,
-		"useDefineForClassFields": false
-	}
+	"extends": "./node_modules/@lume/cli/config/ts.config.json"
 }

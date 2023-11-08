@@ -12,6 +12,12 @@ import {
 	component,
 } from './index.js'
 
+// TODO move type def to @lume/cli, map @types/jest's `expect` type into the
+// global env.
+declare global {
+	function expect(...args: any[]): any
+}
+
 describe('classy-solid', () => {
 	describe('createSignalObject()', () => {
 		it('has gettable and settable values via .get and .set methods', async () => {

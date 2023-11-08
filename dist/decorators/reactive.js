@@ -62,7 +62,7 @@ export function reactive(...args) {
       }] of props) {
         // @prod-prune
         if (!(hasOwnProperty.call(instance, prop) || hasOwnProperty.call(Class.prototype, prop))) {
-          throw new Error(`Property "${prop.toString()}" not found on object. Did you forget to use the \`@reactive\` decorator on a class that has properties decorated with \`@signal\`?`);
+          throw new Error(`Property "${prop.toString()}" not found on instance of class decorated with \`@reactive\`. Did you forget to use the \`@reactive\` decorator on one of your classes that has a "${prop.toString()}" property decorated with \`@signal\`?`);
         }
         createSignalAccessor(instance, prop, initialValue);
       }

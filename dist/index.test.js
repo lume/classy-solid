@@ -18,6 +18,9 @@ import { createMutable } from 'solid-js/store';
 import { render } from 'solid-js/web';
 import html from 'solid-js/html';
 import { createSignalObject, reactive, signalify, createSignalFunction, signal, createDeferredEffect, component } from './index.js';
+
+// TODO move type def to @lume/cli, map @types/jest's `expect` type into the
+// global env.
 describe('classy-solid', () => {
   describe('createSignalObject()', () => {
     it('has gettable and settable values via .get and .set methods', async () => {

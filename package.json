@@ -51,7 +51,7 @@
 		"url": "git+ssh://git@github.com/lume/classy-solid.git"
 	},
 	"bugs": {
-		"url": "https://github.com/lume/variable/issues"
+		"url": "https://github.com/lume/classy-solid/issues"
 	},
 	"keywords": [
 		"solidhack",

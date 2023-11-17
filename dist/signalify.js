@@ -84,7 +84,22 @@ function trackPropSetAtLeastOnce(instance, prop) {
   propsSetAtLeastOnce.get(instance).add(prop);
 }
 const isSignalGetter = new WeakSet();
-function createSignalAccessor(obj, prop, initialVal = obj[prop], override = false) {
+function createSignalAccessor(obj, prop, initialVal = obj[prop],
+// If an object already has a particular signalified property, override it
+// with a new one anyway (useful for maintaining consistency with class
+// inheritance where class fields always override fields from base classes
+// due to their [[Define]] semantics). False is a good default for signalify()
+// usage where someone is augmenting an existing object, but true is more
+// useful with usage of @signal on class fields.
+//
+// Note that if @signal were to specify this as false, it would cause
+// @signal-decorated subclass fields to override base class
+// @signal-decorated fields with a new value descriptor but without
+// signalifiying the field, effectively disabling reactivity, which is a bug
+// (a field decorated with @signal *must* be reactive). The test named
+// "maintains reactivity in subclass overridden fields" was added to ensure
+// that the subclass use case works.
+override = false) {
   if (!override && signalifiedProps.get(obj)?.has(prop)) return;
 
   // Special case for Solid proxies: if the object is already a solid proxy,
@@ -99,7 +114,9 @@ function createSignalAccessor(obj, prop, initialVal = obj[prop], override = fals
     originalGet = descriptor.get;
     originalSet = descriptor.set;
 
-    // If we have a signal accessor, no need to create another signal accessor.
+    // Even if override is true, if we have a signal accessor, there's no
+    // need to replace it with another signal accessor. We only need to
+    // override when the current descriptor is not a signal accessor.
     if (originalGet && isSignalGetter.has(originalGet)) return;
     if (originalGet || originalSet) {
       // reactivity requires both

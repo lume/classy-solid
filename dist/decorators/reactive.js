@@ -70,6 +70,12 @@ export function reactive(value, context) {
         if (!(hasOwnProperty.call(instance, prop) || hasOwnProperty.call(Class.prototype, prop))) {
           throw new Error(`Property "${prop.toString()}" not found on instance of class decorated with \`@reactive\`. Did you forget to use the \`@reactive\` decorator on one of your classes that has a "${prop.toString()}" property decorated with \`@signal\`?`);
         }
+
+        // For now at least, we always override like class fields with
+        // [[Define]] semantics. Perhaps when @signal is used on a
+        // getter/setter, we should not override in that case, but patch
+        // the prototype getter/setter (that'll be a bit of work to
+        // implement though).
         const override = true;
         createSignalAccessor(instance, prop, initialValue, override);
       }

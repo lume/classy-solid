@@ -32,8 +32,7 @@ import { onMount, createEffect, onCleanup, $TRACK, createMemo } from 'solid-js';
  * render(() => <MyComp first="Joe" last="Pea" />)
  * ```
  */
-export function component(Base, ...args) {
-  const [context] = args;
+export function component(Base, context) {
   if (typeof Base !== 'function' || context && context.kind !== 'class') throw new Error('The @component decorator should only be used on a class.');
   const Class = Constructor(Base);
   return function (props) {

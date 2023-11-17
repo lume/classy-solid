@@ -37,7 +37,7 @@
 		"example": "five-server . --open=example"
 	},
 	"dependencies": {
-		"lowclass": "^5.0.0",
+		"lowclass": "^6.0.0",
 		"solid-js": "^1.3.13"
 	},
 	"devDependencies": {

@@ -1,8 +1,7 @@
-import type {Constructor} from 'lowclass'
+import type {AnyConstructor} from 'lowclass'
 import {getListener, untrack} from 'solid-js'
 import {getKey, getPropsToSignalify, resetPropsToSignalify} from './signal.js'
 import {getCreateSignalAccessor} from '../signalify.js'
-import type {DecoratedValue, DecoratorContext} from './types.js'
 
 /**
  * Access key for classy-solid private internal APIs.
@@ -42,13 +41,11 @@ const hasOwnProperty = Object.prototype.hasOwnProperty
  * })
  * ```
  */
-export function reactive(...args: any[]): any {
-	const [value, context] = args as [DecoratedValue, DecoratorContext]
-
+export function reactive(value: AnyConstructor, context: ClassDecoratorContext): any {
 	if (typeof value !== 'function' || (context && context.kind !== 'class'))
 		throw new TypeError('The @reactive decorator is only for use on classes.')
 
-	const Class = value as Constructor
+	const Class = value
 	const props = getPropsToSignalify(accessKey)
 
 	// For the current class decorated with @reactive, we reset the map, so that
@@ -64,6 +61,11 @@ export function reactive(...args: any[]): any {
 		constructor(...args: any[]) {
 			let instance!: ReactiveDecorator
 
+			// Ensure that if we're in an effect that `new`ing a class does not
+			// track signal reads, otherwise we'll get into an infinite loop. If
+			// someone want to trigger an effect based on properties of the
+			// `new`ed instance, they can explicitly read the properties
+			// themselves in the effect, making their intent clear.
 			if (getListener()) untrack(() => (instance = Reflect.construct(Class, args, new.target))) // super()
 			else super(...args), (instance = this)
 
@@ -75,7 +77,14 @@ export function reactive(...args: any[]): any {
 					)
 				}
 
-				createSignalAccessor(instance, prop as Exclude<keyof ReactiveDecorator, number>, initialValue)
+				// For now at least, we always override like class fields with
+				// [[Define]] semantics. Perhaps when @signal is used on a
+				// getter/setter, we should not override in that case, but patch
+				// the prototype getter/setter (that'll be a bit of work to
+				// implement though).
+				const override = true
+
+				createSignalAccessor(instance, prop as Exclude<keyof ReactiveDecorator, number>, initialValue, override)
 			}
 
 			return instance

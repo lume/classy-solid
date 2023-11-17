@@ -1,4 +1,4 @@
-import type {DecoratorArgs, PropKey, PropSpec} from './types.js'
+import type {PropKey, PropSpec} from './types.js'
 
 let propsToSignalify = new Map<PropKey, PropSpec>()
 let accessKey: symbol | null = null
@@ -34,6 +34,10 @@ export function resetPropsToSignalify(key: symbol) {
 	propsToSignalify = new Map<PropKey, PropSpec>()
 }
 
+function isMemberDecorator(context: DecoratorContext): context is ClassMemberDecoratorContext {
+	return !!('private' in context)
+}
+
 /**
  * @decorator
  * Decorate properties of a class with `@signal` to back them with Solid
@@ -66,12 +70,17 @@ export function resetPropsToSignalify(key: symbol) {
  * })
  * ```
  */
-export function signal(...args: any[]): any {
-	const [_, {kind, name, private: isPrivate, static: isStatic}] = args as DecoratorArgs
+export function signal(
+	_: unknown,
+	context: ClassFieldDecoratorContext | ClassGetterDecoratorContext | ClassSetterDecoratorContext,
+): any {
+	const {kind, name} = context
 	const props = propsToSignalify
 
-	if (isPrivate) throw new Error('@signal is not supported on private fields yet.')
-	if (isStatic) throw new Error('@signal is not supported on static fields yet.')
+	if (isMemberDecorator(context)) {
+		if (context.private) throw new Error('@signal is not supported on private fields yet.')
+		if (context.static) throw new Error('@signal is not supported on static fields yet.')
+	}
 
 	if (kind === 'field') {
 		props.set(name, {initialValue: undefined})
@@ -79,12 +88,12 @@ export function signal(...args: any[]): any {
 			props.get(name)!.initialValue = initialValue
 			return initialValue
 		}
-	} else if (kind === 'accessor') {
-		throw new Error('@signal not supported on `accessor` fields yet.')
 	} else if (kind === 'getter' || kind === 'setter') {
 		props.set(name, {initialValue: undefined})
 	} else {
-		throw new Error('The @signal decorator is only for use on fields, accessors, getters, and setters.')
+		throw new Error(
+			'The @signal decorator is only for use on fields, getters, and setters. Auto accessor support is coming next if there is demand for it.',
+		)
 	}
 
 	// @prod-prune

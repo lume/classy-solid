@@ -76,7 +76,7 @@ Solid signal). Be sure to decorate a class that has signal properties with the
 import {reactive, signal} from 'classy-solid'
 import {createEffect} from 'solid-js'
 
-export {Car}
+export
 @reactive
 class Car {
 	@signal engineOn = false
@@ -137,7 +137,7 @@ The [Babel](https://babeljs.io/) compiler, for example, allows use of decorators
 import {component, reactive, signal} from 'classy-solid'
 import {onMount, onCleanup, createEffect} from 'solid-js'
 
-export {MyComp}
+export
 @component
 @reactive
 class MyComp {

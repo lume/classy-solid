@@ -1,6 +1,5 @@
 import {Constructor} from 'lowclass'
 import {onMount, createEffect, onCleanup, type JSX, $TRACK, createMemo} from 'solid-js'
-import type {DecoratorContext} from './decorators/types'
 
 // https://github.com/ryansolid/dom-expressions/pull/122
 
@@ -40,9 +39,7 @@ interface PossiblyReactiveConstructor {}
  * render(() => <MyComp first="Joe" last="Pea" />)
  * ```
  */
-export function component<T extends Constructor>(Base: T, ...args: any): any {
-	const [context] = args as [DecoratorContext]
-
+export function component<T extends Constructor>(Base: T, context?: DecoratorContext): any {
 	if (typeof Base !== 'function' || (context && context.kind !== 'class'))
 		throw new Error('The @component decorator should only be used on a class.')
 

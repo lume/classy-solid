@@ -1,3 +1,6 @@
 {
-	"extends": "./node_modules/@lume/cli/config/ts.config.json"
+	"extends": "./node_modules/@lume/cli/config/ts.config.json",
+	"compilerOptions": {
+		"noImplicitOverride": true
+	}
 }

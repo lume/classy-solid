@@ -31,6 +31,9 @@ export function resetPropsToSignalify(key) {
   if (key !== accessKey) throw new Error('Attempted use of classy-solid internals.');
   propsToSignalify = new Map();
 }
+function isMemberDecorator(context) {
+  return !!('private' in context);
+}
 
 /**
  * @decorator
@@ -64,16 +67,16 @@ export function resetPropsToSignalify(key) {
  * })
  * ```
  */
-export function signal(...args) {
-  const [_, {
+export function signal(_, context) {
+  const {
     kind,
-    name,
-    private: isPrivate,
-    static: isStatic
-  }] = args;
+    name
+  } = context;
   const props = propsToSignalify;
-  if (isPrivate) throw new Error('@signal is not supported on private fields yet.');
-  if (isStatic) throw new Error('@signal is not supported on static fields yet.');
+  if (isMemberDecorator(context)) {
+    if (context.private) throw new Error('@signal is not supported on private fields yet.');
+    if (context.static) throw new Error('@signal is not supported on static fields yet.');
+  }
   if (kind === 'field') {
     props.set(name, {
       initialValue: undefined
@@ -82,14 +85,12 @@ export function signal(...args) {
       props.get(name).initialValue = initialValue;
       return initialValue;
     };
-  } else if (kind === 'accessor') {
-    throw new Error('@signal not supported on `accessor` fields yet.');
   } else if (kind === 'getter' || kind === 'setter') {
     props.set(name, {
       initialValue: undefined
     });
   } else {
-    throw new Error('The @signal decorator is only for use on fields, accessors, getters, and setters.');
+    throw new Error('The @signal decorator is only for use on fields, getters, and setters. Auto accessor support is coming next if there is demand for it.');
   }
 
   // @prod-prune

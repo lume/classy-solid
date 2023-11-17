@@ -153,6 +153,31 @@ describe('classy-solid', () => {
 			testButterflyProps(b)
 		})
 
+		it('maintains reactivity in subclass overridden fields', async () => {
+			@reactive
+			class Butterfly {
+				@signal colors = 3
+				_wingSize = 2
+
+				@signal
+				get wingSize() {
+					return this._wingSize
+				}
+				set wingSize(s: number) {
+					this._wingSize = s
+				}
+			}
+
+			@reactive
+			class SubButterfly extends Butterfly {
+				@signal override colors = 3
+			}
+
+			const b = new SubButterfly()
+
+			testButterflyProps(b)
+		})
+
 		it('does not prevent superclass constructor from receiving subclass constructor args', () => {
 			@reactive
 			class Insect {

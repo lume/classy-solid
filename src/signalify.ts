@@ -78,12 +78,45 @@ export function getCreateSignalAccessor() {
 	return createSignalAccessor
 }
 
+// propsSetAtLeastOnce is a Set that tracks which reactive properties have been
+// set at least once.
+const propsSetAtLeastOnce = new WeakMap<object, Set<string | symbol>>()
+
+// @lume/element uses this to detect if a reactive prop has been set, and if so
+// will not overwrite the value with any pre-existing value from custom element
+// pre-upgrade.
+export function __isPropSetAtLeastOnce(instance: object, prop: string | symbol) {
+	return !!propsSetAtLeastOnce.get(instance)?.has(prop)
+}
+
+function trackPropSetAtLeastOnce(instance: object, prop: string | symbol) {
+	if (!propsSetAtLeastOnce.has(instance)) propsSetAtLeastOnce.set(instance, new Set())
+	propsSetAtLeastOnce.get(instance)!.add(prop)
+}
+
+const isSignalGetter = new WeakSet<Function>()
+
 function createSignalAccessor<T extends object>(
 	obj: T,
 	prop: Exclude<keyof T, number>,
 	initialVal: unknown = obj[prop],
+	// If an object already has a particular signalified property, override it
+	// with a new one anyway (useful for maintaining consistency with class
+	// inheritance where class fields always override fields from base classes
+	// due to their [[Define]] semantics). False is a good default for signalify()
+	// usage where someone is augmenting an existing object, but true is more
+	// useful with usage of @signal on class fields.
+	//
+	// Note that if @signal were to specify this as false, it would cause
+	// @signal-decorated subclass fields to override base class
+	// @signal-decorated fields with a new value descriptor but without
+	// signalifiying the field, effectively disabling reactivity, which is a bug
+	// (a field decorated with @signal *must* be reactive). The test named
+	// "maintains reactivity in subclass overridden fields" was added to ensure
+	// that the subclass use case works.
+	override = false,
 ): void {
-	if (signalifiedProps.get(obj)?.has(prop)) return
+	if (!override && signalifiedProps.get(obj)?.has(prop)) return
 
 	// Special case for Solid proxies: if the object is already a solid proxy,
 	// all properties are already reactive, no need to signalify.
@@ -91,28 +124,19 @@ function createSignalAccessor<T extends object>(
 	const proxy = obj[$PROXY] as T
 	if (proxy) return
 
-	// XXX If obj already has a signal, skip making an accessor? I think perhaps
-	// not, because a subclass might override a property so it is not reactive,
-	// and a further subclass might want to make it reactive again in which
-	// case returning early would cause the subclass subclass's property not to
-	// be reactive.
-	// if (signals.get(obj)?.get(propName) !== undefined) return
-
 	let descriptor: PropertyDescriptor | undefined = getInheritedDescriptor(obj, prop)
 
 	let originalGet: (() => any) | undefined
 	let originalSet: ((v: any) => void) | undefined
 
-	// TODO if there is an inherited accessor, we need to ensure we still call
-	// it so that we're extending instead of overriding. Otherwise placing
-	// @reactive on a property will break that functionality in those cases.
-	//
-	// Right now, originalGet will only be called if it is on the current
-	// prototype, but we aren't checking for any accessor that may be inherited.
-
 	if (descriptor) {
 		originalGet = descriptor.get
 		originalSet = descriptor.set
+
+		// Even if override is true, if we have a signal accessor, there's no
+		// need to replace it with another signal accessor. We only need to
+		// override when the current descriptor is not a signal accessor.
+		if (originalGet && isSignalGetter.has(originalGet)) return
 
 		if (originalGet || originalSet) {
 			// reactivity requires both
@@ -164,13 +188,7 @@ function createSignalAccessor<T extends object>(
 			? function (this: any, newValue: unknown) {
 					originalSet!.call(this, newValue)
 
-					// __propsSetAtLeastOnce__ is a Set that tracks which reactive
-					// properties have been set at least once. @lume/element uses this
-					// to detect if a reactive prop has been set, and if so will not
-					// overwrite the value with any value from custom element
-					// pre-upgrade.
-					if (!this.__propsSetAtLeastOnce__) this.__propsSetAtLeastOnce__ = new Set<string>()
-					this.__propsSetAtLeastOnce__.add(prop)
+					trackPropSetAtLeastOnce(this, prop)
 
 					const v = getSignal(this, prop)
 					// write
@@ -178,8 +196,7 @@ function createSignalAccessor<T extends object>(
 					else v[1](newValue)
 			  }
 			: function (this: any, newValue: unknown) {
-					if (!this.__propsSetAtLeastOnce__) this.__propsSetAtLeastOnce__ = new Set<string>()
-					this.__propsSetAtLeastOnce__.add(prop)
+					trackPropSetAtLeastOnce(this, prop)
 
 					const v = getSignal(this, prop)
 					// write
@@ -187,6 +204,8 @@ function createSignalAccessor<T extends object>(
 					else v[1](newValue)
 			  },
 	}
+
+	isSignalGetter.add(descriptor.get!)
 
 	Object.defineProperty(obj, prop, descriptor)
 

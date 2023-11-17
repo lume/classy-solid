@@ -68,36 +68,39 @@ export function getCreateSignalAccessor() {
   gotCreateSignalAccessor = true;
   return createSignalAccessor;
 }
-function createSignalAccessor(obj, prop, initialVal = obj[prop]) {
-  if (signalifiedProps.get(obj)?.has(prop)) return;
+
+// propsSetAtLeastOnce is a Set that tracks which reactive properties have been
+// set at least once.
+const propsSetAtLeastOnce = new WeakMap();
+
+// @lume/element uses this to detect if a reactive prop has been set, and if so
+// will not overwrite the value with any pre-existing value from custom element
+// pre-upgrade.
+export function __isPropSetAtLeastOnce(instance, prop) {
+  return !!propsSetAtLeastOnce.get(instance)?.has(prop);
+}
+function trackPropSetAtLeastOnce(instance, prop) {
+  if (!propsSetAtLeastOnce.has(instance)) propsSetAtLeastOnce.set(instance, new Set());
+  propsSetAtLeastOnce.get(instance).add(prop);
+}
+const isSignalGetter = new WeakSet();
+function createSignalAccessor(obj, prop, initialVal = obj[prop], override = false) {
+  if (!override && signalifiedProps.get(obj)?.has(prop)) return;
 
   // Special case for Solid proxies: if the object is already a solid proxy,
   // all properties are already reactive, no need to signalify.
   // @ts-expect-error special indexed access
   const proxy = obj[$PROXY];
   if (proxy) return;
-
-  // XXX If obj already has a signal, skip making an accessor? I think perhaps
-  // not, because a subclass might override a property so it is not reactive,
-  // and a further subclass might want to make it reactive again in which
-  // case returning early would cause the subclass subclass's property not to
-  // be reactive.
-  // if (signals.get(obj)?.get(propName) !== undefined) return
-
   let descriptor = getInheritedDescriptor(obj, prop);
   let originalGet;
   let originalSet;
-
-  // TODO if there is an inherited accessor, we need to ensure we still call
-  // it so that we're extending instead of overriding. Otherwise placing
-  // @reactive on a property will break that functionality in those cases.
-  //
-  // Right now, originalGet will only be called if it is on the current
-  // prototype, but we aren't checking for any accessor that may be inherited.
-
   if (descriptor) {
     originalGet = descriptor.get;
     originalSet = descriptor.set;
+
+    // If we have a signal accessor, no need to create another signal accessor.
+    if (originalGet && isSignalGetter.has(originalGet)) return;
     if (originalGet || originalSet) {
       // reactivity requires both
       if (!originalGet || !originalSet) {
@@ -138,25 +141,18 @@ function createSignalAccessor(obj, prop, initialVal = obj[prop]) {
 
     set: originalSet ? function (newValue) {
       originalSet.call(this, newValue);
-
-      // __propsSetAtLeastOnce__ is a Set that tracks which reactive
-      // properties have been set at least once. @lume/element uses this
-      // to detect if a reactive prop has been set, and if so will not
-      // overwrite the value with any value from custom element
-      // pre-upgrade.
-      if (!this.__propsSetAtLeastOnce__) this.__propsSetAtLeastOnce__ = new Set();
-      this.__propsSetAtLeastOnce__.add(prop);
+      trackPropSetAtLeastOnce(this, prop);
       const v = getSignal(this, prop);
       // write
       if (typeof newValue === 'function') v[1](() => newValue);else v[1](newValue);
     } : function (newValue) {
-      if (!this.__propsSetAtLeastOnce__) this.__propsSetAtLeastOnce__ = new Set();
-      this.__propsSetAtLeastOnce__.add(prop);
+      trackPropSetAtLeastOnce(this, prop);
       const v = getSignal(this, prop);
       // write
       if (typeof newValue === 'function') v[1](() => newValue);else v[1](newValue);
     }
   };
+  isSignalGetter.add(descriptor.get);
   Object.defineProperty(obj, prop, descriptor);
   if (!signalifiedProps.has(obj)) signalifiedProps.set(obj, new Set());
   signalifiedProps.get(obj).add(prop);

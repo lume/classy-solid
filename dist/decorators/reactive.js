@@ -1,6 +1,7 @@
 import { getListener, untrack } from 'solid-js';
 import { getKey, getPropsToSignalify, resetPropsToSignalify } from './signal.js';
 import { getCreateSignalAccessor } from '../signalify.js';
+
 /**
  * Access key for classy-solid private internal APIs.
  */
@@ -38,8 +39,7 @@ const hasOwnProperty = Object.prototype.hasOwnProperty;
  * })
  * ```
  */
-export function reactive(...args) {
-  const [value, context] = args;
+export function reactive(value, context) {
   if (typeof value !== 'function' || context && context.kind !== 'class') throw new TypeError('The @reactive decorator is only for use on classes.');
   const Class = value;
   const props = getPropsToSignalify(accessKey);
@@ -55,6 +55,12 @@ export function reactive(...args) {
   class ReactiveDecorator extends Class {
     constructor(...args) {
       let instance;
+
+      // Ensure that if we're in an effect that `new`ing a class does not
+      // track signal reads, otherwise we'll get into an infinite loop. If
+      // someone want to trigger an effect based on properties of the
+      // `new`ed instance, they can explicitly read the properties
+      // themselves in the effect, making their intent clear.
       if (getListener()) untrack(() => instance = Reflect.construct(Class, args, new.target)); // super()
       else super(...args), instance = this;
       for (const [prop, {
@@ -64,7 +70,8 @@ export function reactive(...args) {
         if (!(hasOwnProperty.call(instance, prop) || hasOwnProperty.call(Class.prototype, prop))) {
           throw new Error(`Property "${prop.toString()}" not found on instance of class decorated with \`@reactive\`. Did you forget to use the \`@reactive\` decorator on one of your classes that has a "${prop.toString()}" property decorated with \`@signal\`?`);
         }
-        createSignalAccessor(instance, prop, initialValue);
+        const override = true;
+        createSignalAccessor(instance, prop, initialValue, override);
       }
       return instance;
     }

@@ -146,29 +146,67 @@ describe('classy-solid', () => {
       const b = new _Butterfly();
       testButterflyProps(b);
     });
-    it('does not prevent superclass constructor from receiving subclass constructor args', () => {
-      var _initClass2, _initClass3, _init_colors2, _initProto2, _Insect2;
-      let _Insect;
-      class Insect {
+    it('maintains reactivity in subclass overridden fields', async () => {
+      var _initClass2, _init_colors2, _initProto2, _initClass3, _init_colors3, _Butterfly3;
+      let _Butterfly2;
+      class Butterfly {
         static {
-          [_Insect, _initClass2] = _applyDecs(this, [], [reactive]).c;
+          ({
+            e: [_init_colors2, _initProto2],
+            c: [_Butterfly2, _initClass2]
+          } = _applyDecs(this, [[signal, 3, "wingSize"], [signal, 0, "colors"]], [reactive]));
         }
-        constructor(double) {
-          this.double = double;
+        colors = (_initProto2(this), _init_colors2(this, 3));
+        _wingSize = 2;
+        get wingSize() {
+          return this._wingSize;
+        }
+        set wingSize(s) {
+          this._wingSize = s;
         }
         static {
           _initClass2();
         }
       }
-      let _Butterfly2;
+      let _SubButterfly;
+      class SubButterfly extends (_Butterfly3 = _Butterfly2) {
+        static {
+          ({
+            e: [_init_colors3],
+            c: [_SubButterfly, _initClass3]
+          } = _applyDecs(this, [[signal, 0, "colors"]], [reactive], 0, void 0, _Butterfly3));
+        }
+        colors = _init_colors3(this, 3);
+        static {
+          _initClass3();
+        }
+      }
+      const b = new _SubButterfly();
+      testButterflyProps(b);
+    });
+    it('does not prevent superclass constructor from receiving subclass constructor args', () => {
+      var _initClass4, _initClass5, _init_colors4, _initProto3, _Insect2;
+      let _Insect;
+      class Insect {
+        static {
+          [_Insect, _initClass4] = _applyDecs(this, [], [reactive]).c;
+        }
+        constructor(double) {
+          this.double = double;
+        }
+        static {
+          _initClass4();
+        }
+      }
+      let _Butterfly4;
       class Butterfly extends (_Insect2 = _Insect) {
         static {
           ({
-            e: [_init_colors2, _initProto2],
-            c: [_Butterfly2, _initClass3]
+            e: [_init_colors4, _initProto3],
+            c: [_Butterfly4, _initClass5]
           } = _applyDecs(this, [[signal, 3, "wingSize"], [signal, 0, "colors"]], [reactive], 0, void 0, _Insect2));
         }
-        colors = (_initProto2(this), _init_colors2(this, 3));
+        colors = (_initProto3(this), _init_colors4(this, 3));
         _wingSize = 2;
         get wingSize() {
           return this._wingSize;
@@ -180,10 +218,10 @@ describe('classy-solid', () => {
           super(arg * 2);
         }
         static {
-          _initClass3();
+          _initClass5();
         }
       }
-      const b = new _Butterfly2(4);
+      const b = new _Butterfly4(4);
       expect(b.double).toBe(8);
       testButterflyProps(b);
     });
@@ -311,7 +349,7 @@ describe('classy-solid', () => {
     });
     it('throws an error when @signal is used without @reactive', async () => {
       expect(() => {
-        var _init_foo, _initClass4, _init_bar;
+        var _init_foo, _initClass6, _init_bar;
         // user forgot to use @reactive here
         class Foo {
           static {
@@ -325,12 +363,12 @@ describe('classy-solid', () => {
           static {
             ({
               e: [_init_bar],
-              c: [_Bar, _initClass4]
+              c: [_Bar, _initClass6]
             } = _applyDecs(this, [[signal, 0, "bar"]], [reactive]));
           }
           bar = _init_bar(this, 123);
           static {
-            _initClass4();
+            _initClass6();
           }
         }
         new _Bar();
@@ -364,7 +402,7 @@ describe('classy-solid', () => {
     });
 
     it('works with function values', () => {
-      var _initClass5, _init_do;
+      var _initClass7, _init_do;
       let _Doer;
       // This test ensures that functions are handled propertly, because
       // if passed without being wrapped to a signal setter it will be
@@ -375,12 +413,12 @@ describe('classy-solid', () => {
         static {
           ({
             e: [_init_do],
-            c: [_Doer, _initClass5]
+            c: [_Doer, _initClass7]
           } = _applyDecs(this, [[signal, 0, "do"]], [reactive]));
         }
         do = _init_do(this, null);
         static {
-          _initClass5();
+          _initClass7();
         }
       }
       const doer = new _Doer();
@@ -446,18 +484,18 @@ describe('classy-solid', () => {
       expect(count).toBe(1);
     });
     it('automatically does not track reactivity in constructors when using decorators', () => {
-      var _initClass6, _init_amount, _initClass7, _init_double, _Foo2;
+      var _initClass8, _init_amount, _initClass9, _init_double, _Foo2;
       let _Foo;
       class Foo {
         static {
           ({
             e: [_init_amount],
-            c: [_Foo, _initClass6]
+            c: [_Foo, _initClass8]
           } = _applyDecs(this, [[signal, 0, "amount"]], [reactive]));
         }
         amount = _init_amount(this, 3);
         static {
-          _initClass6();
+          _initClass8();
         }
       }
       let _Bar2;
@@ -465,7 +503,7 @@ describe('classy-solid', () => {
         static {
           ({
             e: [_init_double],
-            c: [_Bar2, _initClass7]
+            c: [_Bar2, _initClass9]
           } = _applyDecs(this, [[signal, 0, "double"]], [reactive], 0, void 0, _Foo2));
         }
         double = _init_double(this, 0);
@@ -474,7 +512,7 @@ describe('classy-solid', () => {
           this.double = this.amount * 2; // this read of .amount should not be tracked
         }
         static {
-          _initClass7();
+          _initClass9();
         }
       }
       let b;
@@ -497,13 +535,13 @@ describe('classy-solid', () => {
   });
   describe('@component', () => {
     it('allows to define a class using class syntax', () => {
-      var _initClass8;
+      var _initClass10;
       let onMountCalled = false;
       let onCleanupCalled = false;
       let _CoolComp;
       class CoolComp {
         static {
-          [_CoolComp, _initClass8] = _applyDecs(this, [], [component]).c;
+          [_CoolComp, _initClass10] = _applyDecs(this, [], [component]).c;
         }
         onMount() {
           onMountCalled = true;
@@ -516,7 +554,7 @@ describe('classy-solid', () => {
           return html`<div>hello classes!</div>`;
         }
         static {
-          _initClass8();
+          _initClass10();
         }
       }
       const root = document.createElement('div');
@@ -531,13 +569,13 @@ describe('classy-solid', () => {
 
       // throws on non-class use
       expect(() => {
-        var _initProto3;
+        var _initProto4;
         class CoolComp {
           static {
-            [_initProto3] = _applyDecs(this, [[component, 2, "onMount"]], []).e;
+            [_initProto4] = _applyDecs(this, [[component, 2, "onMount"]], []).e;
           }
           constructor(...args) {
-            _initProto3(this);
+            _initProto4(this);
           }
           // @ts-ignore
           onMount() {}
@@ -546,13 +584,13 @@ describe('classy-solid', () => {
       }).toThrow('component decorator should only be used on a class');
     });
     it('works in tandem with @reactive and @signal for reactivity', async () => {
-      var _initClass9, _init_foo2, _init_bar2;
+      var _initClass11, _init_foo2, _init_bar2;
       let _CoolComp2;
       class CoolComp {
         static {
           ({
             e: [_init_foo2, _init_bar2],
-            c: [_CoolComp2, _initClass9]
+            c: [_CoolComp2, _initClass11]
           } = _applyDecs(this, [[signal, 0, "foo"], [signal, 0, "bar"]], [component, reactive]));
         }
         foo = _init_foo2(this, 0);
@@ -561,7 +599,7 @@ describe('classy-solid', () => {
           return html`<div>foo: ${() => this.foo}, bar: ${() => this.bar}</div>`;
         }
         static {
-          _initClass9();
+          _initClass11();
         }
       }
       const root = document.createElement('div');
@@ -612,13 +650,13 @@ describe('classy-solid', () => {
 
     // FIXME not working, the spread doesn't seem to do anything.
     xit('works with reactive spreads', async () => {
-      var _initClass10, _init_foo3, _init_bar3;
+      var _initClass12, _init_foo3, _init_bar3;
       let _CoolComp3;
       class CoolComp {
         static {
           ({
             e: [_init_foo3, _init_bar3],
-            c: [_CoolComp3, _initClass10]
+            c: [_CoolComp3, _initClass12]
           } = _applyDecs(this, [[signal, 0, "foo"], [signal, 0, "bar"]], [component, reactive]));
         }
         foo = _init_foo3(this, 0);
@@ -627,7 +665,7 @@ describe('classy-solid', () => {
           return html`<div>foo: ${() => this.foo}, bar: ${() => this.bar}</div>`;
         }
         static {
-          _initClass10();
+          _initClass12();
         }
       }
       const root = document.createElement('div');

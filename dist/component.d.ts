@@ -1,6 +1,6 @@
 import { Constructor } from 'lowclass';
 import { type JSX } from 'solid-js';
-export declare function component<T extends Constructor>(Base: T, ...args: any): any;
+export declare function component<T extends Constructor>(Base: T, context?: DecoratorContext): any;
 declare module 'solid-js' {
     namespace JSX {
         interface ElementClass {

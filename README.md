@@ -577,3 +577,105 @@ class Counter {
 	on = true
 }
 ```
+
+## `Effectful`
+
+`Effectful` is a class-factory mixin that gives your class a `createEffect()`
+method, along with a `stopEffects()` method that will stop all current effects.
+
+Here's an example that shows a custom element that starts effects on connected,
+and cleans them up on disconnect:
+
+```js
+@reactive
+class CounterDisplay extends HTMLElement {
+	@signal count
+
+	get double() {
+		return this.count * 2
+	}
+
+	constructor() {
+		super()
+		this.attachShadow({mode: 'open'})
+		this.shadowRoot.innerHTML = `<div></div>`
+	}
+
+	connectedCallback() {
+		// Create some effects
+		this.createEffect(() => {
+			this.shadowRoot.firstElementChild.textContent = `Count is: ${this.count}`
+		})
+
+		this.createEffect(() => {
+			console.log('count:', this.count)
+		})
+
+		this.createEffect(() => {
+			console.log('double:', this.double)
+		})
+	}
+
+	disconnectedCallback() {
+		// Stop the effects
+		this.stopEffects()
+	}
+}
+
+customElements.define('counter-display', CounterDisplay)
+```
+
+`createEffect()` creates a single owner root for all effects for the current
+instance, unless it is called inside another root in which case it'll use that
+root.
+
+## `Effects`
+
+An instantiation of `Effectful(Object)` as a shortcut.
+
+Useful when not extending from a mixin:
+
+```js
+class MyClass extends Effects {
+    constructor() {
+        this.createEffect(() => {...})
+        this.createEffect(() => {...})
+    }
+
+    dispose() {
+        this.stopEffects()
+    }
+}
+
+const o = new MyClass()
+
+// ...later, when finished...
+o.dispose()
+```
+
+Useful when separate groups of effects are needed where each group can be stopped indepently of others.
+
+```js
+class MyClass {
+    specialEffects = new Effects()
+    otherEffects = new Effects()
+
+    doSpecialStuff() {
+        this.specialEffects.createEffect(() => {...})
+        this.specialEffects.createEffect(() => {...})
+    }
+
+    cleanupSpecialStuff() {
+        this.specialEffects.stopEffects()
+    }
+
+    doOtherStuff() {
+        this.otherEffects.createEffect(() => {...})
+        this.otherEffects.createEffect(() => {...})
+    }
+
+    cleanupOtherStuff() {
+        this.otherEffects.stopEffects()
+    }
+}
+```

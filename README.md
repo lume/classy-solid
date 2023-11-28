@@ -587,8 +587,10 @@ Here's an example that shows a custom element that starts effects on connected,
 and cleans them up on disconnect:
 
 ```js
+import {reactive, signal, Effectful} from 'classy-solid'
+
 @reactive
-class CounterDisplay extends HTMLElement {
+class CounterDisplay extends Effectful(HTMLElement) {
 	@signal count
 
 	get double() {

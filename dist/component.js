@@ -8,15 +8,11 @@ import { onMount, createEffect, onCleanup, $TRACK, createMemo } from 'solid-js';
  *
  * Example:
  *
- * > Note in the following example that `\@` should be written as `@` without
- * the back slash. The back slash prevents JSDoc parsing errors in this comment
- * in TypeScript.  https://github.com/microsoft/TypeScript/issues/47679
- *
  * ```js
- * \@component
- * \@reactive
+ * ⁣@component
+ * ⁣@reactive
  * class MyComp {
- *   \@signal last = 'none'
+ *   ⁣@signal last = 'none'
  *
  *   onMount() {
  *     console.log('mounted')

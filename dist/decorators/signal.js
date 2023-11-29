@@ -43,17 +43,13 @@ function isMemberDecorator(context) {
  *
  * Example:
  *
- * > Note in the following example that `\@` should be written as `@` without
- * the back slash. The back slash prevents JSDoc parsing errors in this comment
- * in TypeScript.  https://github.com/microsoft/TypeScript/issues/47679
- *
  * ```js
  * import {reactive, signal} from 'classy-solid'
  * import {createEffect} from 'solid-js'
  *
- * \@reactive
+ * ⁣@reactive
  * class Counter {
- *   \@signal count = 0
+ *   ⁣@signal count = 0
  *
  *   constructor() {
  *     setInterval(() => this.count++, 1000)
@@ -100,11 +96,11 @@ let checkerQueued = false;
 
 /**
  * This throws an error in some cases of an end dev forgetting to decorate a
- * class with @reactive if they used @signal on that class's fields.
+ * class with `@reactive` if they used `@signal` on that class's fields.
  *
  * This doesn't work all the time, only when the very last class decorated is
  * missing @reactive, but something is better than nothing. There's another
- * similar check performed in the @reactive decorator.
+ * similar check performed in the `@reactive` decorator.
  */
 function queueReactiveDecoratorChecker(props) {
   if (checkerQueued) return;

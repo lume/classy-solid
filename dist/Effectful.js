@@ -7,15 +7,15 @@ import { createEffect, createRoot, getOwner, runWithOwner } from 'solid-js';
  * Create Solid.js effects using `this.createEffect(fn)` and easily stop them
  * all by calling `this.stopEffects()`.
  *
- * Example (note, replace double ampersands with one ampersand):
+ * Example:
  *
  * ```js
  * import {element, Effectful} from 'lume'
  *
- * @@element('my-element')
+ * ⁣@element('my-element')
  * class MyElement extends Effectful(HTMLElement) {
- *   @@attribute foo = "foo"
- *   @@attribute bar = "bar"
+ *   ⁣@attribute foo = "foo"
+ *   ⁣@attribute bar = "bar"
  *
  *   connectedCallback() {
  *     // Log `foo` and `bar` any time either of them change.

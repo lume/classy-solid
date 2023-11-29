@@ -1,6 +1,6 @@
 {
 	"name": "classy-solid",
-	"version": "0.3.3",
+	"version": "0.3.4",
 	"description": "Solid.js reactivity patterns for classes, and class components.",
 	"info": "The `classy-solid` package gives you a `@signal` decorator to make reactive class properties, an `@component` decorator to use classes as Solid components, and some other APIs to simplify usage of reactive patterns in classes. It is still early, more features and changes to come!",
 	"author": "Joe Pea <joe@trusktr.io>",

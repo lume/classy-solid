@@ -1,6 +1,5 @@
 import {getInheritedDescriptor} from 'lowclass'
 import {createSignal, $PROXY} from 'solid-js'
-import type {Signal} from 'solid-js/types/reactive/signal'
 import type {PropKey, PropSpec} from './decorators/types.js'
 
 const signalifiedProps = new WeakMap<object, Set<string | symbol>>()
@@ -136,6 +135,7 @@ function createSignalAccessor<T extends object>(
 		// Even if override is true, if we have a signal accessor, there's no
 		// need to replace it with another signal accessor. We only need to
 		// override when the current descriptor is not a signal accessor.
+		// TODO this needs tests.
 		if (originalGet && isSignalGetter.has(originalGet)) return
 
 		if (originalGet || originalSet) {
@@ -170,18 +170,18 @@ function createSignalAccessor<T extends object>(
 		}
 	}
 
+	const s = createSignal(initialVal, {equals: false})
+
 	descriptor = {
 		configurable: true,
 		enumerable: true,
 		...descriptor,
 		get: originalGet
 			? function (this: T): unknown {
-					const s = getSignal(this, prop, initialVal)
 					s[0]() // read
 					return originalGet!.call(this)
 			  }
 			: function (this: any): unknown {
-					const s = getSignal(this, prop, initialVal)
 					return s[0]() // read
 			  },
 		set: originalSet
@@ -190,18 +190,16 @@ function createSignalAccessor<T extends object>(
 
 					trackPropSetAtLeastOnce(this, prop)
 
-					const v = getSignal(this, prop)
 					// write
-					if (typeof newValue === 'function') v[1](() => newValue)
-					else v[1](newValue)
+					if (typeof newValue === 'function') s[1](() => newValue)
+					else s[1](newValue)
 			  }
 			: function (this: any, newValue: unknown) {
 					trackPropSetAtLeastOnce(this, prop)
 
-					const v = getSignal(this, prop)
 					// write
-					if (typeof newValue === 'function') v[1](() => newValue)
-					else v[1](newValue)
+					if (typeof newValue === 'function') s[1](() => newValue)
+					else s[1](newValue)
 			  },
 	}
 
@@ -211,21 +209,6 @@ function createSignalAccessor<T extends object>(
 
 	if (!signalifiedProps.has(obj)) signalifiedProps.set(obj, new Set())
 	signalifiedProps.get(obj)!.add(prop)
-}
-
-const signals = new WeakMap<object, Map<PropKey, Signal<unknown>>>()
-
-function getSignal<T>(instance: object, signalKey: PropKey, initialValue: T = undefined!): Signal<T> {
-	if (!signals.has(instance)) signals.set(instance, new Map())
-
-	let s = signals.get(instance)!.get(signalKey) as Signal<T> | undefined
-
-	if (s) return s
-
-	s = createSignal<T>(initialValue, {equals: false})
-	signals.get(instance)?.set(signalKey, s as Signal<unknown>)
-
-	return s
 }
 
 type Obj = Record<PropKey, unknown>

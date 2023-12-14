@@ -46,8 +46,12 @@ export function Effectful(Base) {
      * top-level effect) then it implicitly creates an owner. Normally with
      * Solid.js you must use createRoot with top-level effects, and this
      * prevents that for convenience.
+     *
+     * All effects of the current Effectful instance run in their own
+     * reactive context (root).
      */
     createEffect(fn) {
+      // Use the same root for all effects of the instance.
       if (!this.#owner) {
         createRoot(dispose => {
           this.#owner = getOwner();

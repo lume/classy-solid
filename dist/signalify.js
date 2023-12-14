@@ -117,6 +117,7 @@ override = false) {
     // Even if override is true, if we have a signal accessor, there's no
     // need to replace it with another signal accessor. We only need to
     // override when the current descriptor is not a signal accessor.
+    // TODO this needs tests.
     if (originalGet && isSignalGetter.has(originalGet)) return;
     if (originalGet || originalSet) {
       // reactivity requires both
@@ -143,46 +144,36 @@ override = false) {
       delete descriptor.writable;
     }
   }
+  const s = createSignal(initialVal, {
+    equals: false
+  });
   descriptor = {
     configurable: true,
     enumerable: true,
     ...descriptor,
     get: originalGet ? function () {
-      const s = getSignal(this, prop, initialVal);
       s[0](); // read
       return originalGet.call(this);
     } : function () {
-      const s = getSignal(this, prop, initialVal);
       return s[0](); // read
     },
 
     set: originalSet ? function (newValue) {
       originalSet.call(this, newValue);
       trackPropSetAtLeastOnce(this, prop);
-      const v = getSignal(this, prop);
+
       // write
-      if (typeof newValue === 'function') v[1](() => newValue);else v[1](newValue);
+      if (typeof newValue === 'function') s[1](() => newValue);else s[1](newValue);
     } : function (newValue) {
       trackPropSetAtLeastOnce(this, prop);
-      const v = getSignal(this, prop);
+
       // write
-      if (typeof newValue === 'function') v[1](() => newValue);else v[1](newValue);
+      if (typeof newValue === 'function') s[1](() => newValue);else s[1](newValue);
     }
   };
   isSignalGetter.add(descriptor.get);
   Object.defineProperty(obj, prop, descriptor);
   if (!signalifiedProps.has(obj)) signalifiedProps.set(obj, new Set());
   signalifiedProps.get(obj).add(prop);
-}
-const signals = new WeakMap();
-function getSignal(instance, signalKey, initialValue = undefined) {
-  if (!signals.has(instance)) signals.set(instance, new Map());
-  let s = signals.get(instance).get(signalKey);
-  if (s) return s;
-  s = createSignal(initialValue, {
-    equals: false
-  });
-  signals.get(instance)?.set(signalKey, s);
-  return s;
 }
 //# sourceMappingURL=signalify.js.map

@@ -25,5 +25,5 @@ import type { AnyConstructor } from 'lowclass';
  * })
  * ```
  */
-export declare function reactive(value: AnyConstructor, context: ClassDecoratorContext): any;
+export declare function reactive(value: AnyConstructor, context: ClassDecoratorContext | undefined): any;
 //# sourceMappingURL=reactive.d.ts.map

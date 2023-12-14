@@ -170,12 +170,12 @@ describe('classy-solid', () => {
 
 			@reactive
 			class SubButterfly extends Butterfly {
-				@signal override colors = 3
+				@signal override colors = 123
 			}
 
 			const b = new SubButterfly()
 
-			testButterflyProps(b)
+			testButterflyProps(b, 123)
 		})
 
 		it('does not prevent superclass constructor from receiving subclass constructor args', () => {
@@ -530,8 +530,8 @@ describe('classy-solid', () => {
 
 			// If the effect ran only once initially, not when setting b.colors,
 			// then both variables should reference the same instance
-			expect(b!).toBe(b2)
 			expect(count).toBe(1)
+			expect(b!).toBe(b2)
 		})
 	})
 
@@ -689,7 +689,7 @@ describe('classy-solid', () => {
 	})
 })
 
-function testButterflyProps(b: {colors: number; wingSize: number; _wingSize: number}) {
+function testButterflyProps(b: {colors: number; wingSize: number; _wingSize: number}, initialColors = 3) {
 	let count = 0
 
 	createRoot(() => {
@@ -700,14 +700,14 @@ function testButterflyProps(b: {colors: number; wingSize: number; _wingSize: num
 		})
 	})
 
-	expect(b.colors).toBe(3, 'initial colors value')
+	expect(b.colors).toBe(initialColors, 'initial colors value')
 	expect(b.wingSize).toBe(2, 'initial wingSize value')
 	expect(b._wingSize).toBe(2, 'ensure the original accessor works')
 	expect(count).toBe(1, 'Should be reactive')
 
 	b.colors++
 
-	expect(b.colors).toBe(4, 'incremented colors value')
+	expect(b.colors).toBe(initialColors + 1, 'incremented colors value')
 	expect(count).toBe(2, 'Should be reactive')
 
 	b.wingSize++

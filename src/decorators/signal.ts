@@ -44,6 +44,8 @@ function isMemberDecorator(context: DecoratorContext): context is ClassMemberDec
  * signals, making them reactive. Don't forget that the class in which `@signal`
  * is used must be decorated with `@reactive`.
  *
+ * Related: See the Solid.js `createSignal` API for creating signals.
+ *
  * Example:
  *
  * ```js

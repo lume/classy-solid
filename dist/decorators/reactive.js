@@ -36,9 +36,10 @@ const hasOwnProperty = Object.prototype.hasOwnProperty;
  * ```
  */
 export function reactive(value, context) {
+  // context may be undefined when unsing reactive() without decorators
   if (typeof value !== 'function' || context && context.kind !== 'class') throw new TypeError('The @reactive decorator is only for use on classes.');
   const Class = value;
-  const props = getPropsToSignalify(accessKey);
+  const signalProps = getPropsToSignalify(accessKey);
 
   // For the current class decorated with @reactive, we reset the map, so that
   // for the next class decorated with @reactive we track only that next
@@ -61,7 +62,7 @@ export function reactive(value, context) {
       else super(...args), instance = this;
       for (const [prop, {
         initialValue
-      }] of props) {
+      }] of signalProps) {
         // @prod-prune
         if (!(hasOwnProperty.call(instance, prop) || hasOwnProperty.call(Class.prototype, prop))) {
           throw new Error(`Property "${prop.toString()}" not found on instance of class decorated with \`@reactive\`. Did you forget to use the \`@reactive\` decorator on one of your classes that has a "${prop.toString()}" property decorated with \`@signal\`?`);

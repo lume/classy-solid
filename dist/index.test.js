@@ -176,13 +176,13 @@ describe('classy-solid', () => {
             c: [_SubButterfly, _initClass3]
           } = _applyDecs(this, [[signal, 0, "colors"]], [reactive], 0, void 0, _Butterfly3));
         }
-        colors = _init_colors3(this, 3);
+        colors = _init_colors3(this, 123);
         static {
           _initClass3();
         }
       }
       const b = new _SubButterfly();
-      testButterflyProps(b);
+      testButterflyProps(b, 123);
     });
     it('does not prevent superclass constructor from receiving subclass constructor args', () => {
       var _initClass4, _initClass5, _init_colors4, _initProto3, _Insect2;
@@ -529,8 +529,8 @@ describe('classy-solid', () => {
 
       // If the effect ran only once initially, not when setting b.colors,
       // then both variables should reference the same instance
-      expect(b).toBe(b2);
       expect(count).toBe(1);
+      expect(b).toBe(b2);
     });
   });
   describe('@component', () => {
@@ -689,7 +689,7 @@ describe('classy-solid', () => {
     });
   });
 });
-function testButterflyProps(b) {
+function testButterflyProps(b, initialColors = 3) {
   let count = 0;
   createRoot(() => {
     createComputed(() => {
@@ -698,12 +698,12 @@ function testButterflyProps(b) {
       count++;
     });
   });
-  expect(b.colors).toBe(3, 'initial colors value');
+  expect(b.colors).toBe(initialColors, 'initial colors value');
   expect(b.wingSize).toBe(2, 'initial wingSize value');
   expect(b._wingSize).toBe(2, 'ensure the original accessor works');
   expect(count).toBe(1, 'Should be reactive');
   b.colors++;
-  expect(b.colors).toBe(4, 'incremented colors value');
+  expect(b.colors).toBe(initialColors + 1, 'incremented colors value');
   expect(count).toBe(2, 'Should be reactive');
   b.wingSize++;
   expect(b.wingSize).toBe(3, 'incremented wingSize value');

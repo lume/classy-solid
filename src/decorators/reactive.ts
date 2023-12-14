@@ -84,6 +84,10 @@ export function reactive(value: AnyConstructor, context: ClassDecoratorContext |
 				createSignalAccessor(instance, prop as Exclude<keyof ReactiveDecorator, number>, initialValue, override)
 			}
 
+			// TODO
+			// for (const prop of memoProps) {
+			// }
+
 			return instance
 		}
 	}

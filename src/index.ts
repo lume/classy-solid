@@ -7,4 +7,4 @@ export * from './Effectful.js'
 
 export * from './decorators/index.js'
 
-export const version = '0.3.4'
+export const version = '0.3.5'

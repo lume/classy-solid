@@ -5,5 +5,5 @@ export * from './createSignalObject.js';
 export * from './signalify.js';
 export * from './Effectful.js';
 export * from './decorators/index.js';
-export declare const version = "0.3.5";
+export declare const version = "0.3.6";
 //# sourceMappingURL=index.d.ts.map

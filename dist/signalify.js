@@ -1,5 +1,5 @@
 import { getInheritedDescriptor } from 'lowclass';
-import { createSignal, $PROXY } from 'solid-js';
+import { createSignal, $PROXY, untrack } from 'solid-js';
 const signalifiedProps = new WeakMap();
 
 /**
@@ -84,7 +84,10 @@ function trackPropSetAtLeastOnce(instance, prop) {
   propsSetAtLeastOnce.get(instance).add(prop);
 }
 const isSignalGetter = new WeakSet();
-function createSignalAccessor(obj, prop, initialVal = obj[prop],
+function createSignalAccessor(obj, prop,
+// Untrack here to be extra safe this doesn't count as a dependency and
+// cause a reactivity loop.
+initialVal = untrack(() => obj[prop]),
 // If an object already has a particular signalified property, override it
 // with a new one anyway (useful for maintaining consistency with class
 // inheritance where class fields always override fields from base classes

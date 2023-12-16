@@ -425,6 +425,30 @@ describe('classy-solid', () => {
 			expect(doer.do()).toBe(123)
 		})
 
+		describe('signalify', () => {
+			it('is not tracked inside of an effect to prevent loops', () => {
+				// Library author provides obj
+				const obj = {n: 123}
+				signalify(obj, 'n') // library author might signalify obj.n
+
+				// User code:
+				createEffect(() => {
+					// o.n may or may not already be signalified, user does not know, but they want to be sure they can react to its changes.
+					signalify(obj, 'n')
+
+					obj.n = 123 // does not make an infinite loop
+
+					// A deeper effect will be reading the property.
+					createEffect(() => {
+						console.log(obj.n)
+					})
+				})
+
+				// No expectations in this test, the test passes if a maximum
+				// callstack size error (infinite loop) does not happen.
+			})
+		})
+
 		it('show that signalify causes constructor to be reactive when used manually instead of decorators', () => {
 			class Foo {
 				amount = 3

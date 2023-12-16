@@ -1,5 +1,5 @@
 import {getInheritedDescriptor} from 'lowclass'
-import {createSignal, $PROXY} from 'solid-js'
+import {createSignal, $PROXY, untrack} from 'solid-js'
 import type {PropKey, PropSpec} from './decorators/types.js'
 
 const signalifiedProps = new WeakMap<object, Set<string | symbol>>()
@@ -98,7 +98,9 @@ const isSignalGetter = new WeakSet<Function>()
 function createSignalAccessor<T extends object>(
 	obj: T,
 	prop: Exclude<keyof T, number>,
-	initialVal: unknown = obj[prop],
+	// Untrack here to be extra safe this doesn't count as a dependency and
+	// cause a reactivity loop.
+	initialVal: unknown = untrack(() => obj[prop]),
 	// If an object already has a particular signalified property, override it
 	// with a new one anyway (useful for maintaining consistency with class
 	// inheritance where class fields always override fields from base classes

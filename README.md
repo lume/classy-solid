@@ -681,3 +681,71 @@ class MyClass {
     }
 }
 ```
+
+## `syncSignals`
+
+Syncs two signals together so that setting one signal's value updates the
+other, and vice versa, without an infinite loop.
+
+Example:
+
+```js
+const [foo, setFoo] = createSignal(0)
+const [bar, setBar] = createSignal(0)
+
+syncSignals(foo, setFoo, bar, setBar)
+
+createEffect(() => console.log(foo(), bar()))
+
+setFoo(1) // logs "1 1"
+setBar(2) // logs "2 2"
+```
+
+It returns the getters/setters, so it is possible to also create the signals
+and sync them at once:
+
+```js
+const [[foo, setFoo], [bar, setBar]] = syncSignals(...createSignal(0), ...createSignal(0))
+
+createEffect(() => console.log(foo(), bar()))
+
+setFoo(1) // logs "1 1"
+setBar(2) // logs "2 2"
+```
+
+## `createSyncedSignals`
+
+Useful as a shorthand for:
+
+```js
+const [[foo, setFoo], [bar, setBar]] = syncSignals(...createSignal(0), ...createSignal(0))
+```
+
+Example:
+
+```js
+const [[foo, setFoo], [bar, setBar]] = createSyncedSignals(0)
+```
+
+## `createStoppableEffect`
+
+NOTE: Experimental
+
+Create a stoppable effect.
+
+```js
+const effect = createStoppableEffect(() => {
+	// ...
+})
+
+// ...later, stop the effect from running again.
+effect.stop()
+```
+
+Note, this is experimental because when inside of a parent reactive context
+that is long-lived (f.e. for life time of the app), each new effect created
+with this and subsequently stopped will stick around and not be GC'd until
+the parent context is cleaned up (which could be never).
+
+Stopped effects will currently only be GC'd freely when they are created
+outside of a reactive context.

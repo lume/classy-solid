@@ -10,4 +10,4 @@ export * from './syncSignals.js'
 
 export * from './decorators/index.js'
 
-export const version = '0.3.6'
+export const version = '0.3.7'

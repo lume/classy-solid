@@ -1,4 +1,4 @@
-import {getInheritedDescriptor} from 'lowclass'
+import {getInheritedDescriptor} from 'lowclass/dist/getInheritedDescriptor.js'
 import {createSignal, $PROXY, untrack} from 'solid-js'
 import type {PropKey, PropSpec} from './decorators/types.js'
 

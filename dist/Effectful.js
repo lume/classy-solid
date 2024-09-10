@@ -147,5 +147,5 @@ export function Effectful(Base) {
  * specialEffects.stopEffects()
  * ```
  */
-export class Effects extends Effectful(Object) {}
+export class Effects extends Effectful(class {}) {}
 //# sourceMappingURL=Effectful.js.map

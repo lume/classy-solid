@@ -1,4 +1,4 @@
-import { Constructor } from 'lowclass';
+import { Constructor } from 'lowclass/dist/Constructor.js';
 import { type JSX } from 'solid-js';
 /**
  * A decorator for using classes as Solid components.

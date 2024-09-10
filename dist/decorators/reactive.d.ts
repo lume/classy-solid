@@ -1,4 +1,4 @@
-import type { AnyConstructor } from 'lowclass';
+import type { AnyConstructor } from 'lowclass/dist/Constructor.js';
 /**
  * A decorator that makes a class reactive, allowing it have properties
  * decorated with `@signal` to make those properties reactive Solid signals.

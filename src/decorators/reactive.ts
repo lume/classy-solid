@@ -1,4 +1,4 @@
-import type {AnyConstructor} from 'lowclass'
+import type {AnyConstructor} from 'lowclass/dist/Constructor.js'
 import {getListener, untrack} from 'solid-js'
 import {getKey, getPropsToSignalify, resetPropsToSignalify} from './signal.js'
 import {getCreateSignalAccessor} from '../signalify.js'

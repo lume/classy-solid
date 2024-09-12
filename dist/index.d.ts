@@ -8,5 +8,5 @@ export * from './createSyncedSignals.js';
 export * from './signalify.js';
 export * from './syncSignals.js';
 export * from './decorators/index.js';
-export declare const version = "0.3.7";
+export declare const version = "0.3.8";
 //# sourceMappingURL=index.d.ts.map

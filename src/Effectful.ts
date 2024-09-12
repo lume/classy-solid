@@ -1,5 +1,5 @@
 import {type Owner, createEffect, onCleanup, createRoot, getOwner, runWithOwner} from 'solid-js'
-import type {AnyConstructor} from 'lowclass'
+import type {AnyConstructor} from 'lowclass/dist/Constructor.js'
 import {createStoppableEffect, type Effect} from './createStoppableEffect.js'
 
 /**
@@ -153,4 +153,4 @@ export function Effectful<T extends AnyConstructor>(Base: T) {
  * specialEffects.stopEffects()
  * ```
  */
-export class Effects extends Effectful(Object) {}
+export class Effects extends Effectful(class {}) {}

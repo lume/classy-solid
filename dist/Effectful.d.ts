@@ -1,5 +1,5 @@
 import { type Owner } from 'solid-js';
-import type { AnyConstructor } from 'lowclass';
+import type { AnyConstructor } from 'lowclass/dist/Constructor.js';
 import { type Effect } from './createStoppableEffect.js';
 /**
  * @class Effectful -
@@ -105,7 +105,9 @@ declare const Effects_base: {
         "__#1@#createEffect2"(fn: () => void): void;
         "__#1@#stopEffects2"(): void;
     };
-} & ObjectConstructor;
+} & {
+    new (): {};
+};
 /**
  * Shortcut for instantiating or extending directly instead of using the mixin.
  * F.e.

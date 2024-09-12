@@ -1,4 +1,4 @@
-import { Constructor } from 'lowclass';
+import { Constructor } from 'lowclass/dist/Constructor.js';
 import { onMount, createEffect, onCleanup, $TRACK, createMemo } from 'solid-js';
 
 // https://github.com/ryansolid/dom-expressions/pull/122

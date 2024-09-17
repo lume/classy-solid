@@ -160,7 +160,6 @@ override = false) {
     } : function () {
       return s[0](); // read
     },
-
     set: originalSet ? function (newValue) {
       originalSet.call(this, newValue);
       trackPropSetAtLeastOnce(this, prop);

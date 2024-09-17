@@ -9,6 +9,7 @@ import { createSignal } from 'solid-js';
  * signal just like a Setter does.
  */
 // FIXME broke in 1.7.9
+
 /**
  * Create a Solid signal wrapped as a single function that gets the value when
  * no arguments are passed in, and sets the value when an argument is passed in.
@@ -56,6 +57,7 @@ import { createSignal } from 'solid-js';
  *
  * See also `createSignalObject` for another pattern.
  */
+
 export function createSignalFunction(value, options) {
   const [get, set] = createSignal(value, options);
   return function (value) {

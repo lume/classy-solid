@@ -1,1 +1,1 @@
-{"version":3,"file":"index.js","names":[],"sources":["../../src/decorators/index.ts"],"sourcesContent":["// export * from './memo.js'\nexport * from './reactive.js'\nexport * from './signal.js'\n"],"mappings":"AAAA;AACA,cAAc,eAAe;AAC7B,cAAc,aAAa"}
+{"version":3,"file":"index.js","names":[],"sources":["../../src/decorators/index.ts"],"sourcesContent":["// export * from './memo.js'\nexport * from './reactive.js'\nexport * from './signal.js'\n"],"mappings":"AAAA;AACA,cAAc,eAAe;AAC7B,cAAc,aAAa","ignoreList":[]}

@@ -1,8 +1,8 @@
 import {getInheritedDescriptor} from 'lowclass/dist/getInheritedDescriptor.js'
-import {createSignal, $PROXY, untrack} from 'solid-js'
-import type {PropKey, PropSpec} from './decorators/types.js'
+import {createSignal, $PROXY, untrack, type Signal} from 'solid-js'
+import type {PropKey} from './decorators/types.js'
 
-const signalifiedProps = new WeakMap<object, Set<string | symbol>>()
+type AnyObject = Record<PropertyKey, unknown>
 
 /**
  * Convert properties on an object into Solid signal-backed properties.
@@ -53,15 +53,28 @@ const signalifiedProps = new WeakMap<object, Set<string | symbol>>()
  * })
  * ```
  */
-export function signalify<T extends object>(obj: T, ...props: (keyof T)[]): T
 export function signalify<T extends object, K extends keyof T>(obj: T): T
-export function signalify(obj: Obj, ...props: [] | [Map<PropKey, PropSpec>] | PropertyKey[]) {
-	// We cast from PropertyKey[] to PropKey[] because numbers can't actually be keys, only string | symbol.
-	const _props = props.length
-		? (props as PropKey[])
-		: (Object.keys(obj) as PropKey[]).concat(Object.getOwnPropertySymbols(obj))
+export function signalify<T extends object>(obj: T, ...props: (keyof T)[]): T
+export function signalify<T extends object>(obj: T, ...props: [key: keyof T, initialValue: unknown][]): T
+export function signalify(obj: AnyObject, ...props: [key: PropertyKey, initialValue: unknown][] | PropertyKey[]) {
+	// Special case for Solid proxies: if the object is already a solid proxy,
+	// all properties are already reactive, no need to signalify.
+	// @ts-expect-error special indexed access
+	const proxy = obj[$PROXY] as T
+	if (proxy) return obj
 
-	for (const prop of _props) createSignalAccessor(obj, prop)
+	const _props = props.length ? props : (Object.keys(obj) as PropKey[]).concat(Object.getOwnPropertySymbols(obj))
+
+	// Use `untrack` here to be extra safe the initial value doesn't count as a
+	// dependency and cause a reactivity loop.
+	for (const prop of _props) {
+		const isTuple = Array.isArray(prop)
+		// We cast from PropertyKey to PropKey because keys can't actually be number, only string | symbol.
+		const _prop = (isTuple ? prop[0] : prop) as PropKey
+		const initialValue = isTuple ? prop[1] : untrack(() => obj[_prop])
+
+		createSignalAccessor(obj, _prop, initialValue)
+	}
 
 	return obj
 }
@@ -95,36 +108,7 @@ function trackPropSetAtLeastOnce(instance: object, prop: string | symbol) {
 
 const isSignalGetter = new WeakSet<Function>()
 
-function createSignalAccessor<T extends object>(
-	obj: T,
-	prop: Exclude<keyof T, number>,
-	// Untrack here to be extra safe this doesn't count as a dependency and
-	// cause a reactivity loop.
-	initialVal: unknown = untrack(() => obj[prop]),
-	// If an object already has a particular signalified property, override it
-	// with a new one anyway (useful for maintaining consistency with class
-	// inheritance where class fields always override fields from base classes
-	// due to their [[Define]] semantics). False is a good default for signalify()
-	// usage where someone is augmenting an existing object, but true is more
-	// useful with usage of @signal on class fields.
-	//
-	// Note that if @signal were to specify this as false, it would cause
-	// @signal-decorated subclass fields to override base class
-	// @signal-decorated fields with a new value descriptor but without
-	// signalifiying the field, effectively disabling reactivity, which is a bug
-	// (a field decorated with @signal *must* be reactive). The test named
-	// "maintains reactivity in subclass overridden fields" was added to ensure
-	// that the subclass use case works.
-	override = false,
-): void {
-	if (!override && signalifiedProps.get(obj)?.has(prop)) return
-
-	// Special case for Solid proxies: if the object is already a solid proxy,
-	// all properties are already reactive, no need to signalify.
-	// @ts-expect-error special indexed access
-	const proxy = obj[$PROXY] as T
-	if (proxy) return
-
+function createSignalAccessor<T extends object>(obj: T, prop: Exclude<keyof T, number>, initialVal: unknown): void {
 	let descriptor: PropertyDescriptor | undefined = getInheritedDescriptor(obj, prop)
 
 	let originalGet: (() => any) | undefined
@@ -134,20 +118,11 @@ function createSignalAccessor<T extends object>(
 		originalGet = descriptor.get
 		originalSet = descriptor.set
 
-		// Even if override is true, if we have a signal accessor, there's no
-		// need to replace it with another signal accessor. We only need to
-		// override when the current descriptor is not a signal accessor.
-		// TODO this needs tests.
 		if (originalGet && isSignalGetter.has(originalGet)) return
 
 		if (originalGet || originalSet) {
 			// reactivity requires both
-			if (!originalGet || !originalSet) {
-				console.warn(
-					`The \`@signal\` decorator was used on an accessor named "${prop.toString()}" which had a getter or a setter, but not both. Reactivity on accessors works only when accessors have both get and set. In this case the decorator does not do anything.`,
-				)
-				return
-			}
+			if (!originalGet || !originalSet) return warnNotReadWrite(prop)
 
 			delete descriptor.get
 			delete descriptor.set
@@ -160,46 +135,45 @@ function createSignalAccessor<T extends object>(
 
 			// if it isn't writable, we don't need to make a reactive variable because
 			// the value won't change
-			if (!descriptor.writable) {
-				console.warn(
-					`The \`@signal\` decorator was used on a property named "${prop.toString()}" that is not writable. Reactivity is not enabled for non-writable properties.`,
-				)
-				return
-			}
+			if (!descriptor.writable) return warnNotWritable(prop)
 
 			delete descriptor.value
 			delete descriptor.writable
 		}
 	}
 
-	const s = createSignal(initialVal, {equals: false})
+	const signalStorage = new WeakMap<object, Signal<unknown>>()
 
 	descriptor = {
 		configurable: true,
 		enumerable: true,
 		...descriptor,
 		get: originalGet
-			? function (this: T): unknown {
+			? function (this: object): unknown {
+					const s = getSignal(this, signalStorage, initialVal)
 					s[0]() // read
 					return originalGet!.call(this)
 			  }
-			: function (this: any): unknown {
+			: function (this: object): unknown {
+					const s = getSignal(this, signalStorage, initialVal)
 					return s[0]() // read
 			  },
 		set: originalSet
-			? function (this: any, newValue: unknown) {
+			? function (this: object, newValue: unknown) {
 					originalSet!.call(this, newValue)
 
 					trackPropSetAtLeastOnce(this, prop)
 
 					// write
+					const s = getSignal(this, signalStorage, initialVal)
 					if (typeof newValue === 'function') s[1](() => newValue)
 					else s[1](newValue)
 			  }
-			: function (this: any, newValue: unknown) {
+			: function (this: object, newValue: unknown) {
 					trackPropSetAtLeastOnce(this, prop)
 
 					// write
+					const s = getSignal(this, signalStorage, initialVal)
 					if (typeof newValue === 'function') s[1](() => newValue)
 					else s[1](newValue)
 			  },
@@ -208,9 +182,26 @@ function createSignalAccessor<T extends object>(
 	isSignalGetter.add(descriptor.get!)
 
 	Object.defineProperty(obj, prop, descriptor)
-
-	if (!signalifiedProps.has(obj)) signalifiedProps.set(obj, new Set())
-	signalifiedProps.get(obj)!.add(prop)
 }
 
-type Obj = Record<PropKey, unknown>
+function getSignal(obj: object, storage: WeakMap<object, Signal<unknown>>, initialVal: unknown) {
+	let s = storage.get(obj)
+	if (!s) storage.set(obj, (s = createSignal(initialVal, {equals: false})))
+	return s
+}
+
+function warnNotReadWrite(prop: PropertyKey) {
+	console.warn(
+		`Cannot signalify property named "${String(
+			prop,
+		)}" which had a getter or a setter, but not both. Reactivity on accessors works only when accessors have both get and set. Skipped.`,
+	)
+}
+
+function warnNotWritable(prop: PropertyKey) {
+	console.warn(
+		`The \`@signal\` decorator was used on a property named "${String(
+			prop,
+		)}" that is not writable. Reactivity is not enabled for non-writable properties.`,
+	)
+}

@@ -1,4 +1,4 @@
-import { getListener, untrack } from 'solid-js';
+import { getListener, $PROXY, untrack } from 'solid-js';
 import { getKey, getPropsToSignalify, resetPropsToSignalify } from './signal.js';
 import { getCreateSignalAccessor } from '../signalify.js';
 
@@ -60,25 +60,34 @@ export function reactive(value, context) {
       // themselves in the effect, making their intent clear.
       if (getListener()) untrack(() => instance = Reflect.construct(Class, args, new.target)); // super()
       else super(...args), instance = this;
-      for (const [prop, {
-        initialValue
-      }] of signalProps) {
-        // @prod-prune
-        if (!(hasOwnProperty.call(instance, prop) || hasOwnProperty.call(Class.prototype, prop))) {
-          throw new Error(`Property "${prop.toString()}" not found on instance of class decorated with \`@reactive\`. Did you forget to use the \`@reactive\` decorator on one of your classes that has a "${prop.toString()}" property decorated with \`@signal\`?`);
-        }
 
-        // For now at least, we always override like class fields with
-        // [[Define]] semantics. Perhaps when @signal is used on a
-        // getter/setter, we should not override in that case, but patch
-        // the prototype getter/setter (that'll be a bit of work to
-        // implement though).
-        const override = true;
-        createSignalAccessor(instance, prop, initialValue, override);
+      // Special case for Solid proxies: if the object is already a solid proxy,
+      // all properties are already reactive, no need to signalify.
+      // @ts-expect-error special indexed access
+      const proxy = instance[$PROXY];
+      if (proxy) return instance;
+      for (const [prop, propSpec] of signalProps) {
+        const kind = propSpec.kind;
+        let initialValue = propSpec.initialValue;
+
+        // @prod-prune
+        if (!(hasOwnProperty.call(instance, prop) || hasOwnProperty.call(Class.prototype, prop))) throw new PropNotFoundError(prop);
+        const isAccessor = kind === 'getter' || kind === 'setter';
+        if (isAccessor) {
+          const desc = Object.getOwnPropertyDescriptor(Class.prototype, prop);
+          initialValue = desc.get.call(instance);
+          // Note, if the kind was field, then the initializer already defined the initialValue.
+        }
+        createSignalAccessor(isAccessor ? Class.prototype : instance, prop, initialValue);
       }
       return instance;
     }
   }
   return ReactiveDecorator;
+}
+class PropNotFoundError extends Error {
+  constructor(prop) {
+    super(`Property "${String(prop)}" not found on instance of class decorated with \`@reactive\`. Did you forget to use the \`@reactive\` decorator on one of your classes that has a "${String(prop)}" property decorated with \`@signal\`?`);
+  }
 }
 //# sourceMappingURL=reactive.js.map

@@ -111,93 +111,106 @@ describe('classy-solid', () => {
       expect(runCount).toBe(3);
     });
   });
-  describe('@reactive, @signal, and signalify', () => {
-    it('makes class properties reactive, using class and property/accessor decorators', () => {
-      var _initClass, _init_colors, _initProto;
-      let _Butterfly;
-      class Butterfly {
-        static {
-          ({
-            e: [_init_colors, _initProto],
-            c: [_Butterfly, _initClass]
-          } = _applyDecs(this, [[signal, 3, "wingSize"], [signal, 0, "colors"]], [reactive]));
-        }
-        colors = (_initProto(this), _init_colors(this, 3));
-        _wingSize = 2;
-        get wingSize() {
-          return this._wingSize;
-        }
-        set wingSize(s) {
-          this._wingSize = s;
-        }
-        static {
-          _initClass();
-        }
+  describe('@reactive, @signal', () => {
+    var _initClass, _init_colors, _initProto;
+    let _Butterfly;
+    class Butterfly {
+      static {
+        ({
+          e: [_init_colors, _initProto],
+          c: [_Butterfly, _initClass]
+        } = _applyDecs(this, [[signal, 3, "wingSize"], [signal, 0, "colors"]], [reactive]));
       }
+      colors = (_initProto(this), _init_colors(this, 3));
+      _wingSize = 2;
+      get wingSize() {
+        return this._wingSize;
+      }
+      set wingSize(s) {
+        this._wingSize = s;
+      }
+      static {
+        _initClass();
+      }
+    }
+    it('makes class fields reactive, using class and field/accessor decorators', () => {
       const b = new _Butterfly();
       testButterflyProps(b);
     });
-    it('maintains reactivity in subclass overridden fields', async () => {
-      var _initClass2, _init_colors2, _initProto2, _initClass3, _init_colors3, _Butterfly3;
-      let _Butterfly2;
-      class Butterfly {
+    const ensure = it;
+    ensure('overridden fields work as expected', async () => {
+      var _initClass2, _init_colors2;
+      class Mid extends _Butterfly {
+        colors = 0;
+      }
+
+      // ensure subclass did not interfere with functionality of base class
+      const b0 = new _Butterfly();
+      testProp(b0, 'colors', 3, 4, true);
+      expect(Object.getOwnPropertyDescriptor(b0, 'colors')?.get?.call(b0) === 4).toBe(true); // accessor descriptor
+      let _SubButterfly;
+      class SubButterfly extends Mid {
         static {
           ({
-            e: [_init_colors2, _initProto2],
-            c: [_Butterfly2, _initClass2]
-          } = _applyDecs(this, [[signal, 3, "wingSize"], [signal, 0, "colors"]], [reactive]));
+            e: [_init_colors2],
+            c: [_SubButterfly, _initClass2]
+          } = _applyDecs(this, [[signal, 0, "colors"]], [reactive], 0, void 0, Mid));
         }
-        colors = (_initProto2(this), _init_colors2(this, 3));
-        _wingSize = 2;
-        get wingSize() {
-          return this._wingSize;
-        }
-        set wingSize(s) {
-          this._wingSize = s;
-        }
+        colors = _init_colors2(this, 123);
         static {
           _initClass2();
         }
       }
-      let _SubButterfly;
-      class SubButterfly extends (_Butterfly3 = _Butterfly2) {
-        static {
-          ({
-            e: [_init_colors3],
-            c: [_SubButterfly, _initClass3]
-          } = _applyDecs(this, [[signal, 0, "colors"]], [reactive], 0, void 0, _Butterfly3));
-        }
-        colors = _init_colors3(this, 123);
-        static {
-          _initClass3();
-        }
+
+      // ensure subclass did not interfere with functionality of base class
+      const m = new Mid();
+      testProp(m, 'colors', 0, 1, false);
+      expect(Object.getOwnPropertyDescriptor(m, 'colors')?.value === 1).toBe(true); // value descriptor
+
+      class SubSubButterfly extends _SubButterfly {
+        colors = 456;
       }
       const b = new _SubButterfly();
       testButterflyProps(b, 123);
+      const b2 = new SubSubButterfly();
+      testProp(b2, 'colors', 456, 654, false);
     });
+    function testProp(o, k, startVal, newVal, reactive = true) {
+      let count = 0;
+      createEffect(() => {
+        o[k];
+        count++;
+      });
+      expect(o[k]).toBe(startVal);
+      expect(count).toBe(1);
+      o[k] = newVal; // should not be a signal, should not trigger
+
+      expect(o[k]).toBe(newVal);
+      expect(count).toBe(reactive ? 2 : 1);
+    }
     it('does not prevent superclass constructor from receiving subclass constructor args', () => {
-      var _initClass4, _initClass5, _init_colors4, _initProto3, _Insect2;
+      var _initClass3, _initClass4, _init_colors3, _initProto2, _Insect2;
       let _Insect;
       class Insect {
         static {
-          [_Insect, _initClass4] = _applyDecs(this, [], [reactive]).c;
+          [_Insect, _initClass3] = _applyDecs(this, [], [reactive]).c;
         }
         constructor(double) {
           this.double = double;
         }
         static {
-          _initClass4();
+          _initClass3();
         }
       }
-      let _Butterfly4;
+      let _Butterfly2;
       class Butterfly extends (_Insect2 = _Insect) {
         static {
           ({
-            e: [_init_colors4, _initProto3],
-            c: [_Butterfly4, _initClass5]
+            e: [_init_colors3, _initProto2],
+            c: [_Butterfly2, _initClass4]
           } = _applyDecs(this, [[signal, 3, "wingSize"], [signal, 0, "colors"]], [reactive], 0, void 0, _Insect2));
         }
-        colors = (_initProto3(this), _init_colors4(this, 3));
+        colors = (_initProto2(this), _init_colors3(this, 3));
         _wingSize = 2;
         get wingSize() {
           return this._wingSize;
@@ -209,138 +222,16 @@ describe('classy-solid', () => {
           super(arg * 2);
         }
         static {
-          _initClass5();
+          _initClass4();
         }
       }
-      const b = new _Butterfly4(4);
+      const b = new _Butterfly2(4);
       expect(b.double).toBe(8);
-      testButterflyProps(b);
-    });
-    it('makes class properties reactive, not using any decorators, specified in the constructor', () => {
-      class Butterfly {
-        colors = 3;
-        _wingSize = 2;
-        get wingSize() {
-          return this._wingSize;
-        }
-        set wingSize(s) {
-          this._wingSize = s;
-        }
-        constructor() {
-          signalify(this, 'colors', 'wingSize');
-        }
-      }
-      const b = new Butterfly();
-      testButterflyProps(b);
-
-      // quick type check:
-      const b2 = new Butterfly();
-      signalify(b2, 'colors', 'wingSize',
-      // @ts-expect-error "foo" is not a property on Butterfly
-      'foo');
-    });
-    it('makes class properties reactive, with signalify in the constructor', () => {
-      class Butterfly {
-        get wingSize() {
-          return this._wingSize;
-        }
-        set wingSize(s) {
-          this._wingSize = s;
-        }
-        constructor() {
-          this.colors = 3;
-          this._wingSize = 2;
-          signalify(this, 'colors', 'wingSize');
-        }
-      }
-      const b = new Butterfly();
-      testButterflyProps(b);
-    });
-    it('works with a function-style class, with signalify in the constructor', () => {
-      function Butterfly() {
-        // @ts-ignore
-        this.colors = 3;
-        // @ts-ignore
-        this._wingSize = 2;
-
-        // @ts-ignore no type checking for ES5-style classes.
-        signalify(this, 'colors', 'wingSize');
-      }
-      Butterfly.prototype = {
-        get wingSize() {
-          return this._wingSize;
-        },
-        set wingSize(s) {
-          this._wingSize = s;
-        }
-      };
-
-      // @ts-ignore
-      const b = new Butterfly();
-      testButterflyProps(b);
-    });
-    it('works with a function-style class, with properties on the prototype, and signalify in constructor', () => {
-      function Butterfly() {
-        // @ts-ignore no type checking for ES5-style classes.
-        signalify(this, 'colors', 'wingSize');
-      }
-      Butterfly.prototype = {
-        colors: 3,
-        _wingSize: 2,
-        get wingSize() {
-          return this._wingSize;
-        },
-        set wingSize(s) {
-          this._wingSize = s;
-        }
-      };
-
-      // @ts-ignore no type checking for ES5-style classes.
-      const b = new Butterfly();
-      testButterflyProps(b);
-    });
-    it('can be used on a function-style class, with properties on the prototype, and signalify on the prototype', () => {
-      function Butterfly() {}
-      Butterfly.prototype = {
-        colors: 3,
-        _wingSize: 2,
-        get wingSize() {
-          return this._wingSize;
-        },
-        set wingSize(s) {
-          this._wingSize = s;
-        }
-      };
-      signalify(Butterfly.prototype, 'colors', 'wingSize');
-
-      // @ts-ignore no type checking for ES5-style classes.
-      const b = new Butterfly();
-      testButterflyProps(b);
-    });
-    it('can be used on a function-style class, with properties in the constructor, and signalify on the prototype', () => {
-      function Butterfly() {
-        // @ts-ignore
-        this.colors = 3;
-        // @ts-ignore
-        this._wingSize = 2;
-      }
-      Butterfly.prototype = {
-        get wingSize() {
-          return this._wingSize;
-        },
-        set wingSize(s) {
-          this._wingSize = s;
-        }
-      };
-      signalify(Butterfly.prototype, 'colors', 'wingSize');
-
-      // @ts-ignore
-      const b = new Butterfly();
       testButterflyProps(b);
     });
     it('throws an error when @signal is used without @reactive', async () => {
       expect(() => {
-        var _init_foo, _initClass6, _init_bar;
+        var _init_foo, _initClass5, _init_bar;
         // user forgot to use @reactive here
         class Foo {
           static {
@@ -354,12 +245,12 @@ describe('classy-solid', () => {
           static {
             ({
               e: [_init_bar],
-              c: [_Bar, _initClass6]
+              c: [_Bar, _initClass5]
             } = _applyDecs(this, [[signal, 0, "bar"]], [reactive]));
           }
           bar = _init_bar(this, 123);
           static {
-            _initClass6();
+            _initClass5();
           }
         }
         new _Bar();
@@ -392,7 +283,7 @@ describe('classy-solid', () => {
       // expect(err.message).toContain('Did you forget')
     });
     it('works with function values', () => {
-      var _initClass7, _init_do;
+      var _initClass6, _init_do;
       let _Doer;
       // This test ensures that functions are handled propertly, because
       // if passed without being wrapped to a signal setter it will be
@@ -403,12 +294,12 @@ describe('classy-solid', () => {
         static {
           ({
             e: [_init_do],
-            c: [_Doer, _initClass7]
+            c: [_Doer, _initClass6]
           } = _applyDecs(this, [[signal, 0, "do"]], [reactive]));
         }
         do = _init_do(this, null);
         static {
-          _initClass7();
+          _initClass6();
         }
       }
       const doer = new _Doer();
@@ -418,97 +309,19 @@ describe('classy-solid', () => {
       expect(doer.do).toBe(newFunc);
       expect(doer.do()).toBe(123);
     });
-    describe('signalify', () => {
-      it('is not tracked inside of an effect to prevent loops', () => {
-        // Library author provides obj
-        const obj = {
-          n: 123
-        };
-        signalify(obj, 'n'); // library author might signalify obj.n
-
-        // User code:
-        createEffect(() => {
-          // o.n may or may not already be signalified, user does not know, but they want to be sure they can react to its changes.
-          signalify(obj, 'n');
-          obj.n = 123; // does not make an infinite loop
-
-          // A deeper effect will be reading the property.
-          createEffect(() => {
-            console.log(obj.n);
-          });
-        });
-
-        // No expectations in this test, the test passes if a maximum
-        // callstack size error (infinite loop) does not happen.
-      });
-    });
-    it('show that signalify causes constructor to be reactive when used manually instead of decorators', () => {
-      class Foo {
-        amount = 3;
-        constructor() {
-          signalify(this, 'amount');
-        }
-      }
-      class Bar extends Foo {
-        double = 0;
-        constructor() {
-          super();
-          signalify(this, 'double');
-          this.double = this.amount * 2; // this tracks access of .amount
-        }
-      }
-      let count = 0;
-      let b;
-      createEffect(() => {
-        b = new Bar(); // tracks .amount
-        count++;
-      });
-      expect(count).toBe(1);
-      b.amount = 4; // triggers
-
-      expect(count).toBe(2);
-    });
-    it('show how to manually untrack constructors when not using decorators', () => {
-      class Foo {
-        amount = 3;
-        constructor() {
-          signalify(this, 'amount');
-        }
-      }
-      class Bar extends Foo {
-        double = 0;
-        constructor() {
-          super();
-          signalify(this, 'double');
-          untrack(() => {
-            this.double = this.amount * 2;
-          });
-        }
-      }
-      let count = 0;
-      let b;
-      createEffect(() => {
-        b = new Bar(); // does not track .amount
-        count++;
-      });
-      expect(count).toBe(1);
-      b.amount = 4; // will not trigger
-
-      expect(count).toBe(1);
-    });
     it('automatically does not track reactivity in constructors when using decorators', () => {
-      var _initClass8, _init_amount, _initClass9, _init_double, _Foo2;
+      var _initClass7, _init_amount, _initClass8, _init_double, _Foo2;
       let _Foo;
       class Foo {
         static {
           ({
             e: [_init_amount],
-            c: [_Foo, _initClass8]
+            c: [_Foo, _initClass7]
           } = _applyDecs(this, [[signal, 0, "amount"]], [reactive]));
         }
         amount = _init_amount(this, 3);
         static {
-          _initClass8();
+          _initClass7();
         }
       }
       let _Bar2;
@@ -516,7 +329,7 @@ describe('classy-solid', () => {
         static {
           ({
             e: [_init_double],
-            c: [_Bar2, _initClass9]
+            c: [_Bar2, _initClass8]
           } = _applyDecs(this, [[signal, 0, "double"]], [reactive], 0, void 0, _Foo2));
         }
         double = _init_double(this, 0);
@@ -525,7 +338,7 @@ describe('classy-solid', () => {
           this.double = this.amount * 2; // this read of .amount should not be tracked
         }
         static {
-          _initClass9();
+          _initClass8();
         }
       }
       let b;
@@ -546,15 +359,291 @@ describe('classy-solid', () => {
       expect(b).toBe(b2);
     });
   });
+  describe('signalify()', () => {
+    it('returns the same object that was passed in', () => {
+      let obj = {
+        n: 123
+      };
+      let obj2 = signalify(obj, 'n');
+      expect(obj).toBe(obj2);
+      obj = createMutable({
+        n: 123
+      });
+      obj2 = signalify(obj, 'n');
+      expect(obj).toBe(obj2);
+    });
+    describe('making objects reactive with signalify()', () => {
+      it('', () => {
+        const butterfly = {
+          colors: 3,
+          _wingSize: 2,
+          get wingSize() {
+            return this._wingSize;
+          },
+          set wingSize(s) {
+            this._wingSize = s;
+          }
+        };
+        const b = signalify(butterfly, 'colors', 'wingSize');
+        testButterflyProps(b);
+
+        // quick type check:
+        // @ts-expect-error "foo" is not a property on butterfly
+        signalify(butterfly, 'colors', 'wingSize', 'foo');
+      });
+      it('is not tracked inside of an effect to prevent loops', () => {
+        test(true);
+        test(false);
+        function test(signalifyInitially) {
+          // Library author provides obj
+          const obj = {
+            n: 123
+          };
+          if (signalifyInitially) signalify(obj, 'n'); // library author might signalify obj.n
+
+          // User code:
+          createEffect(() => {
+            // o.n may or may not already be signalified, user does not know, but they want to be sure they can react to its changes.
+            signalify(obj, 'n');
+            obj.n = 123; // does not make an infinite loop
+
+            // A deeper effect will be reading the property.
+            createEffect(() => {
+              console.log(obj.n);
+            });
+          });
+
+          // No expectations in this test, the test passes if a maximum
+          // callstack size error (infinite loop) does not happen.
+        }
+      });
+    });
+    describe('making reactive classes with signalify instead of with decorators', () => {
+      it('makes class fields reactive, not using any decorators', () => {
+        class Butterfly {
+          colors = 3;
+          _wingSize = 2;
+          get wingSize() {
+            return this._wingSize;
+          }
+          set wingSize(s) {
+            this._wingSize = s;
+          }
+          constructor() {
+            signalify(this, 'colors', 'wingSize');
+          }
+        }
+        const b = new Butterfly();
+        testButterflyProps(b);
+
+        // quick type check:
+        const b2 = new Butterfly();
+        // @ts-expect-error "foo" is not a property on Butterfly
+        signalify(b2, 'colors', 'wingSize', 'foo');
+      });
+      it('makes constructor properties reactive, not using any decorators', () => {
+        class Butterfly {
+          get wingSize() {
+            return this._wingSize;
+          }
+          set wingSize(s) {
+            this._wingSize = s;
+          }
+          constructor() {
+            this.colors = 3;
+            this._wingSize = 2;
+            signalify(this, 'colors', 'wingSize');
+          }
+        }
+        const b = new Butterfly();
+        testButterflyProps(b);
+      });
+      it('works with a function-style class, with signalify in the constructor', () => {
+        function Butterfly() {
+          // @ts-ignore
+          this.colors = 3;
+          // @ts-ignore
+          this._wingSize = 2;
+
+          // @ts-ignore no type checking for ES5-style classes.
+          signalify(this, 'colors', 'wingSize');
+        }
+        Butterfly.prototype = {
+          get wingSize() {
+            return this._wingSize;
+          },
+          set wingSize(s) {
+            this._wingSize = s;
+          }
+        };
+
+        // @ts-ignore
+        const b = new Butterfly();
+        testButterflyProps(b);
+      });
+      it('works with a function-style class, with properties on the prototype, and signalify in constructor', () => {
+        function Butterfly() {
+          // @ts-ignore no type checking for ES5-style classes.
+          signalify(this, 'colors', 'wingSize');
+        }
+        Butterfly.prototype = {
+          colors: 3,
+          _wingSize: 2,
+          get wingSize() {
+            return this._wingSize;
+          },
+          set wingSize(s) {
+            this._wingSize = s;
+          }
+        };
+
+        // @ts-ignore no type checking for ES5-style classes.
+        const b = new Butterfly();
+        testButterflyProps(b);
+      });
+      it('can be used on a function-style class, with properties on the prototype, and signalify on the prototype', () => {
+        function Butterfly() {}
+        Butterfly.prototype = {
+          colors: 3,
+          _wingSize: 2,
+          get wingSize() {
+            return this._wingSize;
+          },
+          set wingSize(s) {
+            this._wingSize = s;
+          }
+        };
+        signalify(Butterfly.prototype, 'colors', 'wingSize');
+
+        // @ts-ignore no type checking for ES5-style classes.
+        const b = new Butterfly();
+        testButterflyProps(b);
+      });
+      it('can be used on a function-style class, with properties in the constructor, and signalify on the prototype', () => {
+        function Butterfly() {
+          // @ts-ignore
+          this.colors = 3;
+          // @ts-ignore
+          this._wingSize = 2;
+        }
+        Butterfly.prototype = {
+          get wingSize() {
+            return this._wingSize;
+          },
+          set wingSize(s) {
+            this._wingSize = s;
+          }
+        };
+        signalify(Butterfly.prototype, 'colors', 'wingSize');
+
+        // @ts-ignore
+        const b = new Butterfly();
+        testButterflyProps(b);
+      });
+      it('show that signalify causes constructor to be reactive when used manually instead of decorators', () => {
+        class Foo {
+          amount = 3;
+          constructor() {
+            signalify(this, 'amount');
+          }
+        }
+        class Bar extends Foo {
+          double = 0;
+          constructor() {
+            super();
+            signalify(this, 'double');
+            this.double = this.amount * 2; // this tracks access of .amount
+          }
+        }
+        let count = 0;
+        let b;
+        createEffect(() => {
+          b = new Bar(); // tracks .amount
+          count++;
+        });
+        expect(count).toBe(1);
+        b.amount = 4; // triggers
+
+        expect(count).toBe(2);
+      });
+      it('show how to manually untrack constructors when not using decorators', () => {
+        class Foo {
+          amount = 3;
+          constructor() {
+            signalify(this, 'amount');
+          }
+        }
+        class Bar extends Foo {
+          double = 0;
+          constructor() {
+            super();
+            signalify(this, 'double');
+            untrack(() => {
+              this.double = this.amount * 2;
+            });
+          }
+        }
+        let count = 0;
+        let b;
+        createEffect(() => {
+          b = new Bar(); // does not track .amount
+          count++;
+        });
+        expect(count).toBe(1);
+        b.amount = 4; // will not trigger
+
+        expect(count).toBe(1);
+      });
+    });
+    it('creates signal storage per descriptor+object pair, not per descriptor', () => {
+      // This ensures we don't accidentally share a signal with multiple
+      // objects. For example, we don't want a single signal per descriptor
+      // because if the descriptor is on a prototype object, then that single
+      // signal will erroneously be used by all objects extending from that
+      // prototype.
+
+      const a = signalify({
+        foo: 0,
+        name: 'a'
+      }, 'foo');
+      const b = Object.assign(Object.create(a), {
+        name: 'b'
+      });
+      expect(a.foo).toBe(0);
+      expect(b.foo).toBe(0);
+      let countA = 0;
+      createEffect(() => {
+        a.foo;
+        countA++;
+      });
+      let countB = 0;
+      createEffect(() => {
+        b.foo;
+        countB++;
+      });
+      expect(countA).toBe(1);
+      expect(countB).toBe(1);
+      a.foo++;
+      expect(a.foo).toBe(1);
+      expect(countA).toBe(2);
+
+      // ensure that updating a's foo property did not update b's foo
+      // property or trigger b's effect, despite that the property is
+      // defined in a single location on the prototype.
+      // @ts-ignore
+      expect(b.foo).toBe(0);
+      expect(countB).toBe(1);
+    });
+  });
   describe('@component', () => {
     it('allows to define a class using class syntax', () => {
-      var _initClass10;
+      var _initClass9;
       let onMountCalled = false;
       let onCleanupCalled = false;
       let _CoolComp;
       class CoolComp {
         static {
-          [_CoolComp, _initClass10] = _applyDecs(this, [], [component]).c;
+          [_CoolComp, _initClass9] = _applyDecs(this, [], [component]).c;
         }
         onMount() {
           onMountCalled = true;
@@ -567,7 +656,7 @@ describe('classy-solid', () => {
           return html`<div>hello classes!</div>`;
         }
         static {
-          _initClass10();
+          _initClass9();
         }
       }
       const root = document.createElement('div');
@@ -582,13 +671,13 @@ describe('classy-solid', () => {
 
       // throws on non-class use
       expect(() => {
-        var _initProto4;
+        var _initProto3;
         class CoolComp {
           static {
-            [_initProto4] = _applyDecs(this, [[component, 2, "onMount"]], []).e;
+            [_initProto3] = _applyDecs(this, [[component, 2, "onMount"]], []).e;
           }
           constructor(...args) {
-            _initProto4(this);
+            _initProto3(this);
           }
           // @ts-ignore
           onMount() {}
@@ -597,13 +686,13 @@ describe('classy-solid', () => {
       }).toThrow('component decorator should only be used on a class');
     });
     it('works in tandem with @reactive and @signal for reactivity', async () => {
-      var _initClass11, _init_foo2, _init_bar2;
+      var _initClass10, _init_foo2, _init_bar2;
       let _CoolComp2;
       class CoolComp {
         static {
           ({
             e: [_init_foo2, _init_bar2],
-            c: [_CoolComp2, _initClass11]
+            c: [_CoolComp2, _initClass10]
           } = _applyDecs(this, [[signal, 0, "foo"], [signal, 0, "bar"]], [component, reactive]));
         }
         foo = _init_foo2(this, 0);
@@ -612,7 +701,7 @@ describe('classy-solid', () => {
           return html`<div>foo: ${() => this.foo}, bar: ${() => this.bar}</div>`;
         }
         static {
-          _initClass11();
+          _initClass10();
         }
       }
       const root = document.createElement('div');
@@ -663,13 +752,13 @@ describe('classy-solid', () => {
 
     // FIXME not working, the spread doesn't seem to do anything.
     xit('works with reactive spreads', async () => {
-      var _initClass12, _init_foo3, _init_bar3;
+      var _initClass11, _init_foo3, _init_bar3;
       let _CoolComp3;
       class CoolComp {
         static {
           ({
             e: [_init_foo3, _init_bar3],
-            c: [_CoolComp3, _initClass12]
+            c: [_CoolComp3, _initClass11]
           } = _applyDecs(this, [[signal, 0, "foo"], [signal, 0, "bar"]], [component, reactive]));
         }
         foo = _init_foo3(this, 0);
@@ -678,7 +767,7 @@ describe('classy-solid', () => {
           return html`<div>foo: ${() => this.foo}, bar: ${() => this.bar}</div>`;
         }
         static {
-          _initClass12();
+          _initClass11();
         }
       }
       const root = document.createElement('div');

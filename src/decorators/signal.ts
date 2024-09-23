@@ -81,13 +81,13 @@ export function signal(
 	}
 
 	if (kind === 'field') {
-		props.set(name, {initialValue: undefined})
+		props.set(name, {initialValue: undefined, kind})
 		return function (this: object, initialValue: unknown) {
 			props.get(name)!.initialValue = initialValue
 			return initialValue
 		}
 	} else if (kind === 'getter' || kind === 'setter') {
-		props.set(name, {initialValue: undefined})
+		props.set(name, {initialValue: undefined, kind})
 	} else {
 		throw new Error(
 			'The @signal decorator is only for use on fields, getters, and setters. Auto accessor support is coming next if there is demand for it.',

@@ -1,6 +1,5 @@
 import { getInheritedDescriptor } from 'lowclass/dist/getInheritedDescriptor.js';
 import { createSignal, $PROXY, untrack } from 'solid-js';
-const signalifiedProps = new WeakMap();
 
 /**
  * Convert properties on an object into Solid signal-backed properties.
@@ -53,9 +52,22 @@ const signalifiedProps = new WeakMap();
  */
 
 export function signalify(obj, ...props) {
-  // We cast from PropertyKey[] to PropKey[] because numbers can't actually be keys, only string | symbol.
+  // Special case for Solid proxies: if the object is already a solid proxy,
+  // all properties are already reactive, no need to signalify.
+  // @ts-expect-error special indexed access
+  const proxy = obj[$PROXY];
+  if (proxy) return obj;
   const _props = props.length ? props : Object.keys(obj).concat(Object.getOwnPropertySymbols(obj));
-  for (const prop of _props) createSignalAccessor(obj, prop);
+
+  // Use `untrack` here to be extra safe the initial value doesn't count as a
+  // dependency and cause a reactivity loop.
+  for (const prop of _props) {
+    const isTuple = Array.isArray(prop);
+    // We cast from PropertyKey to PropKey because keys can't actually be number, only string | symbol.
+    const _prop = isTuple ? prop[0] : prop;
+    const initialValue = isTuple ? prop[1] : untrack(() => obj[_prop]);
+    createSignalAccessor(obj, _prop, initialValue);
+  }
   return obj;
 }
 let gotCreateSignalAccessor = false;
@@ -84,50 +96,17 @@ function trackPropSetAtLeastOnce(instance, prop) {
   propsSetAtLeastOnce.get(instance).add(prop);
 }
 const isSignalGetter = new WeakSet();
-function createSignalAccessor(obj, prop,
-// Untrack here to be extra safe this doesn't count as a dependency and
-// cause a reactivity loop.
-initialVal = untrack(() => obj[prop]),
-// If an object already has a particular signalified property, override it
-// with a new one anyway (useful for maintaining consistency with class
-// inheritance where class fields always override fields from base classes
-// due to their [[Define]] semantics). False is a good default for signalify()
-// usage where someone is augmenting an existing object, but true is more
-// useful with usage of @signal on class fields.
-//
-// Note that if @signal were to specify this as false, it would cause
-// @signal-decorated subclass fields to override base class
-// @signal-decorated fields with a new value descriptor but without
-// signalifiying the field, effectively disabling reactivity, which is a bug
-// (a field decorated with @signal *must* be reactive). The test named
-// "maintains reactivity in subclass overridden fields" was added to ensure
-// that the subclass use case works.
-override = false) {
-  if (!override && signalifiedProps.get(obj)?.has(prop)) return;
-
-  // Special case for Solid proxies: if the object is already a solid proxy,
-  // all properties are already reactive, no need to signalify.
-  // @ts-expect-error special indexed access
-  const proxy = obj[$PROXY];
-  if (proxy) return;
+function createSignalAccessor(obj, prop, initialVal) {
   let descriptor = getInheritedDescriptor(obj, prop);
   let originalGet;
   let originalSet;
   if (descriptor) {
     originalGet = descriptor.get;
     originalSet = descriptor.set;
-
-    // Even if override is true, if we have a signal accessor, there's no
-    // need to replace it with another signal accessor. We only need to
-    // override when the current descriptor is not a signal accessor.
-    // TODO this needs tests.
     if (originalGet && isSignalGetter.has(originalGet)) return;
     if (originalGet || originalSet) {
       // reactivity requires both
-      if (!originalGet || !originalSet) {
-        console.warn(`The \`@signal\` decorator was used on an accessor named "${prop.toString()}" which had a getter or a setter, but not both. Reactivity on accessors works only when accessors have both get and set. In this case the decorator does not do anything.`);
-        return;
-      }
+      if (!originalGet || !originalSet) return warnNotReadWrite(prop);
       delete descriptor.get;
       delete descriptor.set;
     } else {
@@ -139,25 +118,22 @@ override = false) {
 
       // if it isn't writable, we don't need to make a reactive variable because
       // the value won't change
-      if (!descriptor.writable) {
-        console.warn(`The \`@signal\` decorator was used on a property named "${prop.toString()}" that is not writable. Reactivity is not enabled for non-writable properties.`);
-        return;
-      }
+      if (!descriptor.writable) return warnNotWritable(prop);
       delete descriptor.value;
       delete descriptor.writable;
     }
   }
-  const s = createSignal(initialVal, {
-    equals: false
-  });
+  const signalStorage = new WeakMap();
   descriptor = {
     configurable: true,
     enumerable: true,
     ...descriptor,
     get: originalGet ? function () {
+      const s = getSignal(this, signalStorage, initialVal);
       s[0](); // read
       return originalGet.call(this);
     } : function () {
+      const s = getSignal(this, signalStorage, initialVal);
       return s[0](); // read
     },
     set: originalSet ? function (newValue) {
@@ -165,17 +141,30 @@ override = false) {
       trackPropSetAtLeastOnce(this, prop);
 
       // write
+      const s = getSignal(this, signalStorage, initialVal);
       if (typeof newValue === 'function') s[1](() => newValue);else s[1](newValue);
     } : function (newValue) {
       trackPropSetAtLeastOnce(this, prop);
 
       // write
+      const s = getSignal(this, signalStorage, initialVal);
       if (typeof newValue === 'function') s[1](() => newValue);else s[1](newValue);
     }
   };
   isSignalGetter.add(descriptor.get);
   Object.defineProperty(obj, prop, descriptor);
-  if (!signalifiedProps.has(obj)) signalifiedProps.set(obj, new Set());
-  signalifiedProps.get(obj).add(prop);
+}
+function getSignal(obj, storage, initialVal) {
+  let s = storage.get(obj);
+  if (!s) storage.set(obj, s = createSignal(initialVal, {
+    equals: false
+  }));
+  return s;
+}
+function warnNotReadWrite(prop) {
+  console.warn(`Cannot signalify property named "${String(prop)}" which had a getter or a setter, but not both. Reactivity on accessors works only when accessors have both get and set. Skipped.`);
+}
+function warnNotWritable(prop) {
+  console.warn(`The \`@signal\` decorator was used on a property named "${String(prop)}" that is not writable. Reactivity is not enabled for non-writable properties.`);
 }
 //# sourceMappingURL=signalify.js.map

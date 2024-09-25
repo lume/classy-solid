@@ -1,14 +1,8 @@
 import type {AnyConstructor} from 'lowclass/dist/Constructor.js'
 import {getListener, $PROXY, untrack} from 'solid-js'
-import {getKey, getPropsToSignalify, resetPropsToSignalify} from './signal.js'
-import {getCreateSignalAccessor} from '../signalify.js'
+import {__propsToSignalify, __resetPropsToSignalify} from './signal.js'
+import {__createSignalAccessor} from '../signals/signalify.js'
 
-/**
- * Access key for classy-solid private internal APIs.
- */
-const accessKey = getKey()
-
-const createSignalAccessor = getCreateSignalAccessor()
 const hasOwnProperty = Object.prototype.hasOwnProperty
 
 /**
@@ -43,7 +37,6 @@ export function reactive(value: AnyConstructor, context: ClassDecoratorContext |
 		throw new TypeError('The @reactive decorator is only for use on classes.')
 
 	const Class = value
-	const signalProps = getPropsToSignalify(accessKey)
 
 	// For the current class decorated with @reactive, we reset the map, so that
 	// for the next class decorated with @reactive we track only that next
@@ -52,7 +45,8 @@ export function reactive(value: AnyConstructor, context: ClassDecoratorContext |
 	//
 	// In the future maybe we can use decorator metadata for this
 	// (https://github.com/tc39/proposal-decorator-metadata)?
-	resetPropsToSignalify(accessKey)
+	const signalProps = __propsToSignalify // grab the current value before we reset it.
+	__resetPropsToSignalify()
 
 	class ReactiveDecorator extends Class {
 		constructor(...args: any[]) {
@@ -73,26 +67,13 @@ export function reactive(value: AnyConstructor, context: ClassDecoratorContext |
 			if (proxy) return instance
 
 			for (const [prop, propSpec] of signalProps) {
-				const kind = propSpec.kind
 				let initialValue = propSpec.initialValue
 
 				// @prod-prune
 				if (!(hasOwnProperty.call(instance, prop) || hasOwnProperty.call(Class.prototype, prop)))
 					throw new PropNotFoundError(prop)
 
-				const isAccessor = kind === 'getter' || kind === 'setter'
-
-				if (isAccessor) {
-					const desc = Object.getOwnPropertyDescriptor(Class.prototype, prop)!
-					initialValue = desc.get!.call(instance)
-					// Note, if the kind was field, then the initializer already defined the initialValue.
-				}
-
-				createSignalAccessor(
-					isAccessor ? Class.prototype : instance,
-					prop as Exclude<keyof ReactiveDecorator, number>,
-					initialValue,
-				)
+				__createSignalAccessor(instance, prop as Exclude<keyof ReactiveDecorator, number>, initialValue)
 			}
 
 			return instance

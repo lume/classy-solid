@@ -1,0 +1,1 @@
+{"version":3,"file":"index.js","names":[],"sources":["../../src/effects/index.ts"],"sourcesContent":["export * from './createDeferredEffect.js'\nexport * from './createStoppableEffect.js'\n"],"mappings":"AAAA,cAAc,2BAA2B;AACzC,cAAc,4BAA4B","ignoreList":[]}

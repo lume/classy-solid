@@ -1,0 +1,1 @@
+{"version":3,"file":"index.js","names":[],"sources":["../../src/mixins/index.ts"],"sourcesContent":["export * from './Effectful.js'\n"],"mappings":"AAAA,cAAc,gBAAgB","ignoreList":[]}

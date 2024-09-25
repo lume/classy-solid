@@ -111,7 +111,6 @@ export function signal(value, context) {
 
     // Show a helpful error in case someone forgets to decorate both a getter and setter.
     queueMicrotask(() => {
-      console.log(name, getOrSet, pairs);
       if (pairs[name] !== 2) throw new MissingDecoratorError(name);
     });
     if (kind === 'getter') {

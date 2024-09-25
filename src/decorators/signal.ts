@@ -1,42 +1,17 @@
+import {$PROXY} from 'solid-js'
+import {__getSignal, __trackPropSetAtLeastOnce, __createSignalAccessor} from '../signals/signalify.js'
 import type {PropKey, PropSpec} from './types.js'
+import type {SignalFunction} from '../signals/createSignalFunction.js'
 
-let propsToSignalify = new Map<PropKey, PropSpec>()
-let accessKey: symbol | null = null
+export let __propsToSignalify = new Map<PropKey, PropSpec>()
 
-/**
- * Provides a key for accessing internal APIs. If any other module tries to get
- * this, an error will be thrown, and signal and reactive decorators will not
- * work.
- */
-export function getKey() {
-	if (accessKey) throw new Error('Attempted use of classy-solid internals.')
-	accessKey = Symbol()
-	return accessKey
+export function __resetPropsToSignalify() {
+	__propsToSignalify = new Map<PropKey, PropSpec>()
 }
 
-/**
- * This function provides propsToSignalify to only one external module
- * (reactive.ts). The purpose of this is to keep the API private for reactive.ts
- * only, otherwise an error will be thrown that breaks signal/reactive
- * functionality.
- */
-export function getPropsToSignalify(key: symbol) {
-	if (key !== accessKey) throw new Error('Attempted use of classy-solid internals.')
-	return propsToSignalify
-}
+const Undefined = Symbol()
 
-/**
- * Only the module that first gets the key can call this function (it should be
- * reactive.ts)
- */
-export function resetPropsToSignalify(key: symbol) {
-	if (key !== accessKey) throw new Error('Attempted use of classy-solid internals.')
-	propsToSignalify = new Map<PropKey, PropSpec>()
-}
-
-function isMemberDecorator(context: DecoratorContext): context is ClassMemberDecoratorContext {
-	return !!('private' in context)
-}
+type SignalStorages = Record<PropKey, WeakMap<object, SignalFunction<unknown>> | undefined>
 
 /**
  * @decorator
@@ -69,33 +44,114 @@ function isMemberDecorator(context: DecoratorContext): context is ClassMemberDec
  * ```
  */
 export function signal(
-	_: unknown,
-	context: ClassFieldDecoratorContext | ClassGetterDecoratorContext | ClassSetterDecoratorContext,
+	value: unknown,
+	context:
+		| ClassFieldDecoratorContext
+		| ClassGetterDecoratorContext
+		| ClassSetterDecoratorContext
+		| ClassAccessorDecoratorContext,
 ): any {
-	const {kind, name} = context
-	const props = propsToSignalify
+	const {kind, name, metadata} = context
+	const props = __propsToSignalify
 
-	if (isMemberDecorator(context)) {
-		if (context.private) throw new Error('@signal is not supported on private fields yet.')
-		if (context.static) throw new Error('@signal is not supported on static fields yet.')
-	}
-
-	if (kind === 'field') {
-		props.set(name, {initialValue: undefined})
-		return function (this: object, initialValue: unknown) {
-			props.get(name)!.initialValue = initialValue
-			return initialValue
-		}
-	} else if (kind === 'getter' || kind === 'setter') {
-		props.set(name, {initialValue: undefined})
-	} else {
-		throw new Error(
-			'The @signal decorator is only for use on fields, getters, and setters. Auto accessor support is coming next if there is demand for it.',
-		)
-	}
+	if (context.static) throw new Error('@signal is not supported on static fields yet.')
 
 	// @prod-prune
 	queueReactiveDecoratorChecker(props)
+
+	if (kind === 'field') {
+		if (context.private && name !== '#finalize') throw new Error('@signal is not supported on private fields yet.')
+
+		if (name === '#finalize') __propsToSignalify = new Map<PropKey, PropSpec>() // reset
+		else props.set(name, {initialValue: undefined, kind})
+
+		return function (this: object, initialValue: unknown) {
+			if (name === '#finalize') {
+				// Special case for Solid proxies: if the object is already a solid proxy,
+				// all properties are already reactive, no need to signalify.
+				// @ts-expect-error special indexed access
+				const proxy = this[$PROXY] as T
+				if (proxy) return this
+
+				for (const [prop, propSpec] of props) {
+					let initialValue = propSpec.initialValue
+
+					// @prod-prune
+					if (!Object.hasOwn(this, prop))
+						// continue
+						throw new PropNotFoundError(prop)
+
+					__createSignalAccessor(this as any, prop, initialValue)
+					// CONTINUE testing this way of finalizing signal fields
+				}
+				return
+			}
+
+			props.get(name)!.initialValue = initialValue
+			return initialValue
+		}
+	} else if (kind === 'accessor') {
+		const {get, set} = value as {get: () => unknown; set: (v: unknown) => void}
+		const signalStorage = new WeakMap<object, SignalFunction<unknown>>()
+		let initialValue: unknown = undefined
+
+		return {
+			init: function (this: object, initialVal: unknown) {
+				initialValue = initialVal
+				return initialVal
+			},
+			get: function (this: object): unknown {
+				__getSignal(this, signalStorage, initialValue)()
+				return get.call(this)
+			},
+			set: function (this: object, newValue: unknown) {
+				set.call(this, newValue)
+				__trackPropSetAtLeastOnce(this, name) // not needed anymore? test it
+
+				const s = __getSignal(this, signalStorage, initialValue)
+				s(typeof newValue === 'function' ? () => newValue : newValue)
+			},
+		}
+	} else if (kind === 'getter' || kind === 'setter') {
+		const getOrSet = value as Function
+		const initialValue = Undefined
+
+		if (!Object.hasOwn(metadata, 'signalStoragesPerProp')) metadata.signalStoragesPerProp = {}
+		const signalsStorages = metadata.signalStoragesPerProp as SignalStorages
+
+		let signalStorage = signalsStorages[name]
+		if (!signalStorage) signalsStorages[name] = signalStorage = new WeakMap<object, SignalFunction<unknown>>()
+
+		if (!Object.hasOwn(metadata, 'getterSetterPairs')) metadata.getterSetterPairs = {}
+		const pairs = metadata.getterSetterPairs as {[key: PropKey]: 0 | 1 | 2}
+
+		// Show a helpful error in case someone forgets to decorate both a getter and setter.
+		queueMicrotask(() => {
+			console.log(name, getOrSet, pairs)
+			if (pairs[name] !== 2) throw new MissingDecoratorError(name)
+		})
+
+		if (kind === 'getter') {
+			pairs[name] ??= 0
+			pairs[name]++
+
+			return function (this: object): unknown {
+				__getSignal(this, signalStorage, initialValue)()
+				return getOrSet.call(this)
+			}
+		} else {
+			pairs[name] ??= 0
+			pairs[name]++
+
+			return function (this: object, newValue: unknown) {
+				getOrSet.call(this, newValue)
+				__trackPropSetAtLeastOnce(this, name)
+
+				const s = __getSignal(this, signalStorage, initialValue)
+				s(typeof newValue === 'function' ? () => newValue : newValue)
+			}
+		}
+	} else throw new InvalidDecorationError()
 }
 
 let checkerQueued = false
@@ -117,7 +173,7 @@ function queueReactiveDecoratorChecker(props: Map<PropKey, PropSpec>) {
 
 		// If the refs are still equal, it means @reactive did not run (forgot
 		// to decorate a class that uses @signal with @reactive).
-		if (props === propsToSignalify) {
+		if (props === __propsToSignalify) {
 			throw new Error(
 				// Array.from(map.keys()) instead of [...map.keys()] because it breaks in Oculus browser.
 				`Stray @signal-decorated properties detected: ${Array.from(props.keys()).join(
@@ -126,4 +182,32 @@ function queueReactiveDecoratorChecker(props: Map<PropKey, PropSpec>) {
 			)
 		}
 	})
+}
+
+class PropNotFoundError extends Error {
+	constructor(prop: PropertyKey) {
+		super(
+			`Property "${String(
+				prop,
+			)}" not found on instance of class decorated with \`@reactive\`. Did you forget to use the \`@reactive\` decorator on one of your classes that has a "${String(
+				prop,
+			)}" property decorated with \`@signal\`?`,
+		)
+	}
+}
+
+class MissingDecoratorError extends Error {
+	constructor(prop: PropertyKey) {
+		super(
+			`Missing @signal decorator on setter or getter for property "${String(
+				prop,
+			)}". The @signal decorator will only work on a getter/setter pair with *both* getter and setter decorated with @signal.`,
+		)
+	}
+}
+
+class InvalidDecorationError extends Error {
+	constructor() {
+		super('The @signal decorator is only for use on fields, getters, setters, and auto accessors.')
+	}
 }

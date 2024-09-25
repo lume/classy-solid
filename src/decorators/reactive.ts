@@ -1,14 +1,8 @@
 import type {AnyConstructor} from 'lowclass/dist/Constructor.js'
-import {getListener, untrack} from 'solid-js'
-import {getKey, getPropsToSignalify, resetPropsToSignalify} from './signal.js'
-import {getCreateSignalAccessor} from '../signalify.js'
+import {getListener, $PROXY, untrack} from 'solid-js'
+import {__propsToSignalify, __resetPropsToSignalify} from './signal.js'
+import {__createSignalAccessor} from '../signals/signalify.js'
 
-/**
- * Access key for classy-solid private internal APIs.
- */
-const accessKey = getKey()
-
-const createSignalAccessor = getCreateSignalAccessor()
 const hasOwnProperty = Object.prototype.hasOwnProperty
 
 /**
@@ -43,7 +37,6 @@ export function reactive(value: AnyConstructor, context: ClassDecoratorContext |
 		throw new TypeError('The @reactive decorator is only for use on classes.')
 
 	const Class = value
-	const signalProps = getPropsToSignalify(accessKey)
 
 	// For the current class decorated with @reactive, we reset the map, so that
 	// for the next class decorated with @reactive we track only that next
@@ -52,7 +45,8 @@ export function reactive(value: AnyConstructor, context: ClassDecoratorContext |
 	//
 	// In the future maybe we can use decorator metadata for this
 	// (https://github.com/tc39/proposal-decorator-metadata)?
-	resetPropsToSignalify(accessKey)
+	const signalProps = __propsToSignalify // grab the current value before we reset it.
+	__resetPropsToSignalify()
 
 	class ReactiveDecorator extends Class {
 		constructor(...args: any[]) {
@@ -66,22 +60,20 @@ export function reactive(value: AnyConstructor, context: ClassDecoratorContext |
 			if (getListener()) untrack(() => (instance = Reflect.construct(Class, args, new.target))) // super()
 			else super(...args), (instance = this)
 
-			for (const [prop, {initialValue}] of signalProps) {
+			// Special case for Solid proxies: if the object is already a solid proxy,
+			// all properties are already reactive, no need to signalify.
+			// @ts-expect-error special indexed access
+			const proxy = instance[$PROXY] as T
+			if (proxy) return instance
+
+			for (const [prop, propSpec] of signalProps) {
+				let initialValue = propSpec.initialValue
+
 				// @prod-prune
-				if (!(hasOwnProperty.call(instance, prop) || hasOwnProperty.call(Class.prototype, prop))) {
-					throw new Error(
-						`Property "${prop.toString()}" not found on instance of class decorated with \`@reactive\`. Did you forget to use the \`@reactive\` decorator on one of your classes that has a "${prop.toString()}" property decorated with \`@signal\`?`,
-					)
-				}
+				if (!(hasOwnProperty.call(instance, prop) || hasOwnProperty.call(Class.prototype, prop)))
+					throw new PropNotFoundError(prop)
 
-				// For now at least, we always override like class fields with
-				// [[Define]] semantics. Perhaps when @signal is used on a
-				// getter/setter, we should not override in that case, but patch
-				// the prototype getter/setter (that'll be a bit of work to
-				// implement though).
-				const override = true
-
-				createSignalAccessor(instance, prop as Exclude<keyof ReactiveDecorator, number>, initialValue, override)
+				__createSignalAccessor(instance, prop as Exclude<keyof ReactiveDecorator, number>, initialValue)
 			}
 
 			return instance
@@ -89,4 +81,16 @@ export function reactive(value: AnyConstructor, context: ClassDecoratorContext |
 	}
 
 	return ReactiveDecorator
+}
+
+class PropNotFoundError extends Error {
+	constructor(prop: PropertyKey) {
+		super(
+			`Property "${String(
+				prop,
+			)}" not found on instance of class decorated with \`@reactive\`. Did you forget to use the \`@reactive\` decorator on one of your classes that has a "${String(
+				prop,
+			)}" property decorated with \`@signal\`?`,
+		)
+	}
 }

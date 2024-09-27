@@ -126,24 +126,24 @@ describe('classy-solid', () => {
 		})
 
 		class Base {
-			#_colors = 3
+			#colors = 3
 
 			@signal get colors() {
-				return this.#_colors
+				return this.#colors
 			}
 			@signal set colors(v: number) {
-				this.#_colors = v
+				this.#colors = v
 			}
 		}
 
 		class Butterfly8 extends Base {
-			#_colors = 3
+			#colors = 3
 
 			@signal override get colors() {
-				return this.#_colors
+				return this.#colors
 			}
 			@signal override set colors(v: number) {
-				this.#_colors = v
+				this.#colors = v
 			}
 
 			getColors() {

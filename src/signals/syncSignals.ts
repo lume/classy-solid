@@ -42,20 +42,20 @@ export function syncSignals<T>(
 	createComputed(
 		// @ts-ignore not all code paths return
 		() => {
-			const _a = getterA()
+			const a = getterA()
 			if (settingA) return (settingA = false)
 			settingB = true
-			setterB(_a)
+			setterB(a)
 		},
 	)
 
 	createComputed(
 		// @ts-ignore not all code paths return
 		() => {
-			const _b = getterB()
+			const b = getterB()
 			if (settingB) return (settingB = false)
 			settingA = true
-			setterA(_b)
+			setterA(b)
 		},
 	)
 

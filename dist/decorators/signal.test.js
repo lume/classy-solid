@@ -178,24 +178,24 @@ describe('classy-solid', () => {
       static {
         [_initProto4] = _applyDecs(this, [], [[signal, 3, "colors"], [signal, 4, "colors"]]).e;
       }
-      #_colors = (_initProto4(this), 3);
+      #colors = (_initProto4(this), 3);
       get colors() {
-        return this.#_colors;
+        return this.#colors;
       }
       set colors(v) {
-        this.#_colors = v;
+        this.#colors = v;
       }
     }
     class Butterfly8 extends Base {
       static {
         [_initProto5] = _applyDecs(this, [], [[signal, 3, "colors"], [signal, 4, "colors"]], 0, void 0, Base).e;
       }
-      #_colors = (_initProto5(this), 3);
+      #colors = (_initProto5(this), 3);
       get colors() {
-        return this.#_colors;
+        return this.#colors;
       }
       set colors(v) {
-        this.#_colors = v;
+        this.#colors = v;
       }
       getColors() {
         return this.colors;

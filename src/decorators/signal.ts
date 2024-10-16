@@ -1,5 +1,5 @@
 import {$PROXY} from 'solid-js'
-import {__getSignal, __trackPropSetAtLeastOnce, __createSignalAccessor} from '../signals/signalify.js'
+import {__getSignal, __trackPropSetAtLeastOnce, __createSignalAccessor, isSignalGetter} from '../signals/signalify.js'
 import type {PropKey, PropSpec} from './types.js'
 import type {SignalFunction} from '../signals/createSignalFunction.js'
 
@@ -77,12 +77,9 @@ export function signal(
 					let initialValue = propSpec.initialValue
 
 					// @prod-prune
-					if (!Object.hasOwn(this, prop))
-						// continue
-						throw new PropNotFoundError(prop)
+					if (!Object.hasOwn(this, prop)) throw new PropNotFoundError(prop)
 
 					__createSignalAccessor(this as any, prop, initialValue)
-					// CONTINUE testing this way of finalizing signal fields
 				}
 				return
 			}
@@ -95,7 +92,7 @@ export function signal(
 		const signalStorage = new WeakMap<object, SignalFunction<unknown>>()
 		let initialValue: unknown = undefined
 
-		return {
+		const newValue = {
 			init: function (this: object, initialVal: unknown) {
 				initialValue = initialVal
 				return initialVal
@@ -112,6 +109,10 @@ export function signal(
 				s(typeof newValue === 'function' ? () => newValue : newValue)
 			},
 		}
+
+		isSignalGetter.add(newValue.get)
+
+		return newValue
 	} else if (kind === 'getter' || kind === 'setter') {
 		const getOrSet = value as Function
 		const initialValue = Undefined
@@ -134,10 +135,14 @@ export function signal(
 			pairs[name] ??= 0
 			pairs[name]++
 
-			return function (this: object): unknown {
+			const newGetter = function (this: object): unknown {
 				__getSignal(this, signalStorage, initialValue)()
 				return getOrSet.call(this)
 			}
+
+			isSignalGetter.add(newGetter)
+
+			return newGetter
 		} else {
 			pairs[name] ??= 0
 			pairs[name]++

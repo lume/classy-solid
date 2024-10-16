@@ -7,6 +7,7 @@ import { createEffect } from 'solid-js';
 import { testButterflyProps } from '../index.test.js';
 import { reactive } from './reactive.js';
 import { signal } from './signal.js';
+import { signalify } from '../signals/signalify.js';
 describe('classy-solid', () => {
   describe('@reactive, @signal', () => {
     let _initProto, _initClass, _init_colors, _init_extra_colors, _init_colors2, _init_extra_colors2, _init_wingSize, _init_extra_wingSize, _init_finalize, _init_extra_finalize, _initProto2, _init_colors3, _init_extra_colors3, _init_finalize2, _init_extra_finalize2, _init_colors4, _init_extra_colors4, _init_wingSize2, _init_extra_wingSize2, _init_finalize3, _init_extra_finalize3, _initClass2, _init_colors5, _init_extra_colors5, _init_wingSize3, _init_extra_wingSize3, _init_colors6, _get_colors, _set_colors, _init_extra_colors6, _initProto3, _call_colors, _call_colors2, _initProto4, _initProto5;
@@ -458,6 +459,57 @@ describe('classy-solid', () => {
       // then both variables should reference the same instance
       expect(count).toBe(1);
       expect(b).toBe(b2);
+    });
+    it.only('prevents duplicate signals for any property', () => {
+      let _initProto7, _initClass10, _init_venomous, _init_extra_venomous, _init_legs, _init_extra_legs;
+      let _Insect3;
+      class Insect {
+        static {
+          ({
+            e: [_init_legs, _init_extra_legs, _init_venomous, _init_extra_venomous, _initProto7],
+            c: [_Insect3, _initClass10]
+          } = _applyDecs(this, [reactive], [[signal, 0, "venomous"], [signal, 1, "legs"], [signal, 3, "eyes"], [signal, 4, "eyes"]]));
+        }
+        venomous = (_initProto7(this), _init_venomous(this, 0));
+        #A = (_init_extra_venomous(this), _init_legs(this, 6));
+        get legs() {
+          return this.#A;
+        }
+        set legs(v) {
+          this.#A = v;
+        }
+        #eyes = (_init_extra_legs(this), 10);
+        get eyes() {
+          return this.#eyes;
+        }
+        set eyes(n) {
+          this.#eyes = n;
+        }
+        antennas = 0;
+        constructor() {
+          // This should not add any extra signals for properties that
+          // are already signalified by the @signal decorator
+          signalify(this, 'venomous', 'legs', 'eyes', 'antennas');
+        }
+        static {
+          _initClass10();
+        }
+      }
+      const i = new _Insect3();
+      testNoDuplicateSignal(i, 'venomous');
+      testNoDuplicateSignal(i, 'legs');
+      testNoDuplicateSignal(i, 'eyes');
+      testNoDuplicateSignal(i, 'antennas');
+      function testNoDuplicateSignal(o, prop) {
+        let count = 0;
+        createEffect(() => {
+          count++;
+          o[prop];
+        });
+        expect(count).toBe(1);
+        o[prop]++;
+        expect(count).toBe(2); // it would be 3 if there were an extra signal
+      }
     });
   });
 });

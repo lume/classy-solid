@@ -57,7 +57,7 @@ describe('classy-solid', () => {
 
 						// A deeper effect will be reading the property.
 						createEffect(() => {
-							console.log(obj.n)
+							obj.n
 						})
 					})
 

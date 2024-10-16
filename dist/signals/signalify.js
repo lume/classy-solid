@@ -86,7 +86,7 @@ export function __trackPropSetAtLeastOnce(instance, prop) {
   if (!propsSetAtLeastOnce.has(instance)) propsSetAtLeastOnce.set(instance, new Set());
   propsSetAtLeastOnce.get(instance).add(prop);
 }
-const isSignalGetter = new WeakSet();
+export const isSignalGetter = new WeakSet();
 export function __createSignalAccessor(obj, prop, initialVal) {
   let descriptor = getInheritedDescriptor(obj, prop);
   let originalGet;

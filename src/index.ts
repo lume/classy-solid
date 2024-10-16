@@ -3,4 +3,4 @@ export * from './effects/index.js'
 export * from './mixins/index.js'
 export * from './signals/index.js'
 
-export const version = '0.4.2'
+export const version = '0.4.3'

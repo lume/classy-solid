@@ -96,7 +96,7 @@ export function __trackPropSetAtLeastOnce(instance: object, prop: string | symbo
 	propsSetAtLeastOnce.get(instance)!.add(prop)
 }
 
-const isSignalGetter = new WeakSet<Function>()
+export const isSignalGetter = new WeakSet<Function>()
 
 export function __createSignalAccessor<T extends object>(
 	obj: T,

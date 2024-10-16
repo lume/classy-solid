@@ -53,6 +53,7 @@ export declare function signalify<T extends object>(obj: T, ...props: (keyof T)[
 export declare function signalify<T extends object>(obj: T, ...props: [key: keyof T, initialValue: unknown][]): T;
 export declare function __isPropSetAtLeastOnce(instance: object, prop: string | symbol): boolean;
 export declare function __trackPropSetAtLeastOnce(instance: object, prop: string | symbol): void;
+export declare const isSignalGetter: WeakSet<Function>;
 export declare function __createSignalAccessor<T extends object>(obj: T, prop: Exclude<keyof T, number>, initialVal: unknown): void;
 export declare function __getSignal(obj: object, storage: WeakMap<object, SignalFunction<unknown>>, initialVal: unknown): SignalFunction<unknown>;
 //# sourceMappingURL=signalify.d.ts.map

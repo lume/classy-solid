@@ -2,6 +2,7 @@ import {createEffect} from 'solid-js'
 import {testButterflyProps} from '../index.test.js'
 import {reactive} from './reactive.js'
 import {signal} from './signal.js'
+import {signalify} from '../signals/signalify.js'
 
 describe('classy-solid', () => {
 	describe('@reactive, @signal', () => {
@@ -358,6 +359,48 @@ describe('classy-solid', () => {
 			// then both variables should reference the same instance
 			expect(count).toBe(1)
 			expect(b!).toBe(b2)
+		})
+
+		it.only('prevents duplicate signals for any property', () => {
+			@reactive
+			class Insect {
+				@signal venomous = 0
+
+				@signal accessor legs = 6
+
+				#eyes = 10
+				@signal get eyes() {
+					return this.#eyes
+				}
+				@signal set eyes(n) {
+					this.#eyes = n
+				}
+
+				antennas = 0
+
+				constructor() {
+					// This should not add any extra signals for properties that
+					// are already signalified by the @signal decorator
+					signalify(this, 'venomous', 'legs', 'eyes', 'antennas')
+				}
+			}
+			const i = new Insect()
+
+			testNoDuplicateSignal(i, 'venomous')
+			testNoDuplicateSignal(i, 'legs')
+			testNoDuplicateSignal(i, 'eyes')
+			testNoDuplicateSignal(i, 'antennas')
+
+			function testNoDuplicateSignal(o: Insect, prop: keyof Insect) {
+				let count = 0
+				createEffect(() => {
+					count++
+					o[prop]
+				})
+				expect(count).toBe(1)
+				o[prop]++
+				expect(count).toBe(2) // it would be 3 if there were an extra signal
+			}
 		})
 	})
 })

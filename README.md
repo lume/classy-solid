@@ -1,4 +1,4 @@
-![Image](https://github.com/user-attachments/assets/c4a27f75-67ad-4e28-8177-ed2aaa57b7e3)
+![Image](https://github.com/user-attachments/assets/24e70524-92bc-42b8-9b4c-d66796894b46)
 
 Tools for `class`-based reactivity powered by [Solid.js](https://solidjs.com),
 and for using `class`es as Solid components (f.e. in a JSX template).

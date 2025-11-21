@@ -1,7 +1,83 @@
-![Image](https://github.com/user-attachments/assets/f091e629-7752-4a1a-808c-8672c1da072c)
+# <img src="./logo/Favicon_Classy.svg" height="32" /> Classy Solid <!-- omit in toc -->
 
-Tools for `class`-based reactivity powered by [Solid.js](https://solidjs.com),
-and for using `class`es as Solid components (f.e. in a JSX template).
+Utilities for making `class`es reactive with [Solid.js](https://solidjs.com)
+signals, and for using `class`es as Solid.js components.
+
+![](https://github.com/user-attachments/assets/f091e629-7752-4a1a-808c-8672c1da072c)
+
+# Table of Contents <!-- omit in toc -->
+
+- [At a glance](#at-a-glance)
+- [Install](#install) - [`npm install classy-solid`](#npm-install-classy-solid)
+  - [Vite Setup](#vite-setup)
+  - [Babel Setup](#babel-setup)
+- [API and Usage](#api-and-usage)
+  - [`@reactive`](#reactive)
+  - [`@signal`](#signal)
+  - [`@component`](#component)
+    - [JavaScript](#javascript)
+      - [With build tools](#with-build-tools)
+      - [Without build tools](#without-build-tools)
+    - [TypeScript](#typescript)
+  - [`createSignalObject()`](#createsignalobject)
+  - [`createSignalFunction()`](#createsignalfunction)
+  - [`signalify()`](#signalify)
+  - [`Effectful`](#effectful)
+  - [`Effects`](#effects)
+  - [`syncSignals`](#syncsignals)
+  - [`createSyncedSignals`](#createsyncedsignals)
+  - [`createStoppableEffect`](#createstoppableeffect)
+
+# At a glance
+
+```jsx
+import {component, reactive, signal} from 'classy-solid'
+import {createEffect, render} from 'solid-js'
+
+//////////////////////////////////////////////////
+// Make plain classes reactive with Solid signals.
+
+@reactive
+class Counter {
+	@signal count = 0
+
+	increment() {
+		this.count++
+	}
+}
+
+const counter = new Counter()
+
+setInterval(() => counter.increment(), 1000)
+
+createEffect(() => {
+	// Log the count whenever it changes.
+	console.log(`Count is: ${counter.count}`)
+})
+
+//////////////////////////////////////////////////
+// Optionally use classes as Solid components.
+
+@component
+@reactive
+class MyComp {
+	@signal message = 'Hello, World!'
+
+	template(props) {
+		return (
+			<div>
+				<h1>{this.message}</h1>
+
+				<p>My name is {props.name}.</p>
+
+				<p>The count is: {counter.count}</p>
+			</div>
+		)
+	}
+}
+
+render(() => <MyComp name="Joe" />, document.body)
+```
 
 # Install
 
@@ -124,7 +200,7 @@ Examples:
 
 ### JavaScript
 
-#### With compiler support
+#### With build tools
 
 Currently the best way to write JavaScript code with `classy-solid` is if you have a
 build setup in place (soon decorators will be native in JavaScript engines and a
@@ -186,7 +262,7 @@ render(() => <MyComp first="Joe" last="Pea" />, document.body)
 > **Note** You only need the `@reactive` decorator if you will use `@signal`
 > properties in your class, regardless if your class is a component or not.
 
-#### Without compiler support
+#### Without build tools
 
 > **Note** The new decorators proposal reached stage 3, so JavaScript will have
 > decorators natively soon and won't require compiler support.

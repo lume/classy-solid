@@ -2,11 +2,16 @@ import { type SignalFunction } from './createSignalFunction.js';
 /**
  * Convert properties on an object into Solid signal-backed properties.
  *
- * There are two ways to use this: either by defining which properties to
- * convert to signal-backed properties by providing an array as property names
- * in the second arg, which is useful on plain objects, or by passing in `this`
- * and `this.constructor` within the `constructor` of a class that has
- * properties decorated with `@signal`.
+ * There are two ways to use this:
+ *
+ * 1. Define which properties to convert to signal-backed properties by
+ * providing property names as trailing arguments. Properties that are
+ * function-valued (methods) are included as values of the signal properties.
+ * 2. If no property names are provided, all non-function-valued properties on
+ * the object will be automatically converted to signal-backed properties.
+ *
+ * If any property is already memoified with `memoify()`, or already signalified
+ * with `signalify()`, it will be skipped.
  *
  * Example with a class:
  *
@@ -50,10 +55,10 @@ import { type SignalFunction } from './createSignalFunction.js';
  */
 export declare function signalify<T extends object, K extends keyof T>(obj: T): T;
 export declare function signalify<T extends object>(obj: T, ...props: (keyof T)[]): T;
+/** This overload is for initial value support for downstream use cases. */
 export declare function signalify<T extends object>(obj: T, ...props: [key: keyof T, initialValue: unknown][]): T;
 export declare function __isPropSetAtLeastOnce(instance: object, prop: string | symbol): boolean;
 export declare function __trackPropSetAtLeastOnce(instance: object, prop: string | symbol): void;
-export declare const isSignalGetter: WeakSet<Function>;
-export declare function __createSignalAccessor<T extends object>(obj: T, prop: Exclude<keyof T, number>, initialVal: unknown): void;
+export declare function __createSignalAccessor<T extends object>(obj: T, prop: Exclude<keyof T, number>, initialVal: unknown, skipFunctionProperties?: boolean): void;
 export declare function __getSignal(obj: object, storage: WeakMap<object, SignalFunction<unknown>>, initialVal: unknown): SignalFunction<unknown>;
 //# sourceMappingURL=signalify.d.ts.map

@@ -2,6 +2,7 @@ import { createMutable } from 'solid-js/store';
 import { signalify } from './signalify.js';
 import { testButterflyProps } from '../index.test.js';
 import { createEffect, untrack } from 'solid-js';
+import { memoify } from './memoify.js';
 describe('classy-solid', () => {
   describe('signalify()', () => {
     it('returns the same object that was passed in', () => {
@@ -15,6 +16,40 @@ describe('classy-solid', () => {
       });
       obj2 = signalify(obj, 'n');
       expect(obj).toBe(obj2);
+    });
+    it('skips function properties in automatic mode', () => {
+      const obj = {
+        sum() {
+          return 1;
+        }
+      };
+      const result = signalify(obj);
+      expect(result.sum()).toBe(1);
+      expect(typeof Object.getOwnPropertyDescriptor(result, 'sum')?.value).toBe('function');
+    });
+    it('does not skip function properties in explicit mode', () => {
+      const obj = {
+        sum() {
+          return 1;
+        }
+      };
+      const result = signalify(obj, 'sum');
+      expect(result.sum()).toBe(1);
+      expect(typeof Object.getOwnPropertyDescriptor(result, 'sum')?.value === 'undefined').toBe(true);
+      expect(typeof Object.getOwnPropertyDescriptor(result, 'sum')?.get).toBe('function');
+    });
+    it('skips properties already memoified or signalified', () => {
+      const obj = {
+        get foo() {
+          return 1;
+        },
+        set foo(_v) {}
+      };
+      memoify(obj, 'foo');
+      const before = Object.getOwnPropertyDescriptor(obj, 'foo')?.get;
+      signalify(obj, 'foo');
+      const after = Object.getOwnPropertyDescriptor(obj, 'foo')?.get;
+      expect(before).toBe(after);
     });
     describe('making objects reactive with signalify()', () => {
       it('', () => {

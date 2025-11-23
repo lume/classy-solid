@@ -1,15 +1,21 @@
 import { getInheritedDescriptor } from 'lowclass/dist/getInheritedDescriptor.js';
 import { $PROXY, untrack } from 'solid-js';
 import { createSignalFunction } from './createSignalFunction.js';
+import { isMemoGetter, isSignalGetter } from './_state.js';
 
 /**
  * Convert properties on an object into Solid signal-backed properties.
  *
- * There are two ways to use this: either by defining which properties to
- * convert to signal-backed properties by providing an array as property names
- * in the second arg, which is useful on plain objects, or by passing in `this`
- * and `this.constructor` within the `constructor` of a class that has
- * properties decorated with `@signal`.
+ * There are two ways to use this:
+ *
+ * 1. Define which properties to convert to signal-backed properties by
+ * providing property names as trailing arguments. Properties that are
+ * function-valued (methods) are included as values of the signal properties.
+ * 2. If no property names are provided, all non-function-valued properties on
+ * the object will be automatically converted to signal-backed properties.
+ *
+ * If any property is already memoified with `memoify()`, or already signalified
+ * with `signalify()`, it will be skipped.
  *
  * Example with a class:
  *
@@ -52,12 +58,15 @@ import { createSignalFunction } from './createSignalFunction.js';
  * ```
  */
 
+/** This overload is for initial value support for downstream use cases. */
+
 export function signalify(obj, ...props) {
   // Special case for Solid proxies: if the object is already a solid proxy,
   // all properties are already reactive, no need to signalify.
   // @ts-expect-error special indexed access
   const proxy = obj[$PROXY];
   if (proxy) return obj;
+  const skipFunctionProperties = props.length === 0;
   const _props = props.length ? props : Object.keys(obj).concat(Object.getOwnPropertySymbols(obj));
 
   // Use `untrack` here to be extra safe the initial value doesn't count as a
@@ -67,7 +76,7 @@ export function signalify(obj, ...props) {
     // We cast from PropertyKey to PropKey because keys can't actually be number, only string | symbol.
     const _prop = isTuple ? prop[0] : prop;
     const initialValue = isTuple ? prop[1] : untrack(() => obj[_prop]);
-    __createSignalAccessor(obj, _prop, initialValue);
+    __createSignalAccessor(obj, _prop, initialValue, skipFunctionProperties);
   }
   return obj;
 }
@@ -86,20 +95,27 @@ export function __trackPropSetAtLeastOnce(instance, prop) {
   if (!propsSetAtLeastOnce.has(instance)) propsSetAtLeastOnce.set(instance, new Set());
   propsSetAtLeastOnce.get(instance).add(prop);
 }
-export const isSignalGetter = new WeakSet();
-export function __createSignalAccessor(obj, prop, initialVal) {
+export function __createSignalAccessor(obj, prop, initialVal, skipFunctionProperties = false) {
   let descriptor = getInheritedDescriptor(obj, prop);
   let originalGet;
   let originalSet;
   const isAccessor = !!(descriptor?.get || descriptor?.set);
   if (descriptor) {
+    if (skipFunctionProperties && typeof descriptor.value === 'function') return;
     originalGet = descriptor.get;
     originalSet = descriptor.set;
+
+    // If the original getter is already a signal getter, skip re-signalifying.
     if (originalGet && isSignalGetter.has(originalGet)) return;
-    // reactivity requires both
-    if (isAccessor && !(originalGet && originalSet)) return warnNotReadWrite(prop);
+
+    // If the original getter is already a memo getter, skip signalifying.
+    if (originalGet && isMemoGetter.has(originalGet)) return;
+
+    // Signals require both getter and setter to work properly.
+    if (isAccessor && !(originalGet && originalSet)) return; /*warnNotReadWrite(prop)*/
+
     if (!isAccessor) {
-      // no need to make a signal that can't be written to
+      // No need to make a signal that can't be written to.
       if (!descriptor.writable) return warnNotWritable(prop);
 
       // If there was a value descriptor, trust it as the source of truth
@@ -140,9 +156,15 @@ export function __getSignal(obj, storage, initialVal) {
   }));
   return s;
 }
-function warnNotReadWrite(prop) {
-  console.warn(`Cannot signalify property named "${String(prop)}" which had a getter or a setter, but not both. Reactivity on accessors works only when accessors have both get and set. Skipped.`);
-}
+
+// function warnNotReadWrite(prop: PropertyKey) {
+// 	console.warn(
+// 		`Cannot signalify property named "${String(
+// 			prop,
+// 		)}" which had a getter or a setter, but not both. Reactivity on accessors works only when accessors have both get and set. Skipped.`,
+// 	)
+// }
+
 function warnNotWritable(prop) {
   console.warn(`The \`@signal\` decorator was used on a property named "${String(prop)}" that is not writable. Reactivity is not enabled for non-writable properties.`);
 }

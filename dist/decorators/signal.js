@@ -1,10 +1,13 @@
 import { $PROXY } from 'solid-js';
-import { __getSignal, __trackPropSetAtLeastOnce, __createSignalAccessor, isSignalGetter } from '../signals/signalify.js';
+import { __getSignal, __trackPropSetAtLeastOnce, signalify } from '../signals/signalify.js';
+import { __sortSignalsMemosInMetadata, isSignalGetter } from '../signals/_state.js';
+import { memoify } from '../signals/memoify.js';
 export let __propsToSignalify = new Map();
 export function __resetPropsToSignalify() {
   __propsToSignalify = new Map();
 }
 const Undefined = Symbol();
+
 /**
  * @decorator
  * Decorate properties of a class with `@signal` to back them with Solid
@@ -36,42 +39,82 @@ const Undefined = Symbol();
  * ```
  */
 export function signal(value, context) {
+  if (context.static) throw new Error('@signal is not supported on static fields yet.');
   const {
     kind,
-    name,
-    metadata
+    name
   } = context;
-  const props = __propsToSignalify;
-  if (context.static) throw new Error('@signal is not supported on static fields yet.');
+  if (!(kind === 'field' || kind === 'accessor' || kind === 'getter' || kind === 'setter')) throw new InvalidSignalDecoratorError();
+
+  // const props = __propsToSignalify
 
   // @prod-prune
-  queueReactiveDecoratorChecker(props);
-  if (kind === 'field') {
-    if (context.private && name !== '#finalize') throw new Error('@signal is not supported on private fields yet.');
-    if (name === '#finalize') __propsToSignalify = new Map(); // reset
-    else props.set(name, {
-      initialValue: undefined,
-      kind
-    });
-    return function (initialValue) {
-      if (name === '#finalize') {
-        // Special case for Solid proxies: if the object is already a solid proxy,
-        // all properties are already reactive, no need to signalify.
-        // @ts-expect-error special indexed access
-        const proxy = this[$PROXY];
-        if (proxy) return this;
-        for (const [prop, propSpec] of props) {
-          let initialValue = propSpec.initialValue;
+  // queueReactiveDecoratorChecker(props)
 
-          // @prod-prune
-          if (!Object.hasOwn(this, prop)) throw new PropNotFoundError(prop);
-          __createSignalAccessor(this, prop, initialValue);
-        }
-        return;
+  const metadata = context.metadata;
+  if (!Object.hasOwn(metadata, 'signalFieldsAndMemos')) metadata.signalFieldsAndMemos = [];
+  const signalsAndMemos = metadata.signalFieldsAndMemos;
+  if (kind === 'field') {
+    // if (context.private && name !== '#finalize') throw new Error('@signal is not supported on private fields yet.')
+
+    // if (name === '#finalize') __propsToSignalify = new Map<PropKey, PropSpec>() // reset
+    // else props.set(name, {initialValue: undefined, kind})
+
+    // return function (this: object, initialValue: unknown) {
+    // 	if (name === '#finalize') {
+    // 		// Special case for Solid proxies: if the object is already a solid proxy,
+    // 		// all properties are already reactive, no need to signalify.
+    // 		// @ts-expect-error special indexed access
+    // 		const proxy = this[$PROXY] as T
+    // 		if (proxy) return this
+
+    // 		for (const [prop, propSpec] of props) {
+    // 			let initialValue = propSpec.initialValue
+
+    // 			// @prod-prune
+    // 			if (!Object.hasOwn(this, prop)) throw new PropNotFoundError(prop)
+
+    // 			__createSignalAccessor(this as any, prop, initialValue)
+    // 		}
+    // 		return
+    // 	}
+
+    // 	props.get(name)!.initialValue = initialValue
+    // 	return initialValue
+    // }
+
+    let stat = signalsAndMemos.find(([key]) => key === name)?.[1];
+    if (!stat) signalsAndMemos.push([name, stat = {
+      type: 'signal-field',
+      applied: new WeakMap()
+    }]);
+    context.addInitializer(function () {
+      // Special case for Solid proxies: if the object is already a solid proxy,
+      // all properties are already reactive, no need to signalify.
+      // @ts-expect-error special indexed access
+      const proxy = this[$PROXY];
+      if (proxy) return;
+      __sortSignalsMemosInMetadata(metadata);
+
+      // __createSignalAccessor(this as any, name, value)
+
+      if (stat.applied.get(this)) return;
+      signalify(this, [name, this[name]]);
+      stat.applied.set(this, true);
+      const last = signalsAndMemos.findLast(([_, {
+        type
+      }]) => type === 'signal-field' || type === 'memo-field' || type === 'memo-auto-accessor');
+      const [, lastStat] = last;
+      if (stat !== lastStat) return;
+
+      // All signal-fields, memo-fields, and memo-auto-accessors have been
+      // initialized. Now initialize memo fields that were waiting for
+      // those to be ready.
+      for (const [key, stat] of signalsAndMemos) {
+        if (!(stat.type === 'memo-accessor' || stat.type === 'memo-method') || stat.applied.get(this)) continue;
+        memoify(this, key);
       }
-      props.get(name).initialValue = initialValue;
-      return initialValue;
-    };
+    });
   } else if (kind === 'accessor') {
     const {
       get,
@@ -101,16 +144,16 @@ export function signal(value, context) {
   } else if (kind === 'getter' || kind === 'setter') {
     const getOrSet = value;
     const initialValue = Undefined;
-    if (!Object.hasOwn(metadata, 'signalStoragesPerProp')) metadata.signalStoragesPerProp = {};
-    const signalsStorages = metadata.signalStoragesPerProp;
+    if (!Object.hasOwn(metadata, 'getterSetterSignals')) metadata.getterSetterSignals = {};
+    const signalsStorages = metadata.getterSetterSignals;
     let signalStorage = signalsStorages[name];
     if (!signalStorage) signalsStorages[name] = signalStorage = new WeakMap();
-    if (!Object.hasOwn(metadata, 'getterSetterPairs')) metadata.getterSetterPairs = {};
-    const pairs = metadata.getterSetterPairs;
+    if (!Object.hasOwn(metadata, 'getterSetterPairCounts')) metadata.getterSetterPairCounts = {};
+    const pairs = metadata.getterSetterPairCounts;
 
     // Show a helpful error in case someone forgets to decorate both a getter and setter.
     queueMicrotask(() => {
-      if (pairs[name] !== 2) throw new MissingDecoratorError(name);
+      if (pairs[name] !== 2) throw new MissingSignalDecoratorError(name);
     });
     if (kind === 'getter') {
       pairs[name] ??= 0;
@@ -131,9 +174,10 @@ export function signal(value, context) {
         s(typeof newValue === 'function' ? () => newValue : newValue);
       };
     }
-  } else throw new InvalidDecorationError();
+  }
 }
-let checkerQueued = false;
+
+// let checkerQueued = false
 
 /**
  * This throws an error in some cases of an end dev forgetting to decorate a
@@ -143,32 +187,44 @@ let checkerQueued = false;
  * missing @reactive, but something is better than nothing. There's another
  * similar check performed in the `@reactive` decorator.
  */
-function queueReactiveDecoratorChecker(props) {
-  if (checkerQueued) return;
-  checkerQueued = true;
-  queueMicrotask(() => {
-    checkerQueued = false;
+// function queueReactiveDecoratorChecker(props: Map<PropKey, PropSpec>) {
+// 	if (checkerQueued) return
+// 	checkerQueued = true
 
-    // If the refs are still equal, it means @reactive did not run (forgot
-    // to decorate a class that uses @signal with @reactive).
-    if (props === __propsToSignalify) {
-      throw new Error(
-      // Array.from(map.keys()) instead of [...map.keys()] because it breaks in Oculus browser.
-      `Stray @signal-decorated properties detected: ${Array.from(props.keys()).join(', ')}. Did you forget to use the \`@reactive\` decorator on a class that has properties decorated with \`@signal\`?`);
-    }
-  });
-}
-class PropNotFoundError extends Error {
-  constructor(prop) {
-    super(`Property "${String(prop)}" not found on instance of class decorated with \`@reactive\`. Did you forget to use the \`@reactive\` decorator on one of your classes that has a "${String(prop)}" property decorated with \`@signal\`?`);
-  }
-}
-class MissingDecoratorError extends Error {
+// 	queueMicrotask(() => {
+// 		checkerQueued = false
+
+// 		// If the refs are still equal, it means @reactive did not run (forgot
+// 		// to decorate a class that uses @signal with @reactive).
+// 		if (props === __propsToSignalify) {
+// 			throw new Error(
+// 				// Array.from(map.keys()) instead of [...map.keys()] because it breaks in Oculus browser.
+// 				`Stray @signal-decorated properties detected: ${Array.from(props.keys()).join(
+// 					', ',
+// 				)}. Did you forget to use the \`@reactive\` decorator on a class that has properties decorated with \`@signal\`?`,
+// 			)
+// 		}
+// 	})
+// }
+
+// class PropNotFoundError extends Error {
+// 	constructor(prop: PropertyKey) {
+// 		super(
+// 			`Property "${String(
+// 				prop,
+// 			)}" not found on instance of class decorated with \`@reactive\`. Did you forget to use the \`@reactive\` decorator on one of your classes that has a "${String(
+// 				prop,
+// 			)}" property decorated with \`@signal\`?`,
+// 		)
+// 	}
+// }
+
+class MissingSignalDecoratorError extends Error {
   constructor(prop) {
     super(`Missing @signal decorator on setter or getter for property "${String(prop)}". The @signal decorator will only work on a getter/setter pair with *both* getter and setter decorated with @signal.`);
   }
 }
-class InvalidDecorationError extends Error {
+class InvalidSignalDecoratorError extends Error {
   constructor() {
     super('The @signal decorator is only for use on fields, getters, setters, and auto accessors.');
   }

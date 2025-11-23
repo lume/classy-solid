@@ -12,34 +12,42 @@ signals, and for using `class`es as Solid.js components.
   - [Vite Setup](#vite-setup)
   - [Babel Setup](#babel-setup)
 - [API and Usage](#api-and-usage)
-  - [`@reactive`](#reactive)
-  - [`@signal`](#signal)
-  - [`@component`](#component)
-    - [JavaScript](#javascript)
-      - [With build tools](#with-build-tools)
-      - [Without build tools](#without-build-tools)
-    - [TypeScript](#typescript)
-  - [`createSignalObject()`](#createsignalobject)
-  - [`createSignalFunction()`](#createsignalfunction)
-  - [`signalify()`](#signalify)
-  - [`Effectful`](#effectful)
-  - [`Effects`](#effects)
-  - [`syncSignals`](#syncsignals)
-  - [`createSyncedSignals`](#createsyncedsignals)
-  - [`createStoppableEffect`](#createstoppableeffect)
+  - [Decorator APIs](#decorator-apis)
+    - [`@reactive`](#reactive)
+    - [`@signal`](#signal)
+    - [`@memo`](#memo)
+    - [`@component`](#component)
+      - [JavaScript with build tools](#javascript-with-build-tools)
+      - [JavaScript without build tools](#javascript-without-build-tools)
+      - [TypeScript](#typescript)
+  - [Non-decorator APIs](#non-decorator-apis)
+    - [`component()`](#component-1)
+    - [`createSignalObject()`](#createsignalobject)
+    - [`createSignalFunction()`](#createsignalfunction)
+    - [`signalify()`](#signalify)
+    - [`memoify()`](#memoify)
+    - [`Effectful`](#effectful)
+    - [`Effects`](#effects)
+    - [`syncSignals`](#syncsignals)
+    - [`createSyncedSignals`](#createsyncedsignals)
+    - [`createStoppableEffect`](#createstoppableeffect)
 
 # At a glance
 
 ```jsx
-import {component, reactive, signal} from 'classy-solid'
-import {createEffect, render} from 'solid-js'
+import {createEffect, render, batch} from 'solid-js'
+import {component, signal, memo} from 'classy-solid'
 
 //////////////////////////////////////////////////
 // Make plain classes reactive with Solid signals.
 
-@reactive
 class Counter {
 	@signal count = 0
+	@signal num = 10
+
+	@memo get sum() {
+		return this.count + this.num
+	}
 
 	increment() {
 		this.count++
@@ -55,15 +63,34 @@ createEffect(() => {
 	console.log(`Count is: ${counter.count}`)
 })
 
+createEffect(() => {
+	// Log the sum whenever it changes.
+	console.log(`Sum is: ${counter.sum}`)
+})
+
+counter.count = 5 // Logs "Count is: 5" and "Sum is: 15"
+counter.num = 20 // Logs "Sum is: 25"
+
+// After the batch function runs, logs "Count is: 10", but does not log "Sum is:
+// 25" because the sum did not change (@memo prevents effects from running
+// unnecessarily on the same values).
+batch(() => {
+	counter.count = 10
+	counter.num = 15
+})
+
 //////////////////////////////////////////////////
 // Optionally use classes as Solid components.
 
 @component
-@reactive
 class MyComp {
 	@signal message = 'Hello, World!'
 
 	template(props) {
+		setTimeout(() => {
+			this.message = 'Hello after 3 seconds!'
+		}, 3000)
+
 		return (
 			<div>
 				<h1>{this.message}</h1>
@@ -137,12 +164,14 @@ plugins: [['@babel/plugin-proposal-decorators', {version: '2022-03'}]]
 
 Note, these docs assume you have basic knowledge of [Solid.js](https://solidjs.com) first.
 
-## `@reactive`
+## Decorator APIs
+
+### `@reactive`
 
 Mark a class with this decorator if it will have signal properties (properties
 backed by Solid signals). See `@signal` below for an example.
 
-## `@signal`
+### `@signal`
 
 Decorate a property of a class with `@signal` to make it reactive (backed by a
 Solid signal). Be sure to decorate a class that has signal properties with the
@@ -173,7 +202,95 @@ createEffect(() => {
 // ...
 ```
 
-## `@component`
+### `@memo`
+
+Create a memoized derived value (readonly or writable) whose computation is
+cached and only re-runs when one of its reactive dependencies (usually
+`@signal` / `signalify` properties) changes AND the computed value actually
+changes. This prevents unnecessary effect executions when dependencies change
+but the derived result stays the same.
+
+Memos properties internally use Solid's `createMemo`/`createWritableMemo`.
+
+Supported member forms:
+
+| Form                        | Example                                                 | Call Style                | Writable? | Rule                                   |
+| --------------------------- | ------------------------------------------------------- | ------------------------- | --------- | -------------------------------------- |
+| Field (arrow fn)            | `@memo sum = () => this.a + this.b`                     | `ex.sum()`                | No        | Function arity 0 => readonly           |
+| Field (arrow fn with param) | `@memo sum = (_v?: number) => this.a + this.b`          | `ex.sum()` / `ex.sum(20)` | Yes       | Arity > 0 => writable                  |
+| Getter                      | `@memo get sum() { return this.a + this.b }`            | `ex.sum`                  | No        | Getter w/o matching setter => readonly |
+| Getter + Setter             | `@memo get sum() { ... }` & `@memo set sum(v) {}`       | `ex.sum` / `ex.sum = 20`  | Yes       | Getter + (empty) setter => writable    |
+| Accessor (auto) readonly    | `@memo accessor sum = () => this.a + this.b`            | `ex.sum()`                | No        | Arrow fn arity 0 => readonly           |
+| Accessor (auto) writable    | `@memo accessor sum = (_v?: number) => this.a + this.b` | `ex.sum()` / `ex.sum(20)` | Yes       | Arrow fn arity > 0 => writable         |
+| Method readonly             | `@memo sum() { return this.a + this.b }`                | `ex.sum()`                | No        | Method arity 0 => readonly             |
+| Method writable             | `@memo sum(_v?: number) { return this.a + this.b }`     | `ex.sum()` / `ex.sum(20)` | Yes       | Method arity > 0 => writable           |
+
+Writable memos: Setting a writable memo (e.g. `ex.sum(20)` or `ex.sum = 20`)
+overrides the current derived value. Subsequent dependency changes resume normal
+recomputation. Readonly memos throw if you attempt to set them.
+
+Arity rules: A function (field, accessor, or method) with length 0 becomes a
+readonly memo. A function with length > 0 becomes writable. For getter/setter
+pairs, the presence of an empty setter marks the memo writable. Note, do not
+provide a non-empty setter, it is ignored.
+
+Example:
+
+```ts
+class Counter {
+	@signal a = 1
+	@signal b = 2
+
+	// readonly getter memo
+	@memo get sum() {
+		return this.a + this.b
+	}
+
+	// writable method memo
+	@memo diff(_override?: number) {
+		return this.a - this.b
+	}
+}
+
+const c = new Counter()
+createEffect(() => console.log('sum:', c.sum)) // logs only on value change
+createEffect(() => console.log('diff:', c.diff()))
+
+c.a = 5 // sum recomputes (7), diff recomputes (3)
+c.diff(100) // override writable memo (diff now 100)
+c.a = 6 // diff recomputes again (6 - 2 = 4)
+```
+
+In JS without decorators, use `signalify()` + `memoify()` manually:
+
+```js
+class Counter {
+	a = 1
+	b = 2
+
+	get sum() {
+		return this.a + this.b
+	}
+
+	diff = () => this.a - this.b
+
+	constructor() {
+		signalify(this, 'a', 'b')
+		memoify(this, 'sum', 'diff')
+	}
+}
+
+const c = new Counter()
+
+// ... same usage as above ...
+```
+
+Gotchas:
+
+- Methods and fields that become memo functions need to be invoked (`ex.sum()`), whereas getters are accessed as values (`ex.sum`).
+- Readonly memos should not be assigned; doing so throws.
+
+### `@component`
 
 A decorator that makes a `class` usable as a component within a Solid template
 (f.e. within JSX markup).
@@ -198,9 +315,7 @@ following methods:
 
 Examples:
 
-### JavaScript
-
-#### With build tools
+#### JavaScript with build tools
 
 Currently the best way to write JavaScript code with `classy-solid` is if you have a
 build setup in place (soon decorators will be native in JavaScript engines and a
@@ -262,7 +377,7 @@ render(() => <MyComp first="Joe" last="Pea" />, document.body)
 > **Note** You only need the `@reactive` decorator if you will use `@signal`
 > properties in your class, regardless if your class is a component or not.
 
-#### Without build tools
+#### JavaScript without build tools
 
 > **Note** The new decorators proposal reached stage 3, so JavaScript will have
 > decorators natively soon and won't require compiler support.
@@ -271,8 +386,6 @@ For plain JS users without build setups, use `component` and `signalify` with
 normal function calls, and use Solid's [`html` template
 tag](https://github.com/solidjs/solid/tree/main/packages/solid/html) for
 templating:
-
-TODO @component needs to be updated to stage 3
 
 ```jsx
 import {component, signalify} from 'classy-solid'
@@ -287,7 +400,7 @@ const MyComp = component(
 
 		constructor() {
 			signalify(this, 'last', 'count')
-			// Or, to signalify all properties:
+			// Or, to signalify all properties (except any with function values):
 			// signalify(this)
 		}
 
@@ -381,12 +494,9 @@ const MyComp = component(
 render(() => html`<${MyComp} first="Joe" last="Pea" />`, document.body)
 ```
 
-### TypeScript
+#### TypeScript
 
-TypeScript does not yet support stage 3 decorators, so you'll have to use
-Babel's TypeScript preset to compile TypeScript code after type checking with
-TypeScript (Babel's transform won't perform type checking, it only strips types
-when converting to JavaScript).
+TypeScript supports decorators out of the box with no additional setup needed.
 
 > **Note** The same rules apply here as with decorators in the previous
 > JavaScript section, and the only difference here is added type checking.
@@ -399,9 +509,10 @@ import {component, reactive, signal, Props} from 'classy-solid'
 class MyComp {
 	// Define `PropTypes` on your class to define prop types for JSX. Note, this
 	// property does not actually need to exist at runtime and is not used at
-	// runtime, so here we use the `!` to tell TS not to worry about it being
-	// `undefined`.
-	PropTypes!: Props<this, 'last' | 'count' | 'first'>
+	// runtime, so here we use the `declare` to tell TS not to assume it exists
+	// for the sake of type checking.
+	// Do not try to use this property at runtime!
+	declare PropTypes: Props<this, 'last' | 'count' | 'first'>
 
 	@signal last = 'name'
 	@signal first = 'no'
@@ -437,7 +548,16 @@ class MyComp {
 render(() => <MyComp first="Joe" last="Pea" count={456} />, document.body)
 ```
 
-## `createSignalObject()`
+## Non-decorator APIs
+
+### `component()`
+
+The [component](#component) decorator is also available as a regular function
+for use in situations where decorators are undesired not yet supported. See the
+[JavaScript without build tools](#javascript-without-build-tools) section above
+for an example.
+
+### `createSignalObject()`
 
 Returns a Solid signal in the form of an object with `.get` and `.set` methods,
 instead of an array tuple.
@@ -481,7 +601,7 @@ class Counter {
 }
 ```
 
-## `createSignalFunction()`
+### `createSignalFunction()`
 
 Returns a Solid signal in the form of a single overloaded function for both
 getting and setting the signal, instead of an array tuple. Call the function
@@ -527,7 +647,7 @@ class Counter {
 }
 ```
 
-## `signalify()`
+### `signalify()`
 
 Use this to convert properties on an object into Solid signal-backed properties.
 This is what `@signal` uses behind the scenes.
@@ -542,11 +662,7 @@ signal-backed properties:
 import {signalify} from 'class-solid'
 import {createEffect} from 'solid-js'
 
-const obj = {
-	foo: 1,
-	bar: 2,
-	baz: 3,
-}
+const obj = {foo: 1, bar: 2, baz: 3}
 
 // Make only the 'foo' and 'bar' properties reactive (backed by Solid signals).
 signalify(obj, 'foo', 'bar')
@@ -566,28 +682,16 @@ possible with `createMutable`.
 Note, it returns the same object passed in, so you can write this:
 
 ```js
-const obj = signalify(
-	{
-		foo: 1,
-		bar: 2,
-		baz: 3,
-	},
-	// Make only the 'foo' and 'bar' properties reactive (backed by Solid signals).
-	'foo',
-	'bar',
-)
+// Make only the 'foo' and 'bar' properties reactive (backed by Solid signals).
+const obj = signalify({foo: 1, bar: 2, baz: 3}, 'foo', 'bar')
 ```
 
 If you want to make all properties signal-backed, then omitting the property
 names in the call will internally use `Object.keys(obj)` as a default:
 
 ```js
-// Make all properties reactive signals
-const obj = signalify({
-	foo: 1,
-	bar: 2,
-	baz: 3,
-})
+// Make all properties reactive signals (except any with function values).
+const obj = signalify({foo: 1, bar: 2, baz: 3, method() {}})
 ```
 
 Note that the object passed in is the same object returned:
@@ -597,6 +701,15 @@ let test
 const obj = signalify(test = {...})
 console.log(obj === test) // true
 ```
+
+To include function valued properties, explicitly list them in the call:
+
+```js
+const obj = signalify({foo: 1, bar: 2, baz: 3, method() {}}) // signalifies foo, bar, baz only
+signalify(obj, 'method') // now method is also signalified
+```
+
+We exclude methods by default because those are handled by default by `memoify()`.
 
 Signalify properties in a class (alternative to decorators):
 
@@ -635,26 +748,114 @@ class Counter {
 	count = 0
 	on = true
 
+	method() {}
+
 	constructor() {
-		// Both 'count' and 'on' will be signal-backed:
+		// Both 'count' and 'on' will be signal-backed (method won't be):
 		signalify(this)
 	}
 }
 ```
 
 Note how with decorators, the code is more DRY and concise, because we don't
-have to express the `count` word more than once, therefore reducing some surface
+have to express the property names more than once, therefore reducing some surface
 area for human mistakes, and we don't have to write a `constructor`:
 
 ```js
 @reactive
 class Counter {
 	@signal count = 0
-	on = true
+	@signal on = true
+
+	method() {}
 }
 ```
 
-## `Effectful`
+### `memoify()`
+
+Convert function-valued properties or accessors on an object or instance into
+Solid memo-backed descriptors, enabling reactive derived computations without
+decorators. Similar to [`signalify()`](#signalify) for signals.
+
+Signature:
+
+```ts
+memoify(obj: object, ...props: (keyof typeof obj)[]): typeof obj
+// Automatic mode (no props): memoify all function-valued own keys & accessors.
+```
+
+Behavior:
+
+- Explicit mode (`memoify(obj, 'foo', 'bar')`): Only listed keys memoified.
+- Automatic mode (`memoify(obj)`): All own string & symbol keys; skips non-function values unless they are accessors (getter/setter).
+- Function arity 0 => readonly memo (`ex.sum()`).
+- Function arity > 0 => writable memo (`ex.sum()` and `ex.sum(20)`).
+- Getter only => readonly memo.
+- Getter + setter => writable memo (setter should be empty, it is symbolic only).
+- Already memoified or signalified getters are skipped.
+
+Examples:
+
+```js
+const obj = {
+	a: 1,
+	b: 2,
+
+	// readonly memo via method
+	sum() {
+		return this.a + this.b
+	},
+
+	// Writable memo via accessor
+	get diff() {
+		return this.a - this.b
+	},
+	set diff(v) {}, // Setter makes the memo writable
+}
+
+signalify(obj, 'a', 'b')
+memoify(obj, 'sum', 'diff')
+
+createEffect(() => console.log('sum:', obj.sum()))
+createEffect(() => console.log('diff:', obj.diff))
+
+obj.a = 5 // triggers both memos (sum=7, diff=3)
+obj.diff = 100 // overrides diff
+obj.a = 6 // diff recomputes (6 - 2 = 4)
+```
+
+Automatic mode:
+
+```js
+const calc = {
+	x: 10,
+	y: 5,
+
+	product() {
+		return this.x * this.y
+	},
+
+	get ratio() {
+		return this.x / this.y
+	},
+}
+
+signalify(calc) // make x, y reactive
+memoify(calc) // memoify product(), ratio
+```
+
+Use cases:
+
+- Plain objects needing derived reactive values without decorators.
+- ES5-style constructor/prototype patterns.
+- Memoizing expensive calculations (chained memos supported).
+
+When to prefer `@memo` vs `memoify()`:
+
+- Use `@memo` inside modern class syntax where decorators are supported.
+- Use `memoify()` for plain objects, prototypes, or when decorators are undesirable or not available.
+
+### `Effectful`
 
 `Effectful` is a class-factory mixin that gives your class a `createEffect()`
 method, along with a `stopEffects()` method that will stop all current effects.
@@ -707,7 +908,7 @@ customElements.define('counter-display', CounterDisplay)
 instance, unless it is called inside another root in which case it'll use that
 root.
 
-## `Effects`
+### `Effects`
 
 An instantiation of `Effectful(Object)` as a shortcut.
 
@@ -758,7 +959,7 @@ class MyClass {
 }
 ```
 
-## `syncSignals`
+### `syncSignals`
 
 Syncs two signals together so that setting one signal's value updates the
 other, and vice versa, without an infinite loop.
@@ -789,7 +990,7 @@ setFoo(1) // logs "1 1"
 setBar(2) // logs "2 2"
 ```
 
-## `createSyncedSignals`
+### `createSyncedSignals`
 
 Useful as a shorthand for:
 
@@ -803,7 +1004,7 @@ Example:
 const [[foo, setFoo], [bar, setBar]] = createSyncedSignals(0)
 ```
 
-## `createStoppableEffect`
+### `createStoppableEffect`
 
 NOTE: Experimental
 

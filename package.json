@@ -37,6 +37,7 @@
 		"example": "five-server . --open=example"
 	},
 	"dependencies": {
+		"@solid-primitives/memo": "^1.4.3",
 		"lowclass": "^8.0.0",
 		"solid-js": "^1.3.13"
 	},

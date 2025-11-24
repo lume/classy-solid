@@ -1,4 +1,4 @@
-import type { PropKey, SignalMetadata, SignalOrMemoType } from '../decorators/types.js';
+import type { PropKey, SignalMetadata, SignalOrMemoType } from './decorators/types.js';
 export declare const isSignalGetter: WeakSet<Function>;
 export declare const isMemoGetter: WeakSet<Function>;
 export declare function getSignalsAndMemos(metadata: SignalMetadata): [key: PropKey, stat: {

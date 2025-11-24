@@ -1,6 +1,6 @@
 import { $PROXY } from 'solid-js';
 import { getSignal__, trackPropSetAtLeastOnce__, signalify } from '../signals/signalify.js';
-import { sortSignalsMemosInMetadata, isSignalGetter, getMemberStat, finalizeMemos, getSignalsAndMemos } from '../signals/_state.js';
+import { sortSignalsMemosInMetadata, isSignalGetter, getMemberStat, finalizeMemos, getSignalsAndMemos } from '../_state.js';
 const Undefined = Symbol();
 
 /**

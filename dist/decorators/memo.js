@@ -1,4 +1,4 @@
-import { finalizeMemos, getMemberStat, getSignalsAndMemos, isPriorSignalOrMemoDefined, memoifyIfNeeded, sortSignalsMemosInMetadata } from '../signals/_state.js';
+import { finalizeMemos, getMemberStat, getSignalsAndMemos, isPriorSignalOrMemoDefined, memoifyIfNeeded, sortSignalsMemosInMetadata } from '../_state.js';
 
 /**
  * A decorator that make a signal property derived from a memoized computation

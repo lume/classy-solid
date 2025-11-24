@@ -1,7 +1,7 @@
 import { createMemo } from 'solid-js';
 import { createWritableMemo } from '@solid-primitives/memo';
 import { getInheritedDescriptor } from 'lowclass/dist/getInheritedDescriptor.js';
-import { isMemoGetter, isSignalGetter } from './_state.js';
+import { isMemoGetter, isSignalGetter } from '../_state.js';
 const Undefined = Symbol();
 
 /**

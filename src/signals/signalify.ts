@@ -2,7 +2,7 @@ import {getInheritedDescriptor} from 'lowclass/dist/getInheritedDescriptor.js'
 import {$PROXY, untrack} from 'solid-js'
 import type {PropKey} from '../decorators/types.js'
 import {createSignalFunction, type SignalFunction} from './createSignalFunction.js'
-import {isMemoGetter, isSignalGetter} from './_state.js'
+import {isMemoGetter, isSignalGetter} from '../_state.js'
 
 type AnyObject = Record<PropertyKey, unknown>
 

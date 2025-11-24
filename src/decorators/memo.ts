@@ -6,7 +6,7 @@ import {
 	isPriorSignalOrMemoDefined,
 	memoifyIfNeeded,
 	sortSignalsMemosInMetadata,
-} from '../signals/_state.js'
+} from '../_state.js'
 
 /**
  * A decorator that make a signal property derived from a memoized computation

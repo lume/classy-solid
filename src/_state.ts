@@ -1,5 +1,5 @@
-import type {PropKey, SignalMetadata, SignalOrMemoType} from '../decorators/types.js'
-import {memoify} from './memoify.js'
+import type {PropKey, SignalMetadata, SignalOrMemoType} from './decorators/types.js'
+import {memoify} from './signals/memoify.js'
 
 export const isSignalGetter = new WeakSet<Function>()
 export const isMemoGetter = new WeakSet<Function>()

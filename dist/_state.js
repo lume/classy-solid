@@ -1,4 +1,4 @@
-import { memoify } from './memoify.js';
+import { memoify } from './signals/memoify.js';
 export const isSignalGetter = new WeakSet();
 export const isMemoGetter = new WeakSet();
 const isSorted = new WeakSet();

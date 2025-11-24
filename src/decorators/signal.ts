@@ -8,7 +8,7 @@ import {
 	getMemberStat,
 	finalizeMemos,
 	getSignalsAndMemos,
-} from '../signals/_state.js'
+} from '../_state.js'
 
 const Undefined = Symbol()
 

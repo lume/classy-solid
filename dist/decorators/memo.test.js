@@ -4,14 +4,12 @@ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = 
 function _setFunctionName(e, t, n) { "symbol" == typeof t && (t = (t = t.description) ? "[" + t + "]" : ""); try { Object.defineProperty(e, "name", { configurable: !0, value: n ? n + " " + t : t }); } catch (e) {} return e; }
 function _checkInRHS(e) { if (Object(e) !== e) throw TypeError("right-hand side of 'in' should be an object, got " + (null !== e ? typeof e : "null")); return e; }
 import { createEffect, batch } from 'solid-js';
-import { reactive } from './reactive.js';
 import { signal } from './signal.js';
 import { memo } from './memo.js';
 describe('classy-solid', () => {
-  describe('@reactive, @signal, @memo', () => {
+  describe('@memo', () => {
     it('creates a readonly memo via field', () => {
       let _init_a, _init_extra_a, _init_b, _init_extra_b, _init_sum, _init_extra_sum;
-      // @reactive
       class Example {
         static {
           [_init_a, _init_extra_a, _init_b, _init_extra_b, _init_sum, _init_extra_sum] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [memo, 0, "sum"]]).e;
@@ -136,14 +134,10 @@ describe('classy-solid', () => {
       }).toThrow();
     });
     it('creates a writable memo via getter+setter', () => {
-      let _initProto2, _initClass, _init_a4, _init_extra_a4, _init_b4, _init_extra_b4;
-      let _Example;
+      let _initProto2, _init_a4, _init_extra_a4, _init_b4, _init_extra_b4;
       class Example {
         static {
-          ({
-            e: [_init_a4, _init_extra_a4, _init_b4, _init_extra_b4, _initProto2],
-            c: [_Example, _initClass]
-          } = _applyDecs(this, [reactive], [[signal, 0, "a"], [signal, 0, "b"], [memo, 3, "sum2"], [memo, 4, "sum2"]]));
+          [_init_a4, _init_extra_a4, _init_b4, _init_extra_b4, _initProto2] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [memo, 3, "sum2"], [memo, 4, "sum2"]]).e;
         }
         constructor() {
           _init_extra_b4(this);
@@ -154,11 +148,8 @@ describe('classy-solid', () => {
           return this.a + this.b;
         }
         set sum2(_val) {}
-        static {
-          _initClass();
-        }
       }
-      const ex = new _Example();
+      const ex = new Example();
       let count = 0;
       let lastSum = 0;
       createEffect(() => {
@@ -188,14 +179,10 @@ describe('classy-solid', () => {
       expect(count).toBe(3);
     });
     it('creates a readonly memo via accessor function value', () => {
-      let _initClass2, _init_a5, _init_extra_a5, _init_b5, _init_extra_b5, _init_sum3, _init_extra_sum3;
-      let _Example2;
+      let _init_a5, _init_extra_a5, _init_b5, _init_extra_b5, _init_sum3, _init_extra_sum3;
       class Example {
         static {
-          ({
-            e: [_init_sum3, _init_extra_sum3, _init_a5, _init_extra_a5, _init_b5, _init_extra_b5],
-            c: [_Example2, _initClass2]
-          } = _applyDecs(this, [reactive], [[signal, 0, "a"], [signal, 0, "b"], [memo, 1, "sum3"]]));
+          [_init_sum3, _init_extra_sum3, _init_a5, _init_extra_a5, _init_b5, _init_extra_b5] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [memo, 1, "sum3"]]).e;
         }
         constructor() {
           _init_extra_sum3(this);
@@ -209,11 +196,8 @@ describe('classy-solid', () => {
         set sum3(v) {
           this.#A = v;
         }
-        static {
-          _initClass2();
-        }
       }
-      const ex = new _Example2();
+      const ex = new Example();
       let count = 0;
       let lastSum = 0;
       createEffect(() => {
@@ -240,14 +224,10 @@ describe('classy-solid', () => {
       expect(() => ex.sum3(20)).toThrow();
     });
     it('creates a writable memo via accessor function value', () => {
-      let _initClass3, _init_a6, _init_extra_a6, _init_b6, _init_extra_b6, _init_sum4, _init_extra_sum4;
-      let _Example3;
+      let _init_a6, _init_extra_a6, _init_b6, _init_extra_b6, _init_sum4, _init_extra_sum4;
       class Example {
         static {
-          ({
-            e: [_init_sum4, _init_extra_sum4, _init_a6, _init_extra_a6, _init_b6, _init_extra_b6],
-            c: [_Example3, _initClass3]
-          } = _applyDecs(this, [reactive], [[signal, 0, "a"], [signal, 0, "b"], [memo, 1, "sum3"]]));
+          [_init_sum4, _init_extra_sum4, _init_a6, _init_extra_a6, _init_b6, _init_extra_b6] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [memo, 1, "sum3"]]).e;
         }
         constructor() {
           _init_extra_sum4(this);
@@ -261,11 +241,8 @@ describe('classy-solid', () => {
         set sum3(v) {
           this.#A = v;
         }
-        static {
-          _initClass3();
-        }
       }
-      const ex = new _Example3();
+      const ex = new Example();
       let count = 0;
       let lastSum = 0;
       createEffect(() => {
@@ -295,14 +272,10 @@ describe('classy-solid', () => {
       expect(count).toBe(3);
     });
     it('creates a readonly memo via method', () => {
-      let _initProto3, _initClass4, _init_a7, _init_extra_a7, _init_b7, _init_extra_b7;
-      let _Example4;
+      let _initProto3, _init_a7, _init_extra_a7, _init_b7, _init_extra_b7;
       class Example {
         static {
-          ({
-            e: [_init_a7, _init_extra_a7, _init_b7, _init_extra_b7, _initProto3],
-            c: [_Example4, _initClass4]
-          } = _applyDecs(this, [reactive], [[signal, 0, "a"], [signal, 0, "b"], [memo, 2, "sum4"]]));
+          [_init_a7, _init_extra_a7, _init_b7, _init_extra_b7, _initProto3] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [memo, 2, "sum4"]]).e;
         }
         constructor() {
           _init_extra_b7(this);
@@ -312,11 +285,8 @@ describe('classy-solid', () => {
         sum4() {
           return this.a + this.b;
         }
-        static {
-          _initClass4();
-        }
       }
-      const ex = new _Example4();
+      const ex = new Example();
       let count = 0;
       let lastSum = 0;
       createEffect(() => {
@@ -346,14 +316,10 @@ describe('classy-solid', () => {
       }).toThrow();
     });
     it('creates a writable memo via method', () => {
-      let _initProto4, _initClass5, _init_a8, _init_extra_a8, _init_b8, _init_extra_b8;
-      let _Example5;
+      let _initProto4, _init_a8, _init_extra_a8, _init_b8, _init_extra_b8;
       class Example {
         static {
-          ({
-            e: [_init_a8, _init_extra_a8, _init_b8, _init_extra_b8, _initProto4],
-            c: [_Example5, _initClass5]
-          } = _applyDecs(this, [reactive], [[signal, 0, "a"], [signal, 0, "b"], [memo, 2, "sum4"]]));
+          [_init_a8, _init_extra_a8, _init_b8, _init_extra_b8, _initProto4] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [memo, 2, "sum4"]]).e;
         }
         constructor() {
           _init_extra_b8(this);
@@ -363,11 +329,8 @@ describe('classy-solid', () => {
         sum4(_val) {
           return this.a + this.b;
         }
-        static {
-          _initClass5();
-        }
       }
-      const ex = new _Example5();
+      const ex = new Example();
       let count = 0;
       let lastSum = 0;
       createEffect(() => {
@@ -397,14 +360,10 @@ describe('classy-solid', () => {
       expect(count).toBe(3);
     });
     it('memoizes complex computations and only re-runs when dependencies change', () => {
-      let _initProto5, _initClass6, _init_x, _init_extra_x, _init_y, _init_extra_y;
-      let _Calculator;
+      let _initProto5, _init_x, _init_extra_x, _init_y, _init_extra_y;
       class Calculator {
         static {
-          ({
-            e: [_init_x, _init_extra_x, _init_y, _init_extra_y, _initProto5],
-            c: [_Calculator, _initClass6]
-          } = _applyDecs(this, [reactive], [[signal, 0, "x"], [signal, 0, "y"], [memo, 3, "result"]]));
+          [_init_x, _init_extra_x, _init_y, _init_extra_y, _initProto5] = _applyDecs(this, [], [[signal, 0, "x"], [signal, 0, "y"], [memo, 3, "result"]]).e;
         }
         constructor() {
           _init_extra_y(this);
@@ -416,11 +375,8 @@ describe('classy-solid', () => {
           this.computeCount++;
           return this.x * 2 + this.y;
         }
-        static {
-          _initClass6();
-        }
       }
-      const calc = new _Calculator();
+      const calc = new Calculator();
       expect(calc.result).toBe(25);
       expect(calc.computeCount).toBe(1);
 
@@ -438,14 +394,10 @@ describe('classy-solid', () => {
       expect(calc.computeCount).toBe(2);
     });
     it('works with multiple memo properties', () => {
-      let _initProto6, _initClass7, _init_value, _init_extra_value, _init_double, _init_extra_double, _init_quadruple, _init_extra_quadruple;
-      let _MultiMemo;
+      let _initProto6, _init_value, _init_extra_value, _init_double, _init_extra_double, _init_quadruple, _init_extra_quadruple;
       class MultiMemo {
         static {
-          ({
-            e: [_init_quadruple, _init_extra_quadruple, _init_value, _init_extra_value, _init_double, _init_extra_double, _initProto6],
-            c: [_MultiMemo, _initClass7]
-          } = _applyDecs(this, [reactive], [[signal, 0, "value"], [memo, 0, "double"], [memo, 3, "triple"], [memo, 1, "quadruple"]]));
+          [_init_quadruple, _init_extra_quadruple, _init_value, _init_extra_value, _init_double, _init_extra_double, _initProto6] = _applyDecs(this, [], [[signal, 0, "value"], [memo, 0, "double"], [memo, 3, "triple"], [memo, 1, "quadruple"]]).e;
         }
         constructor() {
           _init_extra_quadruple(this);
@@ -462,11 +414,8 @@ describe('classy-solid', () => {
         set quadruple(v) {
           this.#A = v;
         }
-        static {
-          _initClass7();
-        }
       }
-      const mm = new _MultiMemo();
+      const mm = new MultiMemo();
       let doubleCount = 0;
       let tripleCount = 0;
       let quadCount = 0;
@@ -497,14 +446,10 @@ describe('classy-solid', () => {
       expect(quadCount).toBe(2);
     });
     it('handles memo depending on other memos', () => {
-      let _initProto7, _initClass8, _init_base, _init_extra_base;
-      let _ChainedMemo;
+      let _initProto7, _init_base, _init_extra_base;
       class ChainedMemo {
         static {
-          ({
-            e: [_init_base, _init_extra_base, _initProto7],
-            c: [_ChainedMemo, _initClass8]
-          } = _applyDecs(this, [reactive], [[signal, 0, "base"], [memo, 3, "squared"], [memo, 3, "cubed"]]));
+          [_init_base, _init_extra_base, _initProto7] = _applyDecs(this, [], [[signal, 0, "base"], [memo, 3, "squared"], [memo, 3, "cubed"]]).e;
         }
         constructor() {
           _init_extra_base(this);
@@ -516,11 +461,8 @@ describe('classy-solid', () => {
         get cubed() {
           return this.squared * this.base;
         }
-        static {
-          _initClass8();
-        }
       }
-      const cm = new _ChainedMemo();
+      const cm = new ChainedMemo();
       let count = 0;
       createEffect(() => {
         cm.cubed;
@@ -535,14 +477,10 @@ describe('classy-solid', () => {
       expect(count).toBe(2);
     });
     it('correctly handles writable field memo overriding explicit value', () => {
-      let _initClass9, _init_a9, _init_extra_a9, _init_b9, _init_extra_b9, _init_sum5, _init_extra_sum5;
-      let _WritableOverride;
+      let _init_a9, _init_extra_a9, _init_b9, _init_extra_b9, _init_sum5, _init_extra_sum5;
       class WritableOverride {
         static {
-          ({
-            e: [_init_a9, _init_extra_a9, _init_b9, _init_extra_b9, _init_sum5, _init_extra_sum5],
-            c: [_WritableOverride, _initClass9]
-          } = _applyDecs(this, [reactive], [[signal, 0, "a"], [signal, 0, "b"], [memo, 0, "sum"]]));
+          [_init_a9, _init_extra_a9, _init_b9, _init_extra_b9, _init_sum5, _init_extra_sum5] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [memo, 0, "sum"]]).e;
         }
         constructor() {
           _init_extra_sum5(this);
@@ -550,11 +488,8 @@ describe('classy-solid', () => {
         a = _init_a9(this, 5);
         b = (_init_extra_a9(this), _init_b9(this, 10));
         sum = (_init_extra_b9(this), _init_sum5(this, _val => this.a + this.b));
-        static {
-          _initClass9();
-        }
       }
-      const wo = new _WritableOverride();
+      const wo = new WritableOverride();
       let count = 0;
       let lastValue = 0;
       createEffect(() => {
@@ -579,14 +514,10 @@ describe('classy-solid', () => {
       expect(lastValue).toBe(30);
     });
     it('correctly handles writable getter+setter memo overriding explicit value', () => {
-      let _initProto8, _initClass0, _init_a0, _init_extra_a0, _init_b0, _init_extra_b0;
-      let _WritableOverride2;
+      let _initProto8, _init_a0, _init_extra_a0, _init_b0, _init_extra_b0;
       class WritableOverride {
         static {
-          ({
-            e: [_init_a0, _init_extra_a0, _init_b0, _init_extra_b0, _initProto8],
-            c: [_WritableOverride2, _initClass0]
-          } = _applyDecs(this, [reactive], [[signal, 0, "a"], [signal, 0, "b"], [memo, 3, "sum"], [memo, 4, "sum"]]));
+          [_init_a0, _init_extra_a0, _init_b0, _init_extra_b0, _initProto8] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [memo, 3, "sum"], [memo, 4, "sum"]]).e;
         }
         constructor() {
           _init_extra_b0(this);
@@ -597,11 +528,8 @@ describe('classy-solid', () => {
           return this.a + this.b;
         }
         set sum(_val) {}
-        static {
-          _initClass0();
-        }
       }
-      const wo = new _WritableOverride2();
+      const wo = new WritableOverride();
       let count = 0;
       let lastValue = 0;
       createEffect(() => {
@@ -626,14 +554,10 @@ describe('classy-solid', () => {
       expect(lastValue).toBe(30);
     });
     it('correctly handles writable accessor memo overriding explicit value', () => {
-      let _initClass1, _init_a1, _init_extra_a1, _init_b1, _init_extra_b1, _init_sum6, _init_extra_sum6;
-      let _WritableOverride3;
+      let _init_a1, _init_extra_a1, _init_b1, _init_extra_b1, _init_sum6, _init_extra_sum6;
       class WritableOverride {
         static {
-          ({
-            e: [_init_sum6, _init_extra_sum6, _init_a1, _init_extra_a1, _init_b1, _init_extra_b1],
-            c: [_WritableOverride3, _initClass1]
-          } = _applyDecs(this, [reactive], [[signal, 0, "a"], [signal, 0, "b"], [memo, 1, "sum"]]));
+          [_init_sum6, _init_extra_sum6, _init_a1, _init_extra_a1, _init_b1, _init_extra_b1] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [memo, 1, "sum"]]).e;
         }
         constructor() {
           _init_extra_sum6(this);
@@ -647,11 +571,8 @@ describe('classy-solid', () => {
         set sum(v) {
           this.#A = v;
         }
-        static {
-          _initClass1();
-        }
       }
-      const wo = new _WritableOverride3();
+      const wo = new WritableOverride();
       let count = 0;
       let lastValue = 0;
       createEffect(() => {
@@ -676,14 +597,10 @@ describe('classy-solid', () => {
       expect(lastValue).toBe(30);
     });
     it('correctly handles writable method memo overriding explicit value', () => {
-      let _initProto9, _initClass10, _init_a10, _init_extra_a10, _init_b10, _init_extra_b10;
-      let _WritableOverride4;
+      let _initProto9, _init_a10, _init_extra_a10, _init_b10, _init_extra_b10;
       class WritableOverride {
         static {
-          ({
-            e: [_init_a10, _init_extra_a10, _init_b10, _init_extra_b10, _initProto9],
-            c: [_WritableOverride4, _initClass10]
-          } = _applyDecs(this, [reactive], [[signal, 0, "a"], [signal, 0, "b"], [memo, 2, "sum"]]));
+          [_init_a10, _init_extra_a10, _init_b10, _init_extra_b10, _initProto9] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [memo, 2, "sum"]]).e;
         }
         constructor() {
           _init_extra_b10(this);
@@ -693,11 +610,8 @@ describe('classy-solid', () => {
         sum(_val) {
           return this.a + this.b;
         }
-        static {
-          _initClass10();
-        }
       }
-      const wo = new _WritableOverride4();
+      const wo = new WritableOverride();
       let count = 0;
       let lastValue = 0;
       createEffect(() => {
@@ -721,42 +635,11 @@ describe('classy-solid', () => {
       expect(count).toBe(3);
       expect(lastValue).toBe(30);
     });
-    it('works correctly without @reactive decorator when using field-based approach', () => {
-      let _init_a11, _init_extra_a11, _init_b11, _init_extra_b11, _init_sum7, _init_extra_sum7, _init_finalize, _init_extra_finalize;
-      class Example {
-        static {
-          [_init_a11, _init_extra_a11, _init_b11, _init_extra_b11, _init_sum7, _init_extra_sum7, _init_finalize, _init_extra_finalize] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [memo, 0, "sum"], [signal, 0, "finalize", o => o.#finalize, (o, v) => o.#finalize = v]], 0, _ => #finalize in _).e;
-        }
-        constructor() {
-          _init_extra_finalize(this);
-        }
-        a = _init_a11(this, 1);
-        b = (_init_extra_a11(this), _init_b11(this, 2));
-        sum = (_init_extra_b11(this), _init_sum7(this, () => this.a + this.b));
-        // @ts-ignore
-        #finalize = (_init_extra_sum7(this), _init_finalize(this));
-      }
-      const ex = new Example();
-      let count = 0;
-      createEffect(() => {
-        ex.sum();
-        count++;
-      });
-      expect(ex.sum()).toBe(3);
-      expect(count).toBe(1);
-      ex.a = 5;
-      expect(ex.sum()).toBe(7);
-      expect(count).toBe(2);
-    });
     it('handles memo with no dependencies', () => {
-      let _initProto0, _initClass11;
-      let _ConstantMemo;
+      let _initProto0;
       class ConstantMemo {
         static {
-          ({
-            e: [_initProto0],
-            c: [_ConstantMemo, _initClass11]
-          } = _applyDecs(this, [reactive], [[memo, 3, "constant"]]));
+          [_initProto0] = _applyDecs(this, [], [[memo, 3, "constant"]]).e;
         }
         constructor() {
           _initProto0(this);
@@ -764,11 +647,8 @@ describe('classy-solid', () => {
         get constant() {
           return 42;
         }
-        static {
-          _initClass11();
-        }
       }
-      const cm = new _ConstantMemo();
+      const cm = new ConstantMemo();
       let count = 0;
       createEffect(() => {
         cm.constant;

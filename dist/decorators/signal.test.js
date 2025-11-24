@@ -5,13 +5,11 @@ function _setFunctionName(e, t, n) { "symbol" == typeof t && (t = (t = t.descrip
 function _checkInRHS(e) { if (Object(e) !== e) throw TypeError("right-hand side of 'in' should be an object, got " + (null !== e ? typeof e : "null")); return e; }
 import { createEffect } from 'solid-js';
 import { testButterflyProps } from '../index.test.js';
-import { reactive } from './reactive.js';
 import { signal } from './signal.js';
 import { signalify } from '../signals/signalify.js';
-import { memo } from './memo.js';
 describe('classy-solid', () => {
-  describe('@reactive, @signal', () => {
-    let _initProto, _init_colors, _init_extra_colors, _init_colors2, _init_extra_colors2, _init_wingSize, _init_extra_wingSize, _initProto2, _init_colors3, _init_extra_colors3, _init_finalize, _init_extra_finalize, _init_colors4, _init_extra_colors4, _init_wingSize2, _init_extra_wingSize2, _init_finalize2, _init_extra_finalize2, _init_colors5, _init_extra_colors5, _init_wingSize3, _init_extra_wingSize3, _init_colors6, _get_colors, _set_colors, _init_extra_colors6, _initProto3, _call_colors, _call_colors2, _initProto4, _initProto5;
+  describe('@signal', () => {
+    let _initProto, _init_colors, _init_extra_colors, _init_colors2, _init_extra_colors2, _init_wingSize, _init_extra_wingSize, _initProto2, _init_colors3, _init_extra_colors3, _init_colors4, _init_extra_colors4, _init_wingSize2, _init_extra_wingSize2, _init_colors5, _init_extra_colors5, _init_wingSize3, _init_extra_wingSize3, _init_colors6, _get_colors, _set_colors, _init_extra_colors6, _initProto3, _call_colors, _call_colors2, _initProto4, _initProto5;
     class Butterfly {
       static {
         [_init_colors, _init_extra_colors, _initProto] = _applyDecs(this, [], [[signal, 0, "colors"], [signal, 3, "wingSize"], [signal, 4, "wingSize"]]).e;
@@ -45,10 +43,7 @@ describe('classy-solid', () => {
     });
     class Butterfly3 {
       static {
-        [_init_colors3, _init_extra_colors3, _init_finalize, _init_extra_finalize, _initProto2] = _applyDecs(this, [], [[signal, 0, "colors"], [signal, 3, "wingSize"], [signal, 4, "wingSize"], [signal, 0, "finalize", o => o.#finalize, (o, v) => o.#finalize = v]], 0, _ => #finalize in _).e;
-      }
-      constructor() {
-        _init_extra_finalize(this);
+        [_init_colors3, _init_extra_colors3, _initProto2] = _applyDecs(this, [], [[signal, 0, "colors"], [signal, 3, "wingSize"], [signal, 4, "wingSize"]]).e;
       }
       colors = (_initProto2(this), _init_colors3(this, 3));
       #wingSize = (_init_extra_colors3(this), 2);
@@ -58,9 +53,6 @@ describe('classy-solid', () => {
       set wingSize(s) {
         this.#wingSize = s;
       }
-
-      // @ts-ignore
-      #finalize = _init_finalize(this);
     }
     it('makes class fields reactive, using field/getter/setter decorators without class decorator', () => {
       const b = new Butterfly3();
@@ -68,20 +60,19 @@ describe('classy-solid', () => {
     });
     class Butterfly4 {
       static {
-        [_init_wingSize2, _init_extra_wingSize2, _init_colors4, _init_extra_colors4, _init_finalize2, _init_extra_finalize2] = _applyDecs(this, [], [[signal, 0, "colors"], [signal, 1, "wingSize"], [signal, 0, "finalize", o => o.#finalize, (o, v) => o.#finalize = v]], 0, _ => #finalize in _).e;
+        [_init_wingSize2, _init_extra_wingSize2, _init_colors4, _init_extra_colors4] = _applyDecs(this, [], [[signal, 0, "colors"], [signal, 1, "wingSize"]]).e;
       }
       constructor() {
-        _init_extra_finalize2(this);
+        _init_extra_wingSize2(this);
       }
       colors = _init_colors4(this, 3);
-      #A = (_init_extra_colors4(this), _init_wingSize2(this, 2)); // @ts-ignore
+      #A = (_init_extra_colors4(this), _init_wingSize2(this, 2));
       get wingSize() {
         return this.#A;
       }
       set wingSize(v) {
         this.#A = v;
       }
-      #finalize = (_init_extra_wingSize2(this), _init_finalize2(this));
     }
     it('makes class fields reactive, using field/accessor decorators without class decorator', () => {
       const b = new Butterfly4();
@@ -303,110 +294,13 @@ describe('classy-solid', () => {
       expect(doer.do).toBe(newFunc);
       expect(doer.do()).toBe(123);
     });
-    describe('Reactivity Tracking in Constructors', () => {
-      it('automatically does not track reactivity in constructors when using @reactive', () => {
-        var _Foo2;
-        let _initClass, _init_amount, _init_extra_amount, _initClass2, _init_double, _init_extra_double;
-        let _Foo;
-        class Foo {
-          static {
-            ({
-              e: [_init_amount, _init_extra_amount],
-              c: [_Foo, _initClass]
-            } = _applyDecs(this, [reactive], [[signal, 0, "amount"]]));
-          }
-          constructor() {
-            _init_extra_amount(this);
-          }
-          amount = _init_amount(this, 3);
-          static {
-            _initClass();
-          }
-        }
-        let _Bar;
-        class Bar extends (_Foo2 = _Foo) {
-          static {
-            ({
-              e: [_init_double, _init_extra_double],
-              c: [_Bar, _initClass2]
-            } = _applyDecs(this, [reactive], [[signal, 0, "double"]], 0, void 0, _Foo2));
-          }
-          double = _init_double(this, 0);
-          constructor() {
-            super(), _init_extra_double(this);
-            this.double = this.amount * 2; // this read of .amount should not be tracked
-          }
-          static {
-            _initClass2();
-          }
-        }
-        let b;
-        let count = 0;
-        function noLoop() {
-          createEffect(() => {
-            b = new _Bar(); // this should not track
-            count++;
-          });
-        }
-        expect(noLoop).not.toThrow();
-        expect(count).toBe(1);
-        const b2 = b;
-        b.amount = 4; // hence this should not trigger
-
-        // If the effect ran only once initially, not when setting b.colors,
-        // then both variables should reference the same instance
-        expect(count).toBe(1);
-        expect(b).toBe(b2);
-      });
-      it('automatically does not track reactivity in constructors when using @memo', () => {
-        let _init_amount2, _init_extra_amount2, _initProto7;
-        class Foo {
-          static {
-            [_init_amount2, _init_extra_amount2] = _applyDecs(this, [], [[signal, 0, "amount"]]).e;
-          }
-          constructor() {
-            _init_extra_amount2(this);
-          }
-          amount = _init_amount2(this, 3);
-        }
-        class Bar extends Foo {
-          static {
-            [_initProto7] = _applyDecs(this, [], [[memo, 3, "double"]], 0, void 0, Foo).e;
-          }
-          constructor(...args) {
-            super(...args);
-            _initProto7(this);
-          }
-          get double() {
-            return this.amount * 2;
-          }
-        }
-        let b;
-        let count = 0;
-        function noLoop() {
-          createEffect(() => {
-            b = new Bar(); // this should not track
-            count++;
-          });
-        }
-        expect(noLoop).not.toThrow();
-        expect(count).toBe(1);
-        const b2 = b;
-        b.amount = 4; // hence this should not trigger
-
-        // If the effect ran only once initially, not when setting b.colors,
-        // then both variables should reference the same instance
-        expect(count).toBe(1);
-        expect(b).toBe(b2);
-      });
-    });
     it('prevents duplicate signals for any property', () => {
-      let _initProto8, _init_venomous, _init_extra_venomous, _init_legs, _init_extra_legs;
+      let _initProto7, _init_venomous, _init_extra_venomous, _init_legs, _init_extra_legs;
       class Insect {
         static {
-          [_init_legs, _init_extra_legs, _init_venomous, _init_extra_venomous, _initProto8] = _applyDecs(this, [], [[signal, 0, "venomous"], [signal, 1, "legs"], [signal, 3, "eyes"], [signal, 4, "eyes"]]).e;
+          [_init_legs, _init_extra_legs, _init_venomous, _init_extra_venomous, _initProto7] = _applyDecs(this, [], [[signal, 0, "venomous"], [signal, 1, "legs"], [signal, 3, "eyes"], [signal, 4, "eyes"]]).e;
         }
-        venomous = (_initProto8(this), _init_venomous(this, 0));
+        venomous = (_initProto7(this), _init_venomous(this, 0));
         #A = (_init_extra_venomous(this), _init_legs(this, 6));
         get legs() {
           return this.#A;

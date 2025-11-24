@@ -13,7 +13,8 @@ signals, and for using `class`es as Solid.js components.
   - [Babel Setup](#babel-setup)
 - [API and Usage](#api-and-usage)
   - [Decorator APIs](#decorator-apis)
-    - [`@reactive`](#reactive)
+    - [`@untracked`](#untracked)
+    - [`@reactive` (deprecated)](#reactive-deprecated)
     - [`@signal`](#signal)
     - [`@memo`](#memo)
     - [`@component`](#component)
@@ -170,15 +171,66 @@ Note, these docs assume you have basic knowledge of [Solid.js](https://solidjs.c
 
 ## Decorator APIs
 
-### `@reactive`
+### `@untracked`
 
-A class decorator that wraps the class constructor to use Solid's `untrack()`,
-preventing accidental tracking during instantiation (which could cause infinite
-loops if a class is instantiated inside an effect and happens to read any of its
-signal properties).
+A class decorator that makes a class's constructor untracked, preventing signal
+reads during construction from being tracked by outer effects.
 
-**Lifecycle:** When a class is decorated with `@reactive`, the constructor runs
-within `untrack()` to avoid dependency tracking during `new` calls.
+**When to use:** Only needed if your constructor reads signal/memo values.
+Without `@untracked`, such a constructor will track dependencies when it is
+instantiated in an effect and will cause an infinite loop.
+
+Example:
+
+```js
+import {untracked, signal} from 'classy-solid'
+import {createEffect} from 'solid-js'
+
+@untracked
+class Example {
+	@signal count = 0
+
+	constructor() {
+		// Reading this.count here won't be tracked by outer effects
+		this.count = this.count + 1
+	}
+}
+
+createEffect(() => {
+	// This effect won't track count reads in the constructor,
+	// preventing infinite loops. It only runs once.
+	const example = new Example()
+
+	createEffect(() => {
+		// This inner effect DOES track count changes
+		console.log(example.count)
+	})
+})
+```
+
+Without decorators:
+
+```js
+import {untracked} from 'classy-solid'
+
+const Example = untracked(
+	class {
+		count = 0
+
+		constructor() {
+			this.count = this.count + 1
+		}
+	},
+)
+
+// ... same usage as above ...
+```
+
+### `@reactive` (deprecated)
+
+**⚠️ DEPRECATED:** Use [`@untracked`](#untracked) instead. This decorator is no
+longer needed for making `@signal` or `@memo` work. It now serves only as an
+alias to `@untracked` for backward compatibility.
 
 ### `@signal`
 
@@ -186,12 +238,10 @@ Decorate a property of a class with `@signal` to make it reactive (backed by a
 Solid signal).
 
 ```js
-import {reactive, signal} from 'classy-solid'
+import {signal} from 'classy-solid'
 import {createEffect} from 'solid-js'
 
-export
-@reactive
-class Car {
+export class Car {
 	@signal engineOn = false
 	@signal sound = 'vroom'
 }
@@ -213,10 +263,10 @@ createEffect(() => {
 ### `@memo`
 
 Create a memoized derived value (readonly or writable) whose computation is
-cached and only re-runs when one of its reactive dependencies (usually
-`@signal` / `signalify` properties) changes AND the computed value actually
-changes. This prevents unnecessary effect executions when dependencies change
-but the derived result stays the same.
+cached and only re-runs when one of its reactive dependencies (f.e. `@signal` /
+`signalify` properties) changes AND the computed value actually changes. This
+prevents unnecessary effect executions when dependencies change but the derived
+result stays the same.
 
 Memos properties internally use Solid's `createMemo`/`createWritableMemo`.
 
@@ -317,9 +367,9 @@ following methods:
 
 > **Note** All props passed into a class component get mapped to class
 > properties, regardless if the property is reactive or not. This means you can,
-> for example, forgo the `@reactive` and `@signal` decorators and use your own
-> accessors to handle changes in some other way as you wish, or use existing
-> classes that have properties implemented in their own way.
+> for example, forgo the `@signal` decorator and use your own accessors to
+> handle changes in some other way as you wish, or use existing classes that
+> have properties implemented in their own way.
 
 Examples:
 
@@ -333,12 +383,11 @@ JSX templates).
 The [Babel](https://babeljs.io/) compiler, for example, allows use of decorators and JSX:
 
 ```jsx
-import {component, reactive, signal} from 'classy-solid'
+import {component, signal} from 'classy-solid'
 import {onMount, onCleanup, createEffect} from 'solid-js'
 
 export
 @component
-@reactive
 class MyComp {
 	@signal last = 'none'
 	@signal count = 1
@@ -381,9 +430,6 @@ class MyComp {
 
 render(() => <MyComp first="Joe" last="Pea" />, document.body)
 ```
-
-> **Note** You only need the `@reactive` decorator if you will use `@signal`
-> properties in your class, regardless if your class is a component or not.
 
 #### JavaScript without build tools
 
@@ -440,8 +486,8 @@ render(() => html`<${MyComp} first="Joe" last="Pea" />`, document.body)
 
 For reference, here's the same example using the `component` decorator as a
 regular function, but with accessor properties that wire up Solid signals
-manually, which is essentially the equivalent of what the `@reactive` and `@signal`
-decorators do under the hood for convenience:
+manually, which is essentially the equivalent of what the `@signal` decorator
+does under the hood for convenience:
 
 ```jsx
 import {component} from 'classy-solid'
@@ -510,10 +556,9 @@ TypeScript supports decorators out of the box with no additional setup needed.
 > JavaScript section, and the only difference here is added type checking.
 
 ```tsx
-import {component, reactive, signal, Props} from 'classy-solid'
+import {component, signal, Props} from 'classy-solid'
 
 @component
-@reactive
 class MyComp {
 	// Define `PropTypes` on your class to define prop types for JSX. Note, this
 	// property does not actually need to exist at runtime and is not used at
@@ -791,7 +836,6 @@ have to express the property names more than once, therefore reducing some surfa
 area for human mistakes, and we don't have to write a `constructor`:
 
 ```js
-@reactive
 class Counter {
 	@signal count = 0
 	@signal on = true
@@ -1273,7 +1317,7 @@ state.
 
 ### Static Fields
 
-- **Static fields:** Not yet supported by `@reactive`, `@signal`, or `@memo`.
+- **Static fields:** Not yet supported by `@signal` or `@memo`.
 
 ### Memory Considerations
 

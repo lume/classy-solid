@@ -1,12 +1,10 @@
 import {createEffect, batch} from 'solid-js'
-import {reactive} from './reactive.js'
 import {signal} from './signal.js'
 import {memo} from './memo.js'
 
 describe('classy-solid', () => {
-	describe('@reactive, @signal, @memo', () => {
+	describe('@memo', () => {
 		it('creates a readonly memo via field', () => {
-			// @reactive
 			class Example {
 				@signal a = 1
 				@signal b = 2
@@ -132,7 +130,6 @@ describe('classy-solid', () => {
 		})
 
 		it('creates a writable memo via getter+setter', () => {
-			@reactive
 			class Example {
 				@signal a = 1
 				@signal b = 2
@@ -178,7 +175,6 @@ describe('classy-solid', () => {
 		})
 
 		it('creates a readonly memo via accessor function value', () => {
-			@reactive
 			class Example {
 				@signal a = 1
 				@signal b = 2
@@ -218,7 +214,6 @@ describe('classy-solid', () => {
 		})
 
 		it('creates a writable memo via accessor function value', () => {
-			@reactive
 			class Example {
 				@signal a = 1
 				@signal b = 2
@@ -261,7 +256,6 @@ describe('classy-solid', () => {
 		})
 
 		it('creates a readonly memo via method', () => {
-			@reactive
 			class Example {
 				@signal a = 1
 				@signal b = 2
@@ -306,7 +300,6 @@ describe('classy-solid', () => {
 		})
 
 		it('creates a writable memo via method', () => {
-			@reactive
 			class Example {
 				@signal a = 1
 				@signal b = 2
@@ -351,7 +344,6 @@ describe('classy-solid', () => {
 		})
 
 		it('memoizes complex computations and only re-runs when dependencies change', () => {
-			@reactive
 			class Calculator {
 				computeCount = 0
 				@signal x = 10
@@ -383,7 +375,6 @@ describe('classy-solid', () => {
 		})
 
 		it('works with multiple memo properties', () => {
-			@reactive
 			class MultiMemo {
 				@signal value = 10
 
@@ -429,7 +420,6 @@ describe('classy-solid', () => {
 		})
 
 		it('handles memo depending on other memos', () => {
-			@reactive
 			class ChainedMemo {
 				@signal base = 2
 
@@ -461,7 +451,6 @@ describe('classy-solid', () => {
 		})
 
 		it('correctly handles writable field memo overriding explicit value', () => {
-			@reactive
 			class WritableOverride {
 				@signal a = 5
 				@signal b = 10
@@ -497,7 +486,6 @@ describe('classy-solid', () => {
 		})
 
 		it('correctly handles writable getter+setter memo overriding explicit value', () => {
-			@reactive
 			class WritableOverride {
 				@signal a = 5
 				@signal b = 10
@@ -536,7 +524,6 @@ describe('classy-solid', () => {
 		})
 
 		it('correctly handles writable accessor memo overriding explicit value', () => {
-			@reactive
 			class WritableOverride {
 				@signal a = 5
 				@signal b = 10
@@ -572,7 +559,6 @@ describe('classy-solid', () => {
 		})
 
 		it('correctly handles writable method memo overriding explicit value', () => {
-			@reactive
 			class WritableOverride {
 				@signal a = 5
 				@signal b = 10
@@ -609,33 +595,7 @@ describe('classy-solid', () => {
 			expect(lastValue).toBe(30)
 		})
 
-		it('works correctly without @reactive decorator when using field-based approach', () => {
-			class Example {
-				@signal a = 1
-				@signal b = 2
-				@memo sum = () => this.a + this.b
-				// @ts-ignore
-				@signal #finalize
-			}
-
-			const ex = new Example()
-			let count = 0
-
-			createEffect(() => {
-				ex.sum()
-				count++
-			})
-
-			expect(ex.sum()).toBe(3)
-			expect(count).toBe(1)
-
-			ex.a = 5
-			expect(ex.sum()).toBe(7)
-			expect(count).toBe(2)
-		})
-
 		it('handles memo with no dependencies', () => {
-			@reactive
 			class ConstantMemo {
 				@memo get constant() {
 					return 42

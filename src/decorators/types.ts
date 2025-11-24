@@ -14,16 +14,10 @@ export interface PropSpec {
 	kind: SupportedKind
 }
 
+export type SignalOrMemoType = 'signal-field' | 'memo-field' | 'memo-accessor' | 'memo-auto-accessor' | 'memo-method'
+
 export type SignalMetadata = {
-	signalFieldsAndMemos?: Array<
-		[
-			key: PropKey,
-			stat: {
-				type: 'signal-field' | 'memo-field' | 'memo-accessor' | 'memo-auto-accessor' | 'memo-method'
-				applied: WeakMap<object, boolean>
-			},
-		]
-	>
+	signalFieldsAndMemos?: Array<[key: PropKey, stat: {type: SignalOrMemoType; applied: WeakMap<object, boolean>}]>
 
 	getterSetterSignals?: Record<PropKey, WeakMap<object, SignalFunction<unknown>> | undefined>
 

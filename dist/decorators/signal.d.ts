@@ -1,21 +1,16 @@
-import type { PropKey, PropSpec } from './types.js';
-export declare let __propsToSignalify: Map<PropKey, PropSpec>;
-export declare function __resetPropsToSignalify(): void;
 /**
  * @decorator
  * Decorate properties of a class with `@signal` to back them with Solid
- * signals, making them reactive. Don't forget that the class in which `@signal`
- * is used must be decorated with `@reactive`.
+ * signals, making them reactive.
  *
- * Related: See the Solid.js `createSignal` API for creating signals.
+ * Related: See the Solid.js `createSignal` API for creating standalone signals.
  *
  * Example:
  *
  * ```js
- * import {reactive, signal} from 'classy-solid'
+ * import {signal} from 'classy-solid'
  * import {createEffect} from 'solid-js'
  *
- * ⁣@reactive
  * class Counter {
  *   ⁣@signal count = 0
  *
@@ -24,7 +19,7 @@ export declare function __resetPropsToSignalify(): void;
  *   }
  * }
  *
- * const counter = new Counter
+ * const counter = new Counter()
  *
  * createEffect(() => {
  *   console.log('count:', counter.count)

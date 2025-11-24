@@ -57,8 +57,8 @@ export declare function signalify<T extends object, K extends keyof T>(obj: T): 
 export declare function signalify<T extends object>(obj: T, ...props: (keyof T)[]): T;
 /** This overload is for initial value support for downstream use cases. */
 export declare function signalify<T extends object>(obj: T, ...props: [key: keyof T, initialValue: unknown][]): T;
-export declare function __isPropSetAtLeastOnce(instance: object, prop: string | symbol): boolean;
-export declare function __trackPropSetAtLeastOnce(instance: object, prop: string | symbol): void;
-export declare function __createSignalAccessor<T extends object>(obj: T, prop: Exclude<keyof T, number>, initialVal: unknown, skipFunctionProperties?: boolean): void;
-export declare function __getSignal(obj: object, storage: WeakMap<object, SignalFunction<unknown>>, initialVal: unknown): SignalFunction<unknown>;
+export declare function isPropSetAtLeastOnce__(instance: object, prop: string | symbol): boolean;
+export declare function trackPropSetAtLeastOnce__(instance: object, prop: string | symbol): void;
+export declare function createSignalAccessor__<T extends object>(obj: T, prop: Exclude<keyof T, number>, initialVal: unknown, skipFunctionProperties?: boolean): void;
+export declare function getSignal__(obj: object, storage: WeakMap<object, SignalFunction<unknown>>, initialVal: unknown): SignalFunction<unknown>;
 //# sourceMappingURL=signalify.d.ts.map

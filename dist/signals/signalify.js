@@ -76,7 +76,7 @@ export function signalify(obj, ...props) {
     // We cast from PropertyKey to PropKey because keys can't actually be number, only string | symbol.
     const _prop = isTuple ? prop[0] : prop;
     const initialValue = isTuple ? prop[1] : untrack(() => obj[_prop]);
-    __createSignalAccessor(obj, _prop, initialValue, skipFunctionProperties);
+    createSignalAccessor__(obj, _prop, initialValue, skipFunctionProperties);
   }
   return obj;
 }
@@ -88,14 +88,14 @@ const propsSetAtLeastOnce = new WeakMap();
 // @lume/element uses this to detect if a reactive prop has been set, and if so
 // will not overwrite the value with any pre-existing value from custom element
 // pre-upgrade.
-export function __isPropSetAtLeastOnce(instance, prop) {
+export function isPropSetAtLeastOnce__(instance, prop) {
   return !!propsSetAtLeastOnce.get(instance)?.has(prop);
 }
-export function __trackPropSetAtLeastOnce(instance, prop) {
+export function trackPropSetAtLeastOnce__(instance, prop) {
   if (!propsSetAtLeastOnce.has(instance)) propsSetAtLeastOnce.set(instance, new Set());
   propsSetAtLeastOnce.get(instance).add(prop);
 }
-export function __createSignalAccessor(obj, prop, initialVal, skipFunctionProperties = false) {
+export function createSignalAccessor__(obj, prop, initialVal, skipFunctionProperties = false) {
   let descriptor = getInheritedDescriptor(obj, prop);
   let originalGet;
   let originalSet;
@@ -112,8 +112,7 @@ export function __createSignalAccessor(obj, prop, initialVal, skipFunctionProper
     if (originalGet && isMemoGetter.has(originalGet)) return;
 
     // Signals require both getter and setter to work properly.
-    if (isAccessor && !(originalGet && originalSet)) return; /*warnNotReadWrite(prop)*/
-
+    if (isAccessor && !(originalGet && originalSet)) return;
     if (!isAccessor) {
       // No need to make a signal that can't be written to.
       if (!descriptor.writable) return warnNotWritable(prop);
@@ -130,41 +129,32 @@ export function __createSignalAccessor(obj, prop, initialVal, skipFunctionProper
     configurable: true,
     enumerable: descriptor?.enumerable,
     get: isAccessor ? function () {
-      __getSignal(this, signalStorage, initialVal)();
+      getSignal__(this, signalStorage, initialVal)();
       return originalGet.call(this);
     } : function () {
-      return __getSignal(this, signalStorage, initialVal)();
+      return getSignal__(this, signalStorage, initialVal)();
     },
     set: isAccessor ? function (newValue) {
       originalSet.call(this, newValue);
-      __trackPropSetAtLeastOnce(this, prop);
-      const s = __getSignal(this, signalStorage, initialVal);
+      trackPropSetAtLeastOnce__(this, prop);
+      const s = getSignal__(this, signalStorage, initialVal);
       s(typeof newValue === 'function' ? () => newValue : newValue);
     } : function (newValue) {
-      __trackPropSetAtLeastOnce(this, prop);
-      const s = __getSignal(this, signalStorage, initialVal);
+      trackPropSetAtLeastOnce__(this, prop);
+      const s = getSignal__(this, signalStorage, initialVal);
       s(typeof newValue === 'function' ? () => newValue : newValue);
     }
   };
   isSignalGetter.add(newDescriptor.get);
   Object.defineProperty(obj, prop, newDescriptor);
 }
-export function __getSignal(obj, storage, initialVal) {
+export function getSignal__(obj, storage, initialVal) {
   let s = storage.get(obj);
   if (!s) storage.set(obj, s = createSignalFunction(initialVal, {
     equals: false
   }));
   return s;
 }
-
-// function warnNotReadWrite(prop: PropertyKey) {
-// 	console.warn(
-// 		`Cannot signalify property named "${String(
-// 			prop,
-// 		)}" which had a getter or a setter, but not both. Reactivity on accessors works only when accessors have both get and set. Skipped.`,
-// 	)
-// }
-
 function warnNotWritable(prop) {
   console.warn(`The \`@signal\` decorator was used on a property named "${String(prop)}" that is not writable. Reactivity is not enabled for non-writable properties.`);
 }

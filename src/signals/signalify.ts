@@ -83,7 +83,7 @@ export function signalify(obj: AnyObject, ...props: [key: PropertyKey, initialVa
 		const _prop = (isTuple ? prop[0] : prop) as PropKey
 		const initialValue = isTuple ? prop[1] : untrack(() => obj[_prop])
 
-		__createSignalAccessor(obj, _prop, initialValue, skipFunctionProperties)
+		createSignalAccessor__(obj, _prop, initialValue, skipFunctionProperties)
 	}
 
 	return obj
@@ -96,16 +96,16 @@ const propsSetAtLeastOnce = new WeakMap<object, Set<string | symbol>>()
 // @lume/element uses this to detect if a reactive prop has been set, and if so
 // will not overwrite the value with any pre-existing value from custom element
 // pre-upgrade.
-export function __isPropSetAtLeastOnce(instance: object, prop: string | symbol) {
+export function isPropSetAtLeastOnce__(instance: object, prop: string | symbol) {
 	return !!propsSetAtLeastOnce.get(instance)?.has(prop)
 }
 
-export function __trackPropSetAtLeastOnce(instance: object, prop: string | symbol) {
+export function trackPropSetAtLeastOnce__(instance: object, prop: string | symbol) {
 	if (!propsSetAtLeastOnce.has(instance)) propsSetAtLeastOnce.set(instance, new Set())
 	propsSetAtLeastOnce.get(instance)!.add(prop)
 }
 
-export function __createSignalAccessor<T extends object>(
+export function createSignalAccessor__<T extends object>(
 	obj: T,
 	prop: Exclude<keyof T, number>,
 	initialVal: unknown,
@@ -130,7 +130,7 @@ export function __createSignalAccessor<T extends object>(
 		if (originalGet && isMemoGetter.has(originalGet)) return
 
 		// Signals require both getter and setter to work properly.
-		if (isAccessor && !(originalGet && originalSet)) return /*warnNotReadWrite(prop)*/
+		if (isAccessor && !(originalGet && originalSet)) return
 
 		if (!isAccessor) {
 			// No need to make a signal that can't be written to.
@@ -151,24 +151,24 @@ export function __createSignalAccessor<T extends object>(
 		enumerable: descriptor?.enumerable,
 		get: isAccessor
 			? function (this: object): unknown {
-					__getSignal(this, signalStorage, initialVal)()
+					getSignal__(this, signalStorage, initialVal)()
 					return originalGet!.call(this)
 			  }
 			: function (this: object): unknown {
-					return __getSignal(this, signalStorage, initialVal)()
+					return getSignal__(this, signalStorage, initialVal)()
 			  },
 		set: isAccessor
 			? function (this: object, newValue: unknown) {
 					originalSet!.call(this, newValue)
-					__trackPropSetAtLeastOnce(this, prop)
+					trackPropSetAtLeastOnce__(this, prop)
 
-					const s = __getSignal(this, signalStorage, initialVal)
+					const s = getSignal__(this, signalStorage, initialVal)
 					s(typeof newValue === 'function' ? () => newValue : newValue)
 			  }
 			: function (this: object, newValue: unknown) {
-					__trackPropSetAtLeastOnce(this, prop)
+					trackPropSetAtLeastOnce__(this, prop)
 
-					const s = __getSignal(this, signalStorage, initialVal)
+					const s = getSignal__(this, signalStorage, initialVal)
 					s(typeof newValue === 'function' ? () => newValue : newValue)
 			  },
 	}
@@ -178,19 +178,11 @@ export function __createSignalAccessor<T extends object>(
 	Object.defineProperty(obj, prop, newDescriptor)
 }
 
-export function __getSignal(obj: object, storage: WeakMap<object, SignalFunction<unknown>>, initialVal: unknown) {
+export function getSignal__(obj: object, storage: WeakMap<object, SignalFunction<unknown>>, initialVal: unknown) {
 	let s = storage.get(obj)
 	if (!s) storage.set(obj, (s = createSignalFunction(initialVal, {equals: false})))
 	return s
 }
-
-// function warnNotReadWrite(prop: PropertyKey) {
-// 	console.warn(
-// 		`Cannot signalify property named "${String(
-// 			prop,
-// 		)}" which had a getter or a setter, but not both. Reactivity on accessors works only when accessors have both get and set. Skipped.`,
-// 	)
-// }
 
 function warnNotWritable(prop: PropertyKey) {
 	console.warn(

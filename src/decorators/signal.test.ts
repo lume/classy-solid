@@ -3,10 +3,10 @@ import {testButterflyProps} from '../index.test.js'
 import {reactive} from './reactive.js'
 import {signal} from './signal.js'
 import {signalify} from '../signals/signalify.js'
+import {memo} from './memo.js'
 
 describe('classy-solid', () => {
 	describe('@reactive, @signal', () => {
-		@reactive
 		class Butterfly {
 			@signal colors = 3
 
@@ -26,12 +26,9 @@ describe('classy-solid', () => {
 			testButterflyProps(b)
 		})
 
-		// @reactive
 		class Butterfly2 {
 			@signal colors = 3
 			@signal wingSize = 2
-			// @ts-ignore
-			@signal #finalize
 		}
 
 		it('makes class fields reactive, using field decorators without class decorator', () => {
@@ -75,7 +72,6 @@ describe('classy-solid', () => {
 			testButterflyProps(b)
 		})
 
-		@reactive
 		class Butterfly5 {
 			@signal colors = 3
 			@signal accessor wingSize = 2
@@ -188,7 +184,6 @@ describe('classy-solid', () => {
 			testProp(b0, 'colors', 3, 4, true)
 			expect(Object.getOwnPropertyDescriptor(b0, 'colors')?.get?.call(b0) === 4).toBe(true) // accessor descriptor
 
-			@reactive
 			class SubButterfly extends Mid {
 				@signal override colors = 123
 			}
@@ -228,12 +223,10 @@ describe('classy-solid', () => {
 		}
 
 		it('does not prevent superclass constructor from receiving subclass constructor args', () => {
-			@reactive
 			class Insect {
 				constructor(public double: number) {}
 			}
 
-			@reactive
 			class Butterfly extends Insect {
 				@signal colors = 3
 
@@ -257,57 +250,12 @@ describe('classy-solid', () => {
 			testButterflyProps(b)
 		})
 
-		it('throws an error when @signal is used without @reactive', async () => {
-			expect(() => {
-				// user forgot to use @reactive here
-				class Foo {
-					@signal foo = 'hoo'
-				}
-
-				Foo
-
-				@reactive
-				class Bar {
-					@signal bar = 123
-				}
-
-				new Bar()
-			}).toThrow('Did you forget')
-
-			// TODO how to check for an error thrown from a microtask?
-			// (window.addEventListener('error') seems not to work)
-			//
-			// It just won't work, the error seems to never fire here in the
-			// tests, but it works fine when testing manually in Chrome.
-
-			// const errPromise = new Promise<ErrorEvent>(r => window.addEventListener('error', e => r(e), {once: true}))
-
-			// @reactive
-			// class Foo {
-			// 	@signal foo = 'hoo'
-			// }
-
-			// Foo
-
-			// // user forgot to use @reactive here
-			// class Bar {
-			// 	@signal bar = 123
-			// }
-
-			// Bar
-
-			// const err = await errPromise
-
-			// expect(err.message).toContain('Did you forget')
-		})
-
 		it('works with function values', () => {
 			// This test ensures that functions are handled propertly, because
 			// if passed without being wrapped to a signal setter it will be
 			// called immediately with the previous value and be expected to
 			// return a new value, instead of being set as the actual new value.
 
-			@reactive
 			class Doer {
 				@signal do: (() => unknown) | null = null
 			}
@@ -323,46 +271,82 @@ describe('classy-solid', () => {
 			expect(doer.do()).toBe(123)
 		})
 
-		it('automatically does not track reactivity in constructors when using decorators', () => {
-			@reactive
-			class Foo {
-				@signal amount = 3
-			}
-
-			@reactive
-			class Bar extends Foo {
-				@signal double = 0
-
-				constructor() {
-					super()
-					this.double = this.amount * 2 // this read of .amount should not be tracked
+		describe('Reactivity Tracking in Constructors', () => {
+			it('automatically does not track reactivity in constructors when using @reactive', () => {
+				@reactive
+				class Foo {
+					@signal amount = 3
 				}
-			}
 
-			let b: Bar
-			let count = 0
+				@reactive
+				class Bar extends Foo {
+					@signal double = 0
 
-			function noLoop() {
-				createEffect(() => {
-					b = new Bar() // this should not track
-					count++
-				})
-			}
+					constructor() {
+						super()
+						this.double = this.amount * 2 // this read of .amount should not be tracked
+					}
+				}
 
-			expect(noLoop).not.toThrow()
+				let b: Bar
+				let count = 0
 
-			const b2 = b!
+				function noLoop() {
+					createEffect(() => {
+						b = new Bar() // this should not track
+						count++
+					})
+				}
 
-			b!.amount = 4 // hence this should not trigger
+				expect(noLoop).not.toThrow()
+				expect(count).toBe(1)
 
-			// If the effect ran only once initially, not when setting b.colors,
-			// then both variables should reference the same instance
-			expect(count).toBe(1)
-			expect(b!).toBe(b2)
+				const b2 = b!
+
+				b!.amount = 4 // hence this should not trigger
+
+				// If the effect ran only once initially, not when setting b.colors,
+				// then both variables should reference the same instance
+				expect(count).toBe(1)
+				expect(b!).toBe(b2)
+			})
+
+			it('automatically does not track reactivity in constructors when using @memo', () => {
+				class Foo {
+					@signal amount = 3
+				}
+
+				class Bar extends Foo {
+					@memo get double() {
+						return this.amount * 2
+					}
+				}
+
+				let b: Bar
+				let count = 0
+
+				function noLoop() {
+					createEffect(() => {
+						b = new Bar() // this should not track
+						count++
+					})
+				}
+
+				expect(noLoop).not.toThrow()
+				expect(count).toBe(1)
+
+				const b2 = b!
+
+				b!.amount = 4 // hence this should not trigger
+
+				// If the effect ran only once initially, not when setting b.colors,
+				// then both variables should reference the same instance
+				expect(count).toBe(1)
+				expect(b!).toBe(b2)
+			})
 		})
 
-		it.only('prevents duplicate signals for any property', () => {
-			@reactive
+		it('prevents duplicate signals for any property', () => {
 			class Insect {
 				@signal venomous = 0
 

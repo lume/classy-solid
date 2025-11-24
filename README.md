@@ -31,6 +31,10 @@ signals, and for using `class`es as Solid.js components.
     - [`syncSignals`](#syncsignals)
     - [`createSyncedSignals`](#createsyncedsignals)
     - [`createStoppableEffect`](#createstoppableeffect)
+  - [Error Handling and Caveats](#error-handling-and-caveats)
+    - [Writable Memo Overrides](#writable-memo-overrides)
+    - [Static Fields](#static-fields)
+    - [Memory Considerations](#memory-considerations)
 
 # At a glance
 
@@ -168,14 +172,18 @@ Note, these docs assume you have basic knowledge of [Solid.js](https://solidjs.c
 
 ### `@reactive`
 
-Mark a class with this decorator if it will have signal properties (properties
-backed by Solid signals). See `@signal` below for an example.
+A class decorator that wraps the class constructor to use Solid's `untrack()`,
+preventing accidental tracking during instantiation (which could cause infinite
+loops if a class is instantiated inside an effect and happens to read any of its
+signal properties).
+
+**Lifecycle:** When a class is decorated with `@reactive`, the constructor runs
+within `untrack()` to avoid dependency tracking during `new` calls.
 
 ### `@signal`
 
 Decorate a property of a class with `@signal` to make it reactive (backed by a
-Solid signal). Be sure to decorate a class that has signal properties with the
-`@reactive` decorator as well.
+Solid signal).
 
 ```js
 import {reactive, signal} from 'classy-solid'
@@ -649,22 +657,37 @@ class Counter {
 
 ### `signalify()`
 
-Use this to convert properties on an object into Solid signal-backed properties.
-This is what `@signal` uses behind the scenes.
+Convert properties on an object into Solid signal-backed properties. This is
+what [`@signal`](#signal) uses behind the scenes.
 
-This can be useful with plain objects, as well with `class`es in situations
-where decorators are unavailable or undesired.
+Useful with plain objects and classes when decorators are unavailable or
+undesired.
+
+**Two modes:**
+
+1. **Explicit mode** (properties listed): Only the specified properties become
+   reactive signals.
+2. **Automatic mode** (no properties listed): All own enumerable properties
+   (string and symbol keys) become reactive, **except** function-valued properties,
+   which are skipped by default (use `signalify()` in explicit mode for those if
+   you need a signal with a function value, or use [`memoify()`](#memoify) to
+   create memo functions that return derived values).
+
+**Interplay with `memoify()`:** Call `signalify()` first to set up reactive
+data properties, then call `memoify()` to set up derived memos that depend on
+those signals. This mirrors the typical usage of `@signal` followed by `@memo`
+when using decorators.
 
 Here are some examples. Make certain properties on an object reactive
 signal-backed properties:
 
 ```js
-import {signalify} from 'class-solid'
+import {signalify} from 'classy-solid'
 import {createEffect} from 'solid-js'
 
 const obj = {foo: 1, bar: 2, baz: 3}
 
-// Make only the 'foo' and 'bar' properties reactive (backed by Solid signals).
+// Explicit mode: Make only the 'foo' and 'bar' properties reactive.
 signalify(obj, 'foo', 'bar')
 
 // ...
@@ -686,15 +709,16 @@ Note, it returns the same object passed in, so you can write this:
 const obj = signalify({foo: 1, bar: 2, baz: 3}, 'foo', 'bar')
 ```
 
-If you want to make all properties signal-backed, then omitting the property
-names in the call will internally use `Object.keys(obj)` as a default:
+**Automatic mode** makes all properties signal-backed, omitting the property
+names internally uses `Object.keys(obj)` (and `Object.getOwnPropertySymbols(obj)`):
 
 ```js
-// Make all properties reactive signals (except any with function values).
+// Automatic mode: Make all properties reactive signals (except function-valued).
 const obj = signalify({foo: 1, bar: 2, baz: 3, method() {}})
+// foo, bar, baz are now reactive. method() is skipped.
 ```
 
-Note that the object passed in is the same object returned:
+The object passed in is the same object returned:
 
 ```js
 let test
@@ -702,14 +726,19 @@ const obj = signalify(test = {...})
 console.log(obj === test) // true
 ```
 
-To include function valued properties, explicitly list them in the call:
+To signalify function-valued properties, explicitly list them:
 
 ```js
-const obj = signalify({foo: 1, bar: 2, baz: 3, method() {}}) // signalifies foo, bar, baz only
+const obj = signalify({foo: 1, bar: 2, baz: 3, method() {}}) // foo, bar, baz only
 signalify(obj, 'method') // now method is also signalified
 ```
 
-We exclude methods by default because those are handled by default by `memoify()`.
+**Why exclude methods by default?** Functions are typically computed/derived
+values best handled by [`memoify()`](#memoify) to avoid unnecessary reactivity
+on static behavior, so `memoify()` will handle them by default. The
+`signalify()` function skips them by default to allow `memoify()` to handle
+them, avoiding a conflict and making usage easy by default. Sometimes you may
+want a function-valued signal, so you can list them explicitly in that case.
 
 Signalify properties in a class (alternative to decorators):
 
@@ -770,6 +799,52 @@ class Counter {
 	method() {}
 }
 ```
+
+**Plain JS example combining `signalify()` and `memoify()`:**
+
+Without decorators, you can achieve similar reactive behavior manually:
+
+```js
+import {signalify, memoify} from 'classy-solid'
+import {createEffect} from 'solid-js'
+
+const counter = {
+	count: 0,
+	num: 10,
+
+	// Computed value (will be memoified)
+	get sum() {
+		return this.count + this.num
+	},
+
+	increment() {
+		this.count++
+	},
+}
+
+// Step 1: Make data properties reactive
+signalify(counter, 'count', 'num')
+
+// Step 2: Turn computed properties into memos
+memoify(counter, 'sum')
+
+setInterval(() => counter.increment(), 1000)
+
+createEffect(() => {
+	console.log(`Count is: ${counter.count}`)
+})
+
+createEffect(() => {
+	console.log(`Sum is: ${counter.sum}`)
+})
+
+counter.count = 5 // Logs "Count is: 5" and "Sum is: 15"
+counter.num = 20 // Logs "Sum is: 25"
+```
+
+This pattern (signalify first, memoify second) mirrors the decorator approach
+(`@signal` then `@memo`) and is ideal for plain objects or when decorators are
+not available.
 
 ### `memoify()`
 
@@ -850,27 +925,95 @@ Use cases:
 - ES5-style constructor/prototype patterns.
 - Memoizing expensive calculations (chained memos supported).
 
-When to prefer `@memo` vs `memoify()`:
+When to prefer [`@memo`](#memo) vs `memoify()`:
 
-- Use `@memo` inside modern class syntax where decorators are supported.
+- Use [`@memo`](#memo) inside modern class syntax where decorators are supported.
 - Use `memoify()` for plain objects, prototypes, or when decorators are undesirable or not available.
+
+See also: [`signalify()`](#signalify) for creating reactive data properties that
+memos can depend on.
 
 ### `Effectful`
 
-`Effectful` is a class-factory mixin that gives your class a `createEffect()`
-method, along with a `stopEffects()` method that will stop all current effects.
+`Effectful` is a class-factory mixin that adds reactive effect management to
+any class. It provides:
 
-Here's an example that shows a custom element that starts effects on connected,
-and cleans them up on disconnect:
+- `this.createEffect(fn)` - Creates a Solid effect tied to the instance.
+- `this.stopEffects()` - Stops all effects created via `createEffect()` on this instance.
+
+**Purpose:** Useful for classes that need to manage multiple effects with a
+single cleanup call, especially in component-like patterns (custom elements,
+lifecycle-driven classes, etc.).
+
+**Cleanup semantics:** Effects are created within a shared Solid.js owner root
+for the instance. Calling `stopEffects()` disposes that root, stopping all
+effects. Subsequent `createEffect()` calls create a new root. Typically you
+create a class, then call `stopEffects()` when the instance is no longer needed
+(for example with Custom Elements, in `disconnectedCallback`).
+
+**Use cases:**
+
+- Custom elements with `connectedCallback` / `disconnectedCallback`.
+- Classes with explicit lifecycle methods (e.g., `start()` / `stop()`).
+- Any pattern where you want effects grouped and cleaned up when finished.
+
+Here's an example of a plain class extending Effectful, where effects are
+created and then the instance is later cleaned up (note how on `onCleanup` is
+used within an effect to clean up resources like intervals):
 
 ```js
-import {reactive, signal, Effectful} from 'classy-solid'
+import {onCleanup} from 'solid-js'
+import {signal, Effectful} from 'classy-solid'
 
-@reactive
+class Counter extends Effectful(Object) {
+	@signal count = 0
+	@signal num = 10
+
+	increment() {
+		this.count++
+	}
+
+	constructor() {
+		super()
+
+		// Create some effects
+		this.createEffect(() => {
+			console.log('count:', this.count)
+		})
+
+		this.createEffect(() => {
+			console.log('num:', this.num)
+		})
+
+		this.createEffect(() => {
+			const int = setInterval(() => this.increment(), 1000)
+			// Cleanup interval when effects are disposed
+			onCleanup(() => clearInterval(int))
+		})
+	}
+}
+
+const counter = new Counter() // effects start
+
+// later, when finished with the counter...
+counter.stopEffects() // effects stop
+```
+
+Here's an example with a custom element that starts effects on connected and
+cleans them up on disconnect:
+
+```js
+import {onCleanup} from 'solid-js'
+import {memo, signal, Effectful} from 'classy-solid'
+
 class CounterDisplay extends Effectful(HTMLElement) {
+	static {
+		customElements.define('counter-display', this)
+	}
+
 	@signal count
 
-	get double() {
+	@memo get double() {
 		return this.count * 2
 	}
 
@@ -893,6 +1036,12 @@ class CounterDisplay extends Effectful(HTMLElement) {
 		this.createEffect(() => {
 			console.log('double:', this.double)
 		})
+
+		this.createEffect(() => {
+			const int = setInterval(() => this.count++, 1000)
+			// Cleanup interval when effects are disposed
+			onCleanup(() => clearInterval(int))
+		})
 	}
 
 	disconnectedCallback() {
@@ -901,18 +1050,36 @@ class CounterDisplay extends Effectful(HTMLElement) {
 	}
 }
 
-customElements.define('counter-display', CounterDisplay)
+const counterEl = document.createElement('counter-display')
+document.body.append(counterEl) // effects start
+
+// ...later, when removed from DOM...
+counterEl.remove() // effects stop
 ```
 
-`createEffect()` creates a single owner root for all effects for the current
-instance, unless it is called inside another root in which case it'll use that
-root.
+> [!Note] Note
+> `createEffect()` creates a single owner root for all effects for the current
+> instance, unless it is called inside another root in which case it'll use that
+> root.
 
 ### `Effects`
 
-An instantiation of `Effectful(Object)` as a shortcut.
+A pre-instantiated version of `Effectful(Object)`, providing the same
+`createEffect()` and `stopEffects()` methods without requiring a mixin call, for
+convenience.
 
-Useful when not extending from a mixin:
+**Purpose:** Use `Effects` when:
+
+- You don't need to extend a specific base class.
+- You want multiple independent effect groups within a single class.
+
+**When to choose `Effects` over `Effectful`:**
+
+- `Effectful(BaseClass)` - When you want effect management baked into your class hierarchy.
+- `new Effects()` - When you want a standalone effect manager or multiple independent groups.
+
+Useful when not need to extend a specific base class other than the default
+`Object`:
 
 ```js
 class MyClass extends Effects {
@@ -961,8 +1128,26 @@ class MyClass {
 
 ### `syncSignals`
 
-Syncs two signals together so that setting one signal's value updates the
-other, and vice versa, without an infinite loop.
+Synchronizes two Solid signals bidirectionally: setting one updates the other,
+and vice versa, without causing an infinite loop.
+
+**Purpose:** Useful for keeping two separate signal sources in sync, such as:
+
+- Syncing a prop signal with internal state.
+- Bridging signals across component boundaries or libraries.
+- Maintaining consistency between derived/computed signals.
+
+**How it works:** Uses an internal tracking mechanism to detect when one signal
+changes and propagate to the other, skipping redundant updates.
+
+**Signature:**
+
+```ts
+syncSignals<T>(
+  getterA: Accessor<T>, setterA: Setter<T>,
+  getterB: Accessor<T>, setterB: Setter<T>
+): [[getterA: Accessor<T>, setterA: Setter<T>], [getterB: Accessor<T>, setterB: Setter<T>]]
+```
 
 Example:
 
@@ -992,7 +1177,22 @@ setBar(2) // logs "2 2"
 
 ### `createSyncedSignals`
 
-Useful as a shorthand for:
+Creates two synchronized signals in one call.
+
+**Purpose:** Shorthand for creating and syncing signals simultaneously, reducing boilerplate.
+
+**When to use:**
+
+- You need two signals synced from the start with the same initial value.
+- You want cleaner code than manually calling `createSignal()` twice and then `syncSignals()`.
+
+**Signature:**
+
+```ts
+createSyncedSignals<T>(initialValue: T): [[Accessor<T>, Setter<T>], [Accessor<T>, Setter<T>]]
+```
+
+Equivalent to:
 
 ```js
 const [[foo, setFoo], [bar, setBar]] = syncSignals(...createSignal(0), ...createSignal(0))
@@ -1006,9 +1206,21 @@ const [[foo, setFoo], [bar, setBar]] = createSyncedSignals(0)
 
 ### `createStoppableEffect`
 
-NOTE: Experimental
+⚠️ **Experimental** - Use with caution (see below).
 
-Create a stoppable effect.
+Creates a Solid effect that can be manually stopped via a `.stop()` method.
+
+**Purpose:** Provides fine-grained control over individual effects without
+needing a parent owner root or manual disposal. Note, this is an experimental API
+because of potential memory management caveats (see below).
+
+**Signature:**
+
+```ts
+createStoppableEffect(fn: EffectFunction): { stop: () => void }
+```
+
+Example:
 
 ```js
 const effect = createStoppableEffect(() => {
@@ -1019,10 +1231,53 @@ const effect = createStoppableEffect(() => {
 effect.stop()
 ```
 
-Note, this is experimental because when inside of a parent reactive context
-that is long-lived (f.e. for life time of the app), each new effect created
-with this and subsequently stopped will stick around and not be GC'd until
-the parent context is cleaned up (which could be never).
+**⚠️ Memory leak caveat:** When created inside a long-lived parent reactive
+context (e.g., app-level root), stopped effects **will not be garbage
+collected** until the parent context is disposed. This can cause memory leaks
+if many effects are created and stopped over time.
 
-Stopped effects will currently only be GC'd freely when they are created
-outside of a reactive context.
+**Safe usage:**
+
+- Create outside reactive contexts (effects will GC freely after `.stop()`).
+- Use [`Effectful`](#effectful) or [`Effects`](#effects) if you need grouped cleanup.
+- Avoid creating many stoppable effects within a single long-lived root.
+
+**Why experimental?** Solid's ownership model doesn't yet support detaching
+child computations from parent roots while preserving proper GC. This API may
+change in future versions.
+
+## Error Handling and Caveats
+
+### Writable Memo Overrides
+
+Setting a writable memo overrides the computed value until dependencies change:
+
+```js
+class Counter {
+  @signal a = 1
+  @signal b = 2
+  @memo sum(_v?: number) { return this.a + this.b }
+}
+
+const c = new Counter()
+console.log(c.sum()) // 3 (computed)
+c.sum(100)           // Override to 100
+console.log(c.sum()) // 100 (overridden)
+c.a = 5              // Dependency changed
+console.log(c.sum()) // 7 (recomputed)
+```
+
+**Caveat:** Overridden values are **not persisted** across dependency changes.
+If you need persistent overrides, use a separate signal to track the override
+state.
+
+### Static Fields
+
+- **Static fields:** Not yet supported by `@reactive`, `@signal`, or `@memo`.
+
+### Memory Considerations
+
+- **Effects and Roots:** Effects created via [`Effectful`](#effectful) /
+  [`Effects`](#effects) are grouped under an owner root. Always call
+  `stopEffects()` when done to avoid memory leaks.
+- **Stoppable Effects:** See caveats in [`createStoppableEffect`](#createstoppableeffect).

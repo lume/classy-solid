@@ -8,16 +8,13 @@ import { testButterflyProps } from '../index.test.js';
 import { reactive } from './reactive.js';
 import { signal } from './signal.js';
 import { signalify } from '../signals/signalify.js';
+import { memo } from './memo.js';
 describe('classy-solid', () => {
   describe('@reactive, @signal', () => {
-    let _initProto, _initClass, _init_colors, _init_extra_colors, _init_colors2, _init_extra_colors2, _init_wingSize, _init_extra_wingSize, _init_finalize, _init_extra_finalize, _initProto2, _init_colors3, _init_extra_colors3, _init_finalize2, _init_extra_finalize2, _init_colors4, _init_extra_colors4, _init_wingSize2, _init_extra_wingSize2, _init_finalize3, _init_extra_finalize3, _initClass2, _init_colors5, _init_extra_colors5, _init_wingSize3, _init_extra_wingSize3, _init_colors6, _get_colors, _set_colors, _init_extra_colors6, _initProto3, _call_colors, _call_colors2, _initProto4, _initProto5;
-    let _Butterfly;
+    let _initProto, _init_colors, _init_extra_colors, _init_colors2, _init_extra_colors2, _init_wingSize, _init_extra_wingSize, _initProto2, _init_colors3, _init_extra_colors3, _init_finalize, _init_extra_finalize, _init_colors4, _init_extra_colors4, _init_wingSize2, _init_extra_wingSize2, _init_finalize2, _init_extra_finalize2, _init_colors5, _init_extra_colors5, _init_wingSize3, _init_extra_wingSize3, _init_colors6, _get_colors, _set_colors, _init_extra_colors6, _initProto3, _call_colors, _call_colors2, _initProto4, _initProto5;
     class Butterfly {
       static {
-        ({
-          e: [_init_colors, _init_extra_colors, _initProto],
-          c: [_Butterfly, _initClass]
-        } = _applyDecs(this, [reactive], [[signal, 0, "colors"], [signal, 3, "wingSize"], [signal, 4, "wingSize"]]));
+        [_init_colors, _init_extra_colors, _initProto] = _applyDecs(this, [], [[signal, 0, "colors"], [signal, 3, "wingSize"], [signal, 4, "wingSize"]]).e;
       }
       colors = (_initProto(this), _init_colors(this, 3));
       #wingSize = (_init_extra_colors(this), 2);
@@ -27,27 +24,20 @@ describe('classy-solid', () => {
       set wingSize(s) {
         this.#wingSize = s;
       }
-      static {
-        _initClass();
-      }
     }
     it('makes class fields reactive, using class and field/getter/setter decorators', () => {
-      const b = new _Butterfly();
+      const b = new Butterfly();
       testButterflyProps(b);
     });
-
-    // @reactive
     class Butterfly2 {
       static {
-        [_init_colors2, _init_extra_colors2, _init_wingSize, _init_extra_wingSize, _init_finalize, _init_extra_finalize] = _applyDecs(this, [], [[signal, 0, "colors"], [signal, 0, "wingSize"], [signal, 0, "finalize", o => o.#finalize, (o, v) => o.#finalize = v]], 0, _ => #finalize in _).e;
+        [_init_colors2, _init_extra_colors2, _init_wingSize, _init_extra_wingSize] = _applyDecs(this, [], [[signal, 0, "colors"], [signal, 0, "wingSize"]]).e;
       }
       constructor() {
-        _init_extra_finalize(this);
+        _init_extra_wingSize(this);
       }
       colors = _init_colors2(this, 3);
       wingSize = (_init_extra_colors2(this), _init_wingSize(this, 2));
-      // @ts-ignore
-      #finalize = (_init_extra_wingSize(this), _init_finalize(this));
     }
     it('makes class fields reactive, using field decorators without class decorator', () => {
       const b = new Butterfly2();
@@ -55,10 +45,10 @@ describe('classy-solid', () => {
     });
     class Butterfly3 {
       static {
-        [_init_colors3, _init_extra_colors3, _init_finalize2, _init_extra_finalize2, _initProto2] = _applyDecs(this, [], [[signal, 0, "colors"], [signal, 3, "wingSize"], [signal, 4, "wingSize"], [signal, 0, "finalize", o => o.#finalize, (o, v) => o.#finalize = v]], 0, _ => #finalize in _).e;
+        [_init_colors3, _init_extra_colors3, _init_finalize, _init_extra_finalize, _initProto2] = _applyDecs(this, [], [[signal, 0, "colors"], [signal, 3, "wingSize"], [signal, 4, "wingSize"], [signal, 0, "finalize", o => o.#finalize, (o, v) => o.#finalize = v]], 0, _ => #finalize in _).e;
       }
       constructor() {
-        _init_extra_finalize2(this);
+        _init_extra_finalize(this);
       }
       colors = (_initProto2(this), _init_colors3(this, 3));
       #wingSize = (_init_extra_colors3(this), 2);
@@ -70,7 +60,7 @@ describe('classy-solid', () => {
       }
 
       // @ts-ignore
-      #finalize = _init_finalize2(this);
+      #finalize = _init_finalize(this);
     }
     it('makes class fields reactive, using field/getter/setter decorators without class decorator', () => {
       const b = new Butterfly3();
@@ -78,10 +68,10 @@ describe('classy-solid', () => {
     });
     class Butterfly4 {
       static {
-        [_init_wingSize2, _init_extra_wingSize2, _init_colors4, _init_extra_colors4, _init_finalize3, _init_extra_finalize3] = _applyDecs(this, [], [[signal, 0, "colors"], [signal, 1, "wingSize"], [signal, 0, "finalize", o => o.#finalize, (o, v) => o.#finalize = v]], 0, _ => #finalize in _).e;
+        [_init_wingSize2, _init_extra_wingSize2, _init_colors4, _init_extra_colors4, _init_finalize2, _init_extra_finalize2] = _applyDecs(this, [], [[signal, 0, "colors"], [signal, 1, "wingSize"], [signal, 0, "finalize", o => o.#finalize, (o, v) => o.#finalize = v]], 0, _ => #finalize in _).e;
       }
       constructor() {
-        _init_extra_finalize3(this);
+        _init_extra_finalize2(this);
       }
       colors = _init_colors4(this, 3);
       #A = (_init_extra_colors4(this), _init_wingSize2(this, 2)); // @ts-ignore
@@ -91,19 +81,15 @@ describe('classy-solid', () => {
       set wingSize(v) {
         this.#A = v;
       }
-      #finalize = (_init_extra_wingSize2(this), _init_finalize3(this));
+      #finalize = (_init_extra_wingSize2(this), _init_finalize2(this));
     }
     it('makes class fields reactive, using field/accessor decorators without class decorator', () => {
       const b = new Butterfly4();
       testButterflyProps(b);
     });
-    let _Butterfly2;
     class Butterfly5 {
       static {
-        ({
-          e: [_init_wingSize3, _init_extra_wingSize3, _init_colors5, _init_extra_colors5],
-          c: [_Butterfly2, _initClass2]
-        } = _applyDecs(this, [reactive], [[signal, 0, "colors"], [signal, 1, "wingSize"]]));
+        [_init_wingSize3, _init_extra_wingSize3, _init_colors5, _init_extra_colors5] = _applyDecs(this, [], [[signal, 0, "colors"], [signal, 1, "wingSize"]]).e;
       }
       constructor() {
         _init_extra_wingSize3(this);
@@ -116,12 +102,9 @@ describe('classy-solid', () => {
       set wingSize(v) {
         this.#A = v;
       }
-      static {
-        _initClass2();
-      }
     }
     it('makes class fields reactive, using field/accessor decorators with class decorator', () => {
-      const b = new _Butterfly2();
+      const b = new Butterfly5();
       testButterflyProps(b);
     });
     class Butterfly6 {
@@ -223,31 +206,25 @@ describe('classy-solid', () => {
     }
     const ensure = it;
     ensure('overridden fields work as expected', async () => {
-      let _initClass3, _init_colors7, _init_extra_colors7;
-      class Mid extends _Butterfly {
+      let _init_colors7, _init_extra_colors7;
+      class Mid extends Butterfly {
         colors = 0;
       }
 
       // ensure subclass did not interfere with functionality of base class
-      const b0 = new _Butterfly();
+      const b0 = new Butterfly();
       testProp(b0, 'colors', 3, 4, true);
       expect(Object.getOwnPropertyDescriptor(b0, 'colors')?.get?.call(b0) === 4).toBe(true); // accessor descriptor
-      let _SubButterfly;
+
       class SubButterfly extends Mid {
         static {
-          ({
-            e: [_init_colors7, _init_extra_colors7],
-            c: [_SubButterfly, _initClass3]
-          } = _applyDecs(this, [reactive], [[signal, 0, "colors"]], 0, void 0, Mid));
+          [_init_colors7, _init_extra_colors7] = _applyDecs(this, [], [[signal, 0, "colors"]], 0, void 0, Mid).e;
         }
         constructor(...args) {
           super(...args);
           _init_extra_colors7(this);
         }
         colors = _init_colors7(this, 123);
-        static {
-          _initClass3();
-        }
       }
 
       // ensure subclass did not interfere with functionality of base class
@@ -255,10 +232,10 @@ describe('classy-solid', () => {
       testProp(m, 'colors', 0, 1, false);
       expect(Object.getOwnPropertyDescriptor(m, 'colors')?.value === 1).toBe(true); // value descriptor
 
-      class SubSubButterfly extends _SubButterfly {
+      class SubSubButterfly extends SubButterfly {
         colors = 456;
       }
-      const b = new _SubButterfly();
+      const b = new SubButterfly();
       testButterflyProps(b, 123);
       const b2 = new SubSubButterfly();
       testProp(b2, 'colors', 456, 654, false);
@@ -277,27 +254,15 @@ describe('classy-solid', () => {
       expect(count).toBe(reactive ? 2 : 1);
     }
     it('does not prevent superclass constructor from receiving subclass constructor args', () => {
-      var _Insect2;
-      let _initClass4, _initProto6, _initClass5, _init_colors8, _init_extra_colors8;
-      let _Insect;
+      let _initProto6, _init_colors8, _init_extra_colors8;
       class Insect {
-        static {
-          [_Insect, _initClass4] = _applyDecs(this, [reactive], []).c;
-        }
         constructor(double) {
           this.double = double;
         }
-        static {
-          _initClass4();
-        }
       }
-      let _Butterfly3;
-      class Butterfly extends (_Insect2 = _Insect) {
+      class Butterfly extends Insect {
         static {
-          ({
-            e: [_init_colors8, _init_extra_colors8, _initProto6],
-            c: [_Butterfly3, _initClass5]
-          } = _applyDecs(this, [reactive], [[signal, 0, "colors"], [signal, 3, "wingSize"], [signal, 4, "wingSize"]], 0, void 0, _Insect2));
+          [_init_colors8, _init_extra_colors8, _initProto6] = _applyDecs(this, [], [[signal, 0, "colors"], [signal, 3, "wingSize"], [signal, 4, "wingSize"]], 0, void 0, Insect).e;
         }
         colors = (_initProto6(this), _init_colors8(this, 3));
         #wingSize = (_init_extra_colors8(this), 2);
@@ -310,76 +275,13 @@ describe('classy-solid', () => {
         constructor(arg) {
           super(arg * 2);
         }
-        static {
-          _initClass5();
-        }
       }
-      const b = new _Butterfly3(4);
+      const b = new Butterfly(4);
       expect(b.double).toBe(8);
       testButterflyProps(b);
     });
-    it('throws an error when @signal is used without @reactive', async () => {
-      expect(() => {
-        let _init_foo, _init_extra_foo, _initClass6, _init_bar, _init_extra_bar;
-        // user forgot to use @reactive here
-        class Foo {
-          static {
-            [_init_foo, _init_extra_foo] = _applyDecs(this, [], [[signal, 0, "foo"]]).e;
-          }
-          constructor() {
-            _init_extra_foo(this);
-          }
-          foo = _init_foo(this, 'hoo');
-        }
-        Foo;
-        let _Bar;
-        class Bar {
-          static {
-            ({
-              e: [_init_bar, _init_extra_bar],
-              c: [_Bar, _initClass6]
-            } = _applyDecs(this, [reactive], [[signal, 0, "bar"]]));
-          }
-          constructor() {
-            _init_extra_bar(this);
-          }
-          bar = _init_bar(this, 123);
-          static {
-            _initClass6();
-          }
-        }
-        new _Bar();
-      }).toThrow('Did you forget');
-
-      // TODO how to check for an error thrown from a microtask?
-      // (window.addEventListener('error') seems not to work)
-      //
-      // It just won't work, the error seems to never fire here in the
-      // tests, but it works fine when testing manually in Chrome.
-
-      // const errPromise = new Promise<ErrorEvent>(r => window.addEventListener('error', e => r(e), {once: true}))
-
-      // @reactive
-      // class Foo {
-      // 	@signal foo = 'hoo'
-      // }
-
-      // Foo
-
-      // // user forgot to use @reactive here
-      // class Bar {
-      // 	@signal bar = 123
-      // }
-
-      // Bar
-
-      // const err = await errPromise
-
-      // expect(err.message).toContain('Did you forget')
-    });
     it('works with function values', () => {
-      let _initClass7, _init_do, _init_extra_do;
-      let _Doer;
+      let _init_do, _init_extra_do;
       // This test ensures that functions are handled propertly, because
       // if passed without being wrapped to a signal setter it will be
       // called immediately with the previous value and be expected to
@@ -387,90 +289,124 @@ describe('classy-solid', () => {
 
       class Doer {
         static {
-          ({
-            e: [_init_do, _init_extra_do],
-            c: [_Doer, _initClass7]
-          } = _applyDecs(this, [reactive], [[signal, 0, "do"]]));
+          [_init_do, _init_extra_do] = _applyDecs(this, [], [[signal, 0, "do"]]).e;
         }
         constructor() {
           _init_extra_do(this);
         }
         do = _init_do(this, null);
-        static {
-          _initClass7();
-        }
       }
-      const doer = new _Doer();
+      const doer = new Doer();
       expect(doer.do).toBe(null);
       const newFunc = () => 123;
       doer.do = newFunc;
       expect(doer.do).toBe(newFunc);
       expect(doer.do()).toBe(123);
     });
-    it('automatically does not track reactivity in constructors when using decorators', () => {
-      var _Foo2;
-      let _initClass8, _init_amount, _init_extra_amount, _initClass9, _init_double, _init_extra_double;
-      let _Foo;
-      class Foo {
-        static {
-          ({
-            e: [_init_amount, _init_extra_amount],
-            c: [_Foo, _initClass8]
-          } = _applyDecs(this, [reactive], [[signal, 0, "amount"]]));
+    describe('Reactivity Tracking in Constructors', () => {
+      it('automatically does not track reactivity in constructors when using @reactive', () => {
+        var _Foo2;
+        let _initClass, _init_amount, _init_extra_amount, _initClass2, _init_double, _init_extra_double;
+        let _Foo;
+        class Foo {
+          static {
+            ({
+              e: [_init_amount, _init_extra_amount],
+              c: [_Foo, _initClass]
+            } = _applyDecs(this, [reactive], [[signal, 0, "amount"]]));
+          }
+          constructor() {
+            _init_extra_amount(this);
+          }
+          amount = _init_amount(this, 3);
+          static {
+            _initClass();
+          }
         }
-        constructor() {
-          _init_extra_amount(this);
+        let _Bar;
+        class Bar extends (_Foo2 = _Foo) {
+          static {
+            ({
+              e: [_init_double, _init_extra_double],
+              c: [_Bar, _initClass2]
+            } = _applyDecs(this, [reactive], [[signal, 0, "double"]], 0, void 0, _Foo2));
+          }
+          double = _init_double(this, 0);
+          constructor() {
+            super(), _init_extra_double(this);
+            this.double = this.amount * 2; // this read of .amount should not be tracked
+          }
+          static {
+            _initClass2();
+          }
         }
-        amount = _init_amount(this, 3);
-        static {
-          _initClass8();
+        let b;
+        let count = 0;
+        function noLoop() {
+          createEffect(() => {
+            b = new _Bar(); // this should not track
+            count++;
+          });
         }
-      }
-      let _Bar2;
-      class Bar extends (_Foo2 = _Foo) {
-        static {
-          ({
-            e: [_init_double, _init_extra_double],
-            c: [_Bar2, _initClass9]
-          } = _applyDecs(this, [reactive], [[signal, 0, "double"]], 0, void 0, _Foo2));
-        }
-        double = _init_double(this, 0);
-        constructor() {
-          super(), _init_extra_double(this);
-          this.double = this.amount * 2; // this read of .amount should not be tracked
-        }
-        static {
-          _initClass9();
-        }
-      }
-      let b;
-      let count = 0;
-      function noLoop() {
-        createEffect(() => {
-          b = new _Bar2(); // this should not track
-          count++;
-        });
-      }
-      expect(noLoop).not.toThrow();
-      const b2 = b;
-      b.amount = 4; // hence this should not trigger
+        expect(noLoop).not.toThrow();
+        expect(count).toBe(1);
+        const b2 = b;
+        b.amount = 4; // hence this should not trigger
 
-      // If the effect ran only once initially, not when setting b.colors,
-      // then both variables should reference the same instance
-      expect(count).toBe(1);
-      expect(b).toBe(b2);
+        // If the effect ran only once initially, not when setting b.colors,
+        // then both variables should reference the same instance
+        expect(count).toBe(1);
+        expect(b).toBe(b2);
+      });
+      it('automatically does not track reactivity in constructors when using @memo', () => {
+        let _init_amount2, _init_extra_amount2, _initProto7;
+        class Foo {
+          static {
+            [_init_amount2, _init_extra_amount2] = _applyDecs(this, [], [[signal, 0, "amount"]]).e;
+          }
+          constructor() {
+            _init_extra_amount2(this);
+          }
+          amount = _init_amount2(this, 3);
+        }
+        class Bar extends Foo {
+          static {
+            [_initProto7] = _applyDecs(this, [], [[memo, 3, "double"]], 0, void 0, Foo).e;
+          }
+          constructor(...args) {
+            super(...args);
+            _initProto7(this);
+          }
+          get double() {
+            return this.amount * 2;
+          }
+        }
+        let b;
+        let count = 0;
+        function noLoop() {
+          createEffect(() => {
+            b = new Bar(); // this should not track
+            count++;
+          });
+        }
+        expect(noLoop).not.toThrow();
+        expect(count).toBe(1);
+        const b2 = b;
+        b.amount = 4; // hence this should not trigger
+
+        // If the effect ran only once initially, not when setting b.colors,
+        // then both variables should reference the same instance
+        expect(count).toBe(1);
+        expect(b).toBe(b2);
+      });
     });
-    it.only('prevents duplicate signals for any property', () => {
-      let _initProto7, _initClass0, _init_venomous, _init_extra_venomous, _init_legs, _init_extra_legs;
-      let _Insect3;
+    it('prevents duplicate signals for any property', () => {
+      let _initProto8, _init_venomous, _init_extra_venomous, _init_legs, _init_extra_legs;
       class Insect {
         static {
-          ({
-            e: [_init_legs, _init_extra_legs, _init_venomous, _init_extra_venomous, _initProto7],
-            c: [_Insect3, _initClass0]
-          } = _applyDecs(this, [reactive], [[signal, 0, "venomous"], [signal, 1, "legs"], [signal, 3, "eyes"], [signal, 4, "eyes"]]));
+          [_init_legs, _init_extra_legs, _init_venomous, _init_extra_venomous, _initProto8] = _applyDecs(this, [], [[signal, 0, "venomous"], [signal, 1, "legs"], [signal, 3, "eyes"], [signal, 4, "eyes"]]).e;
         }
-        venomous = (_initProto7(this), _init_venomous(this, 0));
+        venomous = (_initProto8(this), _init_venomous(this, 0));
         #A = (_init_extra_venomous(this), _init_legs(this, 6));
         get legs() {
           return this.#A;
@@ -491,11 +427,8 @@ describe('classy-solid', () => {
           // are already signalified by the @signal decorator
           signalify(this, 'venomous', 'legs', 'eyes', 'antennas');
         }
-        static {
-          _initClass0();
-        }
       }
-      const i = new _Insect3();
+      const i = new Insect();
       testNoDuplicateSignal(i, 'venomous');
       testNoDuplicateSignal(i, 'legs');
       testNoDuplicateSignal(i, 'eyes');

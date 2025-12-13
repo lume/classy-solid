@@ -8,19 +8,23 @@ signals, and for using `class`es as Solid.js components.
 # Table of Contents <!-- omit in toc -->
 
 - [At a glance](#at-a-glance)
-- [Install](#install) - [`npm install classy-solid`](#npm-install-classy-solid)
+- [Install](#install)
+      - [`npm install classy-solid`](#npm-install-classy-solid)
   - [Vite Setup](#vite-setup)
   - [Babel Setup](#babel-setup)
 - [API and Usage](#api-and-usage)
   - [Decorator APIs](#decorator-apis)
-    - [`@untracked`](#untracked)
-    - [`@reactive` (deprecated)](#reactive-deprecated)
     - [`@signal`](#signal)
     - [`@memo`](#memo)
+    - [`@effect`](#effect)
+    - [`@untracked`](#untracked)
     - [`@component`](#component)
       - [JavaScript with build tools](#javascript-with-build-tools)
       - [JavaScript without build tools](#javascript-without-build-tools)
-      - [TypeScript](#typescript)
+      - [Accessing the class instance with `ref`:](#accessing-the-class-instance-with-ref)
+      - [TypeScript definition](#typescript-definition)
+      - [Type-safe refs in TypeScript:](#type-safe-refs-in-typescript)
+    - [`@reactive` (deprecated)](#reactive-deprecated)
   - [Non-decorator APIs](#non-decorator-apis)
     - [`component()`](#component-1)
     - [`createSignalObject()`](#createsignalobject)
@@ -171,79 +175,31 @@ Note, these docs assume you have basic knowledge of [Solid.js](https://solidjs.c
 
 ## Decorator APIs
 
-### `@untracked`
-
-A class decorator that makes a class's constructor untracked, preventing signal
-reads during construction from being tracked by outer effects.
-
-**When to use:** Only needed if your constructor reads signal/memo values.
-Without `@untracked`, such a constructor will track dependencies when it is
-instantiated in an effect and will cause an infinite loop.
-
-Example:
-
-```js
-import {untracked, signal} from 'classy-solid'
-import {createEffect} from 'solid-js'
-
-@untracked
-class Example {
-	@signal count = 0
-
-	constructor() {
-		// Reading this.count here won't be tracked by outer effects
-		this.count = this.count + 1
-	}
-}
-
-createEffect(() => {
-	// This effect won't track count reads in the constructor,
-	// preventing infinite loops. It only runs once.
-	const example = new Example()
-
-	createEffect(() => {
-		// This inner effect DOES track count changes
-		console.log(example.count)
-	})
-})
-```
-
-Without decorators:
-
-```js
-import {untracked} from 'classy-solid'
-
-const Example = untracked(
-	class {
-		count = 0
-
-		constructor() {
-			this.count = this.count + 1
-		}
-	},
-)
-
-// ... same usage as above ...
-```
-
-### `@reactive` (deprecated)
-
-**⚠️ DEPRECATED:** Use [`@untracked`](#untracked) instead. This decorator is no
-longer needed for making `@signal` or `@memo` work. It now serves only as an
-alias to `@untracked` for backward compatibility.
-
 ### `@signal`
 
-Decorate a property of a class with `@signal` to make it reactive (backed by a
-Solid signal).
+Decorate a property (field, getter/setter, or auto accessor) of a class with
+`@signal` to make it reactive (i.e. backed by a Solid signal).
 
 ```js
 import {signal} from 'classy-solid'
 import {createEffect} from 'solid-js'
 
 export class Car {
+	// field
 	@signal engineOn = false
-	@signal sound = 'vroom'
+
+	// auto accessor
+	@signal accessor sound = 'vroom'
+
+	#speed = 0
+
+	// getter/setter
+	@signal get speed() {
+		return this.#speed
+	}
+	@signal set speed(value) {
+		this.#speed = value
+	}
 }
 ```
 
@@ -254,7 +210,8 @@ const car = new Car()
 
 createEffect(() => {
 	// This re-runs any time car.engineOn or car.sound change.
-	if (car.engineOn) console.log(car.sound)
+	if (car.engineOn) console.log(car.sound, 'at speed', car.speed)
+	else console.log('engine off')
 })
 
 // ...
@@ -262,35 +219,38 @@ createEffect(() => {
 
 ### `@memo`
 
-Create a memoized derived value (readonly or writable) whose computation is
-cached and only re-runs when one of its reactive dependencies (f.e. `@signal` /
-`signalify` properties) changes AND the computed value actually changes. This
-prevents unnecessary effect executions when dependencies change but the derived
-result stays the same.
+Use this on a class property (getter/setter, auto accessor, or method) to create
+a memoized derived value (readonly or writable) whose computation is cached and
+only triggers effects when one of its reactive dependencies (f.e. `@signal` / `signalify`
+properties) changes AND the computed value actually changes. This prevents
+unnecessary effect executions when dependencies change but the derived result
+stays the same.
 
-Memos properties internally use Solid's `createMemo`/`createWritableMemo`.
+Always prefer memos over effects for derived values, even if the value always
+changes, as it is more semantic to express derived values as memos.
+
+Memo properties internally use Solid's `createMemo`/`createWritableMemo`
+depending on the member form and function arity.
 
 Supported member forms:
 
-| Form                        | Example                                                 | Call Style                | Writable? | Rule                                   |
-| --------------------------- | ------------------------------------------------------- | ------------------------- | --------- | -------------------------------------- |
-| Field (arrow fn)            | `@memo sum = () => this.a + this.b`                     | `ex.sum()`                | No        | Function arity 0 => readonly           |
-| Field (arrow fn with param) | `@memo sum = (_v?: number) => this.a + this.b`          | `ex.sum()` / `ex.sum(20)` | Yes       | Arity > 0 => writable                  |
-| Getter                      | `@memo get sum() { return this.a + this.b }`            | `ex.sum`                  | No        | Getter w/o matching setter => readonly |
-| Getter + Setter             | `@memo get sum() { ... }` & `@memo set sum(v) {}`       | `ex.sum` / `ex.sum = 20`  | Yes       | Getter + (empty) setter => writable    |
-| Accessor (auto) readonly    | `@memo accessor sum = () => this.a + this.b`            | `ex.sum()`                | No        | Arrow fn arity 0 => readonly           |
-| Accessor (auto) writable    | `@memo accessor sum = (_v?: number) => this.a + this.b` | `ex.sum()` / `ex.sum(20)` | Yes       | Arrow fn arity > 0 => writable         |
-| Method readonly             | `@memo sum() { return this.a + this.b }`                | `ex.sum()`                | No        | Method arity 0 => readonly             |
-| Method writable             | `@memo sum(_v?: number) { return this.a + this.b }`     | `ex.sum()` / `ex.sum(20)` | Yes       | Method arity > 0 => writable           |
+| Form                     | Example                                                 | Call Style                | Writable? | Rule                                   |
+| ------------------------ | ------------------------------------------------------- | ------------------------- | --------- | -------------------------------------- |
+| Getter                   | `@memo get sum() { return this.a + this.b }`            | `ex.sum`                  | No        | Getter w/o matching setter => readonly |
+| Getter + Setter          | `@memo get sum() { ... }` & `@memo set sum(v) {}`       | `ex.sum` / `ex.sum = 20`  | Yes       | Getter + (empty) setter => writable    |
+| Accessor (auto) readonly | `@memo accessor sum = () => this.a + this.b`            | `ex.sum()`                | No        | Arrow fn arity 0 => readonly           |
+| Accessor (auto) writable | `@memo accessor sum = (_v?: number) => this.a + this.b` | `ex.sum()` / `ex.sum(20)` | Yes       | Arrow fn arity > 0 => writable         |
+| Method readonly          | `@memo sum() { return this.a + this.b }`                | `ex.sum()`                | No        | Method arity 0 => readonly             |
+| Method writable          | `@memo sum(_v?: number) { return this.a + this.b }`     | `ex.sum()` / `ex.sum(20)` | Yes       | Method arity > 0 => writable           |
 
 Writable memos: Setting a writable memo (e.g. `ex.sum(20)` or `ex.sum = 20`)
 overrides the current derived value. Subsequent dependency changes resume normal
 recomputation. Readonly memos throw if you attempt to set them.
 
-Arity rules: A function (field, accessor, or method) with length 0 becomes a
-readonly memo. A function with length > 0 becomes writable. For getter/setter
-pairs, the presence of an empty setter marks the memo writable. Note, do not
-provide a non-empty setter, it is ignored.
+Arity rules: A function value (for auto accessors or methods) with length 0
+becomes a readonly memo. A function value with length > 0 becomes writable. For
+getter/setter pairs, the presence of an empty setter marks the memo writable.
+Note, do not provide a non-empty setter, it is ignored.
 
 Example:
 
@@ -345,13 +305,254 @@ const c = new Counter()
 
 Gotchas:
 
-- Methods and fields that become memo functions need to be invoked (`ex.sum()`), whereas getters are accessed as values (`ex.sum`).
+- Methods and fields that become memo functions need to be invoked (`ex.sum()`),
+  whereas getters are accessed via property access (`ex.sum`).
 - Readonly memos should not be assigned; doing so throws.
+
+### `@effect`
+
+Decorate a method or auto accessor (with a function value) with `@effect` to
+automatically create a Solid.js effect for it. The effect runs during
+instantiation and re-runs whenever any reactive dependencies (signals or memos)
+accessed within it change.
+
+**Purpose:** Simplifies reactive side effects by eliminating the need to
+manually call `createEffect()` in constructors or methods. Pair with `@signal`
+and `@memo` to create reactive classes with minimal boilerplate.
+
+**Use cases:**
+
+- Logging or debugging reactive state changes.
+- Side effects like network requests, DOM manipulation, or event subscriptions.
+
+**Cleanup:** Effects are tied to the class instance. Use:
+
+- `stopEffects(instance)` - standalone function to dispose all effects on an instance.
+- `instance.stopEffects()` - when extending `Effectful(BaseClass)` or `Effects`.
+
+If the instance is created within an existing Solid owner (root, component,
+effect), effects are disposed automatically when that owner cleans up, and
+`stopEffects()` calls are unnecessary and will be a no-op.
+
+**Restart effects:** If you've stopped effects on an instance and want to restart
+them, use:
+
+- `startEffects(instance)` - standalone function to restart all effects on an instance.
+- `instance.startEffects()` - when extending `Effectful(BaseClass)` or `Effects`.
+
+**Supported forms:**
+
+- **Method** (recommended): `@effect methodName() { ... }`
+- **Auto accessor**: `@effect accessor name = () => { ... }`
+
+**Example with `stopEffects()` and `startEffects()`:**
+
+```ts
+import {effect, signal, stopEffects, startEffects} from 'classy-solid'
+import {createSignal} from 'solid-js'
+
+const [a, setA] = createSignal(1)
+
+class Counter {
+	@signal count = 0
+
+	@effect logSum() {
+		console.log('Sum:', a() + this.count)
+	}
+
+	// Auto accessor form (less common)
+	@effect accessor logCount = () => {
+		console.log('Count:', this.count)
+	}
+}
+
+const counter = new Counter() // logs "Sum: 1", "Count: 0"
+
+setA(5) // logs "Sum: 5"
+counter.count = 10 // logs "Sum: 15", "Count: 10"
+
+// Later, clean up when done
+stopEffects(counter)
+
+setA(8) // does not log anything
+counter.count = 20 // does not log anything
+
+// Later, restart effects
+startEffects(counter) // logs "Sum: 28", "Count: 20"
+
+setA(2) // logs "Sum: 22"
+```
+
+**Example with [`Effectful`](#effectful) / [`Effects`](#effects) mixin:**
+
+```ts
+import {effect, signal, memo, Effects} from 'classy-solid'
+import {createSignal} from 'solid-js'
+
+const [a, setA] = createSignal(1)
+
+// Extending from the Effectful(), or the non-mixin shortcut Effects class, give
+// us the stopEffects method. In this case, use `obj.stopEffects()` instead of
+// `stopEffects(obj)`.
+class Counter extends Effects {
+	@signal count = 0
+
+	@memo sum() {
+		return a() + this.count
+	}
+
+	@effect logSum() {
+		console.log('Sum:', this.sum)
+	}
+}
+
+const counter = new Counter() // logs "Sum: 1"
+
+setA(5) // logs "Sum: 5"
+counter.count = 10 // logs "Sum: 15"
+
+batch(() => {
+	counter.count = 7
+	setA(8)
+}) // Does not log anything because sum did not change.
+
+// Later, clean up when done
+counter.stopEffects()
+
+setA(2) // does not log anything
+counter.count = 20 // does not log anything
+
+// Later, restart effects
+counter.startEffects() // logs "Sum: 22"
+
+setA(3) // logs "Sum: 23"
+```
+
+**Why `@effect` over manual `createEffect()`?**
+
+- Less boilerplate (no constructor needed).
+- Declarative: effects defined inline with the properties they affect.
+- Automatic lifecycle management when used with `Effectful` or `Effects`.
+
+Without decorators:
+
+```js
+import {signalify, Effects} from 'classy-solid'
+import {createSignal} from 'solid-js'
+
+const [a, setA] = createSignal(1)
+
+class Counter extends Effects {
+	count = 0
+
+	get sum() {
+		return a() + this.count
+	}
+
+	logSum() {
+		console.log('Sum:', this.sum)
+	}
+
+	constructor() {
+		signalify(this, 'count')
+		memoify(this, 'sum')
+		this.createEffect(this.logSum.bind(this))
+	}
+}
+
+const counter = new Counter()
+counter.stopEffects() // when done
+```
+
+**Integrate with classess that have life cycle methods:**
+
+For example, with Custom Element classes:
+
+```js
+import {effect, signal, startEffects, stopEffects} from 'classy-solid'
+import {externalState} from './hypothetical-app-state.js'
+
+class MyElement extends HTMLElement {
+	@effect logCount() {
+		console.log('Value is now:', externalState.value)
+	}
+
+	connectedCallback() {
+		// Start effects when element is added (or re-added) to DOM.
+		startEffects(this)
+	}
+
+	disconnectedCallback() {
+		// Stop effects when element is removed from DOM (if the element will not be
+		// used again and is unreferenced, effects are garbage collected).
+		stopEffects(this)
+	}
+}
+
+customElements.define('my-element', MyElement)
+```
+
+### `@untracked`
+
+A class decorator that makes a class's constructor untracked, preventing signal
+reads during construction from being tracked by outer effects.
+
+**When to use:** Only needed if your constructor reads signal/memo values.
+Without `@untracked`, such a constructor will track dependencies when it is
+instantiated in an effect and will cause an infinite loop.
+
+Example:
+
+```js
+import {untracked, signal} from 'classy-solid'
+import {createEffect} from 'solid-js'
+
+@untracked
+class Example {
+	@signal count = 0
+
+	constructor() {
+		// Reading this.count here won't be tracked by outer effects
+		this.count = this.count + 1
+	}
+}
+
+createEffect(() => {
+	// This effect won't track count reads in the constructor,
+	// preventing infinite loops. It only runs once.
+	const example = new Example()
+
+	createEffect(() => {
+		// This inner effect DOES track count changes
+		console.log(example.count)
+	})
+})
+```
+
+Without decorators:
+
+```js
+import {untracked} from 'classy-solid'
+
+const Example = untracked(
+	class {
+		count = 0
+
+		constructor() {
+			signalify(this)
+			// Reading this.count here won't be tracked by outer effects
+			this.count = this.count + 1
+		}
+	},
+)
+
+// ... same usage as above ...
+```
 
 ### `@component`
 
 A decorator that makes a `class` usable as a component within a Solid template
-(f.e. within JSX markup).
+(f.e. within JSX, or an `html` template tag).
 
 A class decorated with `@component` can optionally have any three of the
 following methods:
@@ -380,32 +581,56 @@ build setup in place (soon decorators will be native in JavaScript engines and a
 build step will not be necessary for decorators, but will still be necessary for
 JSX templates).
 
-The [Babel](https://babeljs.io/) compiler, for example, allows use of decorators and JSX:
+The [Babel](https://babeljs.io/) compiler, for example, allows use of decorators
+and JSX (not this example shows a variety of way to do things, but not all are
+recommended, see the idiomatic example afterwards):
 
 ```jsx
-import {component, signal} from 'classy-solid'
+import {component, signal, memo, effect} from 'classy-solid'
 import {onMount, onCleanup, createEffect} from 'solid-js'
 
 export
 @component
 class MyComp {
-	@signal last = 'none'
+	@signal name = 'Anon'
 	@signal count = 1
 
-	h1
+	#h1
 
 	onMount() {
-		console.log('h1 element reference:', this.h1)
+		console.log('onMount method, h1 element reference:', this.#h1)
 
 		this.int = setInterval(() => this.count++, 1000)
 
-		// Clean up like this,
+		// Clean up like this (recommended),
 		onCleanup(() => clearInterval(this.int))
 	}
 
 	// or clean up like this.
 	onCleanup() {
 		clearInterval(this.int)
+	}
+
+	// Create memo properties on the class (backed by Solid createMemo).
+	@memo get doubleCount() {
+		return this.count * 2
+	}
+	@memo set doubleCount(value) {
+		// providing an empty setter makes this a writable memo (backed by createWritableMemo from solid-primitives)
+	}
+
+	@effect logDoubleCount() {
+		console.log('Double count is now:', this.doubleCount)
+
+		// nested effects
+		createEffect(() => {
+			/*...*/
+		})
+
+		// cleanup
+		onCleanup(() => {
+			/*...*/
+		})
 	}
 
 	template(props) {
@@ -418,94 +643,161 @@ class MyComp {
 
 		// Here we show that passed-in `props` can be used directly. All
 		// props are automatically mapped to same-name properties on the
-		// class instance, which is why the passed in `last={}` prop is
-		// accessible as `this.last`.
+		// class instance, which is why the passed in `count={}` prop is
+		// also accessible as `this.count` above.
 		return (
-			<h1 ref={this.h1}>
-				Hello, my name is {props.first} {this.last}! The count is {this.count}.
+			<h1 ref={this.#h1}>
+				Hello, my name is {this.name}! The count is {props.count}. The double count is {this.doubleCount}.
 			</h1>
 		)
 	}
 }
 
-render(() => <MyComp first="Joe" last="Pea" />, document.body)
+render(() => <MyComp name="Joe Pea" />, document.body)
+```
+
+The above example shows a class component with multiple ways of doing things
+(not recommended!). When using class components, the most idiomatic practice is
+to use top level effects with `@effect`, and all state in the class with
+`@signal`/`@memo` without props via `template`:
+
+```jsx
+import {component, signal, memo, effect} from 'classy-solid'
+import {onCleanup} from 'solid-js'
+
+export
+@component
+class MyComp {
+	@signal name = 'Anon'
+	@signal count = 1
+
+	#h1
+
+	@memo doubleCount() {
+		return this.count * 2
+	}
+
+	onMount() {
+		console.log('onMount, h1 element reference:', this.#h1)
+
+		this.int = setInterval(() => this.count++, 1000)
+		onCleanup(() => clearInterval(this.int))
+	}
+
+	@effect logDoubleCount() {
+		console.log('Double count is now:', this.doubleCount)
+
+		// If this effect has anything to clean up:
+		onCleanup(() => {
+			/*...*/
+		})
+	}
+
+	template = () => (
+		<h1 ref={this.#h1}>
+			Hello, my name is {this.name}! The count is {this.count}. The double count is {this.doubleCount}.
+		</h1>
+	)
+}
+
+render(() => <MyComp name="David Base" />, document.body)
 ```
 
 #### JavaScript without build tools
 
-> **Note** The new decorators proposal reached stage 3, so JavaScript will have
-> decorators natively soon and won't require compiler support.
-
-For plain JS users without build setups, use `component` and `signalify` with
-normal function calls, and use Solid's [`html` template
+For plain JS users without build setups or that prefer not using decorators or
+JSX, use `component`, `signalify`, and `memoify` via plain function calls, and
+use Solid's [`html` template
 tag](https://github.com/solidjs/solid/tree/main/packages/solid/html) for
-templating:
+templating because JSX requires compilation. Here's the same example as above
+but without decorators or JSX:
 
-```jsx
-import {component, signalify} from 'classy-solid'
+```js
+import {component, signalify, memoify} from 'classy-solid'
+import {onCleanup, createEffect} from 'solid-js'
 import html from 'solid-js/html'
 
 const MyComp = component(
-	class MyComp {
-		last = 'none'
+	class {
+		name = 'Anon'
 		count = 1
 
-		h1
+		#h1
+
+		get doubleCount() {
+			return this.count * 2
+		}
 
 		constructor() {
-			signalify(this, 'last', 'count')
-			// Or, to signalify all properties (except any with function values):
-			// signalify(this)
+			// Signalify all own properties, i.e. class fields.
+			signalify(this)
+
+			// Or, to signalify specific properties only (see signalify() docs).
+			// signalify(this, 'name', 'count')
+
+			// Initialize memos (explicit mode because getters are not own properties).
+			memoify(this, 'doubleCount')
+
+			// This will not work, because getters are not own properties:
+			// memoify(this)
 		}
 
 		onMount() {
-			console.log('h1 element:', this.h1)
+			console.log('h1 element:', this.#h1)
 
 			this.int = setInterval(() => this.count++, 1000)
-
-			// Clean up like this,
 			onCleanup(() => clearInterval(this.int))
+
+			createEffect(() => this.logDoubleCount())
 		}
 
-		// or clean up like this.
-		onCleanup() {
-			clearInterval(this.int)
+		logDoubleCount() {
+			console.log('Double count is now:', this.doubleCount)
+
+			// If this effect has anything to clean up:
+			onCleanup(() => {
+				/*...*/
+			})
 		}
 
-		template(props) {
-			onMount(() => console.log('mounted'))
-			createEffect(() => console.log('count:', this.count))
-
-			return html`<h1 ref=${el => (this.h1 = el)}>Hello, my name is ${() => props.first} ${() => this.last}!</h1>`
-		}
+		template = () =>
+			html`<h1 ref=${el => (this.#h1 = el)}>
+				Hello, my name is ${() => this.name}! The count is ${() => this.count}. The double count is ${() =>
+					this.doubleCount}.
+			</h1>`
 	},
 )
 
-render(() => html`<${MyComp} first="Joe" last="Pea" />`, document.body)
+render(() => html`<${MyComp} name="Tito Bouzout" />`, document.body)
 ```
 
+> **Note** The new decorators proposal reached stage 3, so JavaScript will have
+> decorators natively soon and won't require compiler support. JSX will still
+> require compilation.
+
 For reference, here's the same example using the `component` decorator as a
-regular function, but with accessor properties that wire up Solid signals
-manually, which is essentially the equivalent of what the `@signal` decorator
-does under the hood for convenience:
+regular function, but with properties wired up to Solid signals and memos
+manually, which is the equivalent of what the `@signal` and `@memo` decorators
+(or `signalify()` and `memoify()` functions) do under the hood for convenience,
+but with a lot more boilerplate:
 
 ```jsx
 import {component} from 'classy-solid'
-import {createSignal} from 'solid-js'
+import {createSignal, createMemo, createEffect, onCleanup} from 'solid-js'
 import html from 'solid-js/html'
 
 const MyComp = component(
 	class MyComp {
-		#last = createSignal('none')
+		#name = createSignal('Anon')
 
-		get last() {
+		get name() {
 			// read from a Solid signal
-			const [get] = this.#last
+			const [get] = this.#name
 			return get()
 		}
-		set last(value) {
+		set name(value) {
 			// write to a Solid signal
-			const [, set] = this.#last
+			const [, set] = this.#name
 			set(value)
 		}
 
@@ -520,35 +812,82 @@ const MyComp = component(
 			set(value)
 		}
 
-		h1
+		#h1
+
+		#doubleCount = createMemo(() => {
+			return this.count * 2
+		})
+
+		get doubleCount() {
+			return this.#doubleCount()
+		}
 
 		onMount() {
-			console.log('h1 element:', this.h1)
+			console.log('h1 element:', this.#h1)
 
 			this.int = setInterval(() => this.count++, 1000)
-
-			// Clean up like this,
 			onCleanup(() => clearInterval(this.int))
+
+			// log doubleCount
+			createEffect(() => {
+				console.log('Double count is now:', this.doubleCount)
+
+				// If this effect has anything to clean up:
+				onCleanup(() => {
+					/*...*/
+				})
+			})
 		}
 
-		// or clean up like this.
-		onCleanup() {
-			clearInterval(this.int)
-		}
-
-		template(props) {
-			onMount(() => console.log('mounted'))
-			createEffect(() => console.log('count:', this.count))
-
-			return html`<h1 ref=${el => (this.h1 = el)}>Hello, my name is ${() => props.first} ${() => this.last}!</h1>`
-		}
+		template = () =>
+			html`<h1 ref=${el => (this.#h1 = el)}>
+				Hello, my name is ${() => this.name}! The count is ${() => this.count}. The double count is ${() =>
+					this.doubleCount}.
+			</h1>`
 	},
 )
 
-render(() => html`<${MyComp} first="Joe" last="Pea" />`, document.body)
+render(() => html`<${MyComp} name="Batman" />`, document.body)
 ```
 
-#### TypeScript
+#### Accessing the class instance with `ref`:
+
+The `ref` prop provides access to the actual class instance, similar to element
+refs in Solid. This is useful for calling methods, accessing properties, or
+integrating with imperative APIs.
+
+```jsx
+import {component, signal} from 'classy-solid'
+import {render} from 'solid-js/web'
+
+@component
+class Counter {
+	@signal count = 0
+
+	increment() {
+		this.count++
+	}
+
+	template() {
+		return <div>Count: {this.count}</div>
+	}
+}
+
+let counterRef!
+
+render(() => (
+	<>
+		<Counter ref={(instance) => (counterRef = instance)} />
+		<button onClick={() => counterRef.increment()}>Increment</button>
+	</>
+), document.body)
+```
+
+The `ref` callback is called with the class instance after it's created, after
+`onMount` runs. You can use it to store a reference, call methods, or pass the
+instance to other parts of your app.
+
+#### TypeScript definition
 
 TypeScript supports decorators out of the box with no additional setup needed.
 
@@ -556,7 +895,7 @@ TypeScript supports decorators out of the box with no additional setup needed.
 > JavaScript section, and the only difference here is added type checking.
 
 ```tsx
-import {component, signal, Props} from 'classy-solid'
+import {component, signal, memo, Props} from 'classy-solid'
 
 @component
 class MyComp {
@@ -565,41 +904,90 @@ class MyComp {
 	// runtime, so here we use the `declare` to tell TS not to assume it exists
 	// for the sake of type checking.
 	// Do not try to use this property at runtime!
-	declare PropTypes: Props<this, 'last' | 'count' | 'first'>
+	declare PropTypes: Props<this, 'name' | 'count'>
 
-	@signal last = 'name'
-	@signal first = 'no'
+	@signal name = 'Anon'
 	@signal count = 123
+
+	@memo get doubleCount() {
+		return this.count * 2
+	}
 
 	// This property will not appear in the JSX prop types, because we did not
 	// list it in the `PropTypes` definition.
 	foo = 'blah'
 
-	h1: HTMLHeadingElement | undefined = undefined
+	#h1: HTMLHeadingElement | undefined = undefined
 
-	onMount() {
-		console.log('h1 element:', this.h1)
+	template = () => (
+		<h1 ref={this.#h1}>
+			Hello, my name is {this.name}! The count is {this.count}. The double count is {this.doubleCount}.
+		</h1>
+	)
+}
+
+render(() => <MyComp name="Robin" count={456} />, document.body)
+```
+
+#### Type-safe refs in TypeScript:
+
+```tsx
+import {component, signal, Props} from 'classy-solid'
+
+@component
+class Counter {
+	declare PropTypes: Props<this, 'count'>
+
+	@signal count = 0
+	increment = () => this.count++
+	template = () => <div>Count: {this.count}</div>
+}
+
+// Then depending on what you are doing:
+
+// Use a ref in a class component, with class-based signal and effect
+@component
+class Example1 {
+	@signal counterRef: Counter | null = null
+
+	// CONTINUE: make a test to ensure effects via decorator on @component classes
+	// are cleaned up.
+	@effect log() {
+		console.log(this.counterRef)
 	}
 
-	onCleanup() {
-		console.log('cleaned up')
-	}
-
-	template(props: this['PropTypes']) {
-		// Note, unlike the JS examples, we had to define a `first` property on
-		// the class or else it would not have a type definition here within
-		// `props` or in JSX that uses the component. Plain JS has no types, so
-		// there is no concern with that in those cases.
-		return (
-			<h1 ref={this.h1}>
-				Hello, my name is {props.first} {this.last}! The count is {this.count}.
-			</h1>
-		)
+	template() {
+		return <Counter ref={(c: Counter) => (this.counterRef = c)} count={5} />
 	}
 }
 
-render(() => <MyComp first="Joe" last="Pea" count={456} />, document.body)
+// Use a ref in a function component
+function Example2() {
+	let [counterRef, setCounterRef] = createSignal<Counter>()
+
+	createEffect(() => console.log(counterRef()))
+
+	return <Counter ref={setCounterRef} count={5} />
+}
+
+// Use a ref in a class component, in the template method like a component
+@component
+class Example1 {
+	template() {
+		let [counterRef, setCounterRef] = createSignal<Counter>()
+
+		createEffect(() => console.log(counterRef()))
+
+		return <Counter ref={setCounterRef} count={5} />
+	}
+}
 ```
+
+### `@reactive` (deprecated)
+
+**⚠️ DEPRECATED:** Use [`@untracked`](#untracked) instead. This decorator is no
+longer needed for making `@signal` or `@memo` work. It now serves only as an
+alias to `@untracked` for backward compatibility.
 
 ## Non-decorator APIs
 
@@ -1089,8 +1477,9 @@ class CounterDisplay extends Effectful(HTMLElement) {
 	}
 
 	disconnectedCallback() {
-		// Stop the effects
-		this.stopEffects()
+		// Stop the effects, and clear them as new ones will be created on next
+		// connect.
+		this.clearEffects()
 	}
 }
 
@@ -1108,9 +1497,8 @@ counterEl.remove() // effects stop
 
 ### `Effects`
 
-A pre-instantiated version of `Effectful(Object)`, providing the same
-`createEffect()` and `stopEffects()` methods without requiring a mixin call, for
-convenience.
+A pre-instantiated version of `Effectful(Object)`, providing the same API
+without requiring a mixin call, for convenience.
 
 **Purpose:** Use `Effects` when:
 

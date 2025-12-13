@@ -13,8 +13,8 @@ describe('classy-solid', () => {
       expect(obj).toBe(obj2);
       obj = createMutable({
         n: 123
-      });
-      obj2 = signalify(obj, 'n');
+      }); // Returns a Proxy wrapping the original object
+      obj2 = signalify(obj, 'n'); // Should return early with the same Proxy
       expect(obj).toBe(obj2);
     });
     it('skips function properties in automatic mode', () => {

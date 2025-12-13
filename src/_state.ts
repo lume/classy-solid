@@ -1,107 +1,180 @@
-import type {PropKey, SignalMetadata, SignalOrMemoType} from './decorators/types.js'
-import {memoify} from './signals/memoify.js'
+import type {
+	AnyObject,
+	MemberStat,
+	MetadataMembers,
+	PropKey,
+	ClassySolidMetadata,
+	SignalOrMemoType,
+} from './decorators/types.js'
+import {memoify, setMemoifyMemberStat} from './signals/memoify.js'
+import {getInheritedDescriptor} from 'lowclass/dist/getInheritedDescriptor.js'
+import {signalify} from './signals/signalify.js'
+import {Effects} from './mixins/Effectful.js'
 
 export const isSignalGetter = new WeakSet<Function>()
 export const isMemoGetter = new WeakSet<Function>()
 
-const isSorted = new WeakSet<SignalMetadata>()
-
-const typeOrder = {'signal-field': 0, 'memo-field': 1, 'memo-auto-accessor': 1, 'memo-accessor': 2, 'memo-method': 2}
-
-export function getSignalsAndMemos(metadata: SignalMetadata) {
-	if (!Object.hasOwn(metadata, 'signalFieldsAndMemos')) metadata.signalFieldsAndMemos = []
-	return metadata.signalFieldsAndMemos!
+export function getMembers(metadata: ClassySolidMetadata) {
+	if (!Object.hasOwn(metadata, 'classySolid_members')) metadata.classySolid_members = [] // we don't extend the array from parent classes
+	return metadata.classySolid_members!
 }
 
-/**
- * Sort certain members tracked in metadata in the order of
- *
- * 1. signal fields
- * 2. memo fields
- * 3. memo auto-accessors
- * 4. memo accessors
- * 5. memo methods
- *
- * so that any members that are normally initialized *after*
- * getters/setters/methods (fields and accessors, such as signal fields, and
- * memo fields and auto-accessors) will be initialized before
- * getters/setters/methods (memo accessors and methods).
- *
- * This ensures proper initialization order which we cannot currently achieve
- * with the default ordering of EcmaScript decorators alone.
- */
-export function sortSignalsMemosInMetadata(metadata: SignalMetadata) {
-	if (!metadata.signalFieldsAndMemos) return
+export function getMemberStat(name: PropKey, type: SignalOrMemoType, members: MetadataMembers) {
+	const index = members.findIndex(member => member.name === name)
+	const existingStat = members[index]
+	const newStat: MemberStat = {type, name, applied: new WeakMap(), finalize: () => {}}
 
-	if (isSorted.has(metadata)) return
-	isSorted.add(metadata)
+	// replace stat in the array with the latest (f.e. duplicate class members, last one wins)
+	if (existingStat) members[index] = newStat
+	else members.push(newStat)
+
+	return newStat
+}
+
+const isSortedCustom = new WeakSet<MetadataMembers>()
+
+// This is the order we want for initializing supported types of members.
+const customSortOrder: Record<SignalOrMemoType, number> = {
+	'signal-field': 0,
+	'memo-auto-accessor': 1,
+	'memo-accessor': 1,
+	'memo-method': 1,
+	'effect-auto-accessor': 2,
+	'effect-method': 2,
+}
+
+// This is the EcmaScript decorator extra initializer application order we don't want, for reference.
+// Anything in the same group is applied in source order within that group.
+// const ecmascriptSortOrder: Record<SignalOrMemoType, number> = {
+// 	'memo-method': 0,
+// 	'memo-accessor': 0,
+// 	'effect-method': 0,
+// 	'signal-field': 1,
+// 	'memo-auto-accessor': 1,
+// 	'effect-auto-accessor': 1,
+// }
+
+/**
+ * Sort signal, memo, and effect members tracked in metadata in the order of
+ * our custom `memberSortOrder`.
+ *
+ * This is so that any members that are normally initialized *after*
+ * getters/setters/methods (such as signal fields, and memo fields and
+ * auto-accessors) will be initialized before getters/setters/methods (memo
+ * accessors and methods), otherwise they will be initialize *after*
+ * getters/setters/methods due to EcmaScript decorator application order rules.
+ *
+ * See: https://github.com/tc39/proposal-decorators/issues/566
+ */
+function sortMetadataMembersCustomOrder(members: MetadataMembers) {
+	// Avoid sorting multiple times (that's why this is called in class
+	// initializers rather than in the decorator directly).
+	if (isSortedCustom.has(members)) return
+	isSortedCustom.add(members)
 
 	// Sort so that signal fields come first, then memo fields and
 	// auto-accessors, finally memo accessors and methods.
-	metadata.signalFieldsAndMemos.sort((a, b) => typeOrder[a[1].type] - typeOrder[b[1].type])
+	members.sort((a, b) => customSortOrder[a.type] - customSortOrder[b.type])
 }
 
-export function getMemberStat(name: PropKey, type: SignalOrMemoType, signalsAndMemos: any[]) {
-	let stat = signalsAndMemos.find(([key]) => key === name)?.[1]
-	if (!stat) signalsAndMemos.push([name, (stat = {type, applied: new WeakMap()})])
-	return stat
+export function signalifyIfNeeded(obj: AnyObject, name: PropKey, stat: MemberStat) {
+	if (stat.applied.get(obj))
+		throw new Error(
+			`@signal decorated member "${String(
+				name,
+			)}" has already been signalified. This can happen if there are duplicated class members.`,
+		)
+
+	signalify(obj, [name, /*untrack*/ () => obj[name]]) // untrack in case obj[name] is already a signal (f.e. from a Solid Proxy)
+
+	stat.applied.set(obj, true)
 }
 
-export function memoifyIfNeeded(obj: object, name: PropKey, stat: any, isAutoAccessor = false) {
-	if (stat.applied.get(obj)) return
-	isAutoAccessor ? memoify(obj, true, name as keyof typeof obj) : memoify(obj, name as keyof typeof obj)
+export function memoifyIfNeeded(obj: AnyObject, name: PropKey, stat: MemberStat) {
+	if (stat.applied.get(obj))
+		throw new Error(
+			`@memo decorated member "${String(
+				name,
+			)}" has already been memoified. This can happen if there are duplicated class members.`,
+		)
+
+	setMemoifyMemberStat(stat)
+	memoify(obj, name as keyof typeof obj)
+
+	stat.applied.set(obj, true)
+}
+
+/** @private internal state */
+export const effects__ = new WeakMap<AnyObject, Effects>()
+
+export function effectifyIfNeeded(obj: AnyObject, name: PropKey, stat: MemberStat) {
+	if (stat.applied.get(obj))
+		throw new Error(
+			`@effect decorated member "${String(
+				name,
+			)}" has already been effectified. This can happen if there are duplicated class members.`,
+		)
+
+	const decoratorValue = stat.value as Function
+	if (!decoratorValue) throw new Error('not possible')
+
+	const descriptor = getInheritedDescriptor(obj, name)!
+	const leafmostMemberValue = stat.type === 'effect-auto-accessor' ? descriptor.get : obj[name]
+
+	// Skip base class effectify if a subclass is overriding an effect.
+	if (leafmostMemberValue !== decoratorValue) return
+
+	const fn = obj[name]
+	if (typeof fn !== 'function') throw new Error(`@effect decorated member "${String(name)}" is not a function: ${fn}`)
+
+	let effects = effects__.get(obj)
+	if (!effects) {
+		// If the object is already an Effects instance, use it directly.
+		if (obj instanceof Effects) effects__.set(obj, (effects = obj))
+		// Otherwise, create a new Effects instance to manage the effects.
+		else effects__.set(obj, (effects = new Effects()))
+	}
+
+	effects.createEffect(() => fn.call(obj))
+
 	stat.applied.set(obj, true)
 }
 
 /**
- * If any signal-fields, memo-fields, or memo-auto-accessors are defined on the
- * class (thus sorted before the given memo field), skip memoifying now (true
- * return). We'll memoify later after signal fields are initialized.
+ * Count number of extra initializers called for the given members array
+ * per instance, so we know when the last one is called, to finalize all
+ * members.
  */
-export function isPriorSignalOrMemoDefined(obj: object, name: PropKey, signalsAndMemos: any[]) {
-	for (const [key, stat] of signalsAndMemos) {
-		if (
-			(stat.type === 'signal-field' || stat.type === 'memo-field' || stat.type === 'memo-auto-accessor') &&
-			!stat.applied.get(obj)
-		)
-			return true
-		if (key === name) break // reached our own memo field, no prior signal-fields or memo-auto-accessors found
-	}
-	return false
-}
+const extraInitializersCount = new WeakMap<AnyObject, number>()
 
 /**
- * This finalizes memo initialization for memo accessors and methods that
- * were waiting for all signal fields, memo fields, and memo auto-accessors
- * to be initialized first.
- *
- * Basically we ensure that memo initialization happens in this order:
- * 1. signal fields
- * 2. memo fields
- * 3. memo auto-accessors
- * 4. memo accessors
- * 5. memo methods
+ * This finalizes memo initialization for the members tracked, in our custom
+ * ordering.
  *
  * This is important because memos may depend on signals or other memos, and we
- * cannot rely on EcmaScript decorator application order alone, since accessor
- * and method before field decorators no matter the order in source code.
+ * cannot rely on EcmaScript decorator order, or extra initializer order alone,
+ * because accessor and method decorators/initializers run before field
+ * decorators no matter the order in source code (give or take some details
+ * regarding auto accessor ordering).
  *
  * See: https://github.com/tc39/proposal-decorators/issues/566
  */
-export function finalizeMemos(obj: object, stat: any, signalsAndMemos: any[]) {
-	const last = signalsAndMemos.findLast(
-		([_, {type}]) => type === 'signal-field' || type === 'memo-field' || type === 'memo-auto-accessor',
-	)!
-	const [, lastStat] = last
+export function finalizeMembersIfLast(obj: AnyObject, members: MetadataMembers) {
+	let count = extraInitializersCount.get(obj) ?? 0
+	extraInitializersCount.set(obj, ++count)
 
-	if (stat !== lastStat) return
+	// If this is not the last extra initializer called, return.
+	if (count !== members.length) return
+
+	extraInitializersCount.set(obj, 0)
+
+	// The last member in EcmaScript decorator extra initializer application
+	// order has been initialized, so we can now initialize all the members we
+	// track in our custom order.
+	sortMetadataMembersCustomOrder(members)
 
 	// All signal-fields, memo-fields, and memo-auto-accessors have been
 	// initialized. Now initialize memo fields that were waiting for
 	// those to be ready.
-	for (const [key, stat] of signalsAndMemos) {
-		if (!(stat.type === 'memo-accessor' || stat.type === 'memo-method') || stat.applied.get(obj)) continue
-
-		memoifyIfNeeded(obj, key, stat)
-	}
+	for (const stat of members) stat.finalize?.call(obj)
 }

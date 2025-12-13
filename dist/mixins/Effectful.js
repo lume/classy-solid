@@ -1,5 +1,5 @@
-import { createEffect, onCleanup, createRoot, getOwner, runWithOwner } from 'solid-js';
-import { createStoppableEffect } from '../effects/createStoppableEffect.js';
+import { createEffect, createRoot, getOwner, runWithOwner } from 'solid-js';
+const isInstance = Symbol();
 
 /**
  * @class Effectful -
@@ -12,23 +12,51 @@ import { createStoppableEffect } from '../effects/createStoppableEffect.js';
  * Example:
  *
  * ```js
- * import {reactive, signal} from 'classy-solid'
+ * import {signal} from 'classy-solid'
  * import {foo} from 'somewhere'
- * import {bar} from 'elsewhere'
+ * import {BaseClass} from 'some-lib'
  *
  * class MyClass extends Effectful(BaseClass) {
+ *   @signal bar = 0
+ *
  *   constructor() {
  *     super()
  *
  *     // Log `foo` and `bar` any time either of them change.
  *     this.createEffect(() => {
- *       console.log('foo, bar:', foo(), bar())
+ *       console.log('foo, bar:', foo(), this.bar)
  *     })
  *
  *     // Log only `bar` any time it changes.
  *     this.createEffect(() => {
- *       console.log('bar:', bar())
+ *       console.log('bar:', this.bar)
  *     })
+ *   }
+ *
+ *   dispose() {
+ *     // Later, stop both of the effects.
+ *     this.stopEffects()
+ *   }
+ * }
+ * ```
+ *
+ * This pairs nicely with the `@effect` decorator. The previous example could be
+ * rewritten as:
+ *
+ * ```js
+ * import {signal, effect} from 'classy-solid'
+ * import {foo} from 'somewhere'
+ * import {BaseClass} from 'some-lib'
+ *
+ * class MyClass extends Effectful(BaseClass) {
+ *   @signal bar = 0
+ *
+ *   @effect logFooBar() {
+ *     console.log('foo, bar:', foo(), this.bar)
+ *   }
+ *
+ *   @effect logBar() {
+ *     console.log('bar:', this.bar)
  *   }
  *
  *   dispose() {
@@ -39,91 +67,141 @@ import { createStoppableEffect } from '../effects/createStoppableEffect.js';
  * ```
  */
 export function Effectful(Base) {
-  return class Effectful extends Base {
-    #effects = new Set();
+  if (Base.prototype instanceof Effectful) throw new Error('Class already extends Effectful, no need to apply the mixin again.');
+  class EffectfulClass extends Base {
+    #effectFunctions = [];
+    #started = true;
 
     /**
      * Create a Solid.js effect. The difference from regular
      * `createEffect()` is that `this` tracks the effects created, so that
      * they can all be stopped with `this.stopEffects()`.
-     *
-     * Effects can also be stopped or resumed individually:
-     *
-     * ```js
-     * const effect1 = this.createEffect(() => {...})
-     * const effect2 = this.createEffect(() => {...})
-     *
-     * // ...later
-     * effect1.stop()
-     *
-     * // ...later
-     * effect1.resume()
-     * ```
      */
     createEffect(fn) {
-      let method = 4;
-      if (method === 1) this.#createEffect1(fn); // not working, bugs out when inside a Solid render() root, effects stop re-running. https://discord.com/channels/722131463138705510/751355413701591120/1188246668466991134
-      if (method === 2) createRoot(() => this.#createEffect1(fn)); // works without nesting, but leaks stopped effects until the parent owner is cleaned up (will never clean up if the parent is running for lifetime of the app).
-      if (method === 3) queueMicrotask(() => this.#createEffect1(fn)); // works without nesting, without leaks
-      if (method === 4) this.#createEffect2(fn); // works with nesting, without leaks
+      this.startEffects();
+      this.#createEffect(fn);
+    }
+    #isRestarting = false;
+
+    /**
+     * Start all effects again. This will recreate all effects that were
+     * previously created with `createEffect()` and stopped with `stopEffects()`.
+     *
+     * Example with a custom element class using the @effect decorator:
+     *
+     * ```ts
+     * const [someSignal, setSomeSignal] = createSignal(0)
+     *
+     * class MyElement extends Effectful(HTMLElement) {
+     *   @effect logSignal() {
+     *     console.log('someSignal:', someSignal())
+     *   }
+     *
+     *   connectedCallback() {
+     *     this.startEffects()
+     *   }
+     *
+     *   disconnectedCallback() {
+     *     this.stopEffects()
+     *   }
+     * }
+     * ```
+     *
+     * The logging of `someSignal` will happen any time `someSignal` changes
+     * only while the element is connected, and but not when it is
+     * disconnected.
+     */
+    startEffects() {
+      if (this.#started) return;
+      this.#started = true;
+
+      // Restart all stored effect functions
+      this.#isRestarting = true;
+      try {
+        for (const fn of this.#effectFunctions) this.#createEffect(fn);
+      } finally {
+        this.#isRestarting = false;
+      }
     }
 
     /**
      * Stop all of the effects that were created.
      */
     stopEffects() {
-      let method = 2;
-      if (method === 1) this.#stopEffects1();
-      if (method === 2) this.#stopEffects2();
-    }
-
-    // Method 1 //////////////////////////////////////////
-    // Works fine when not in a parent context, or else currently leaks or has the above mentioned bug while a parent exists.
-
-    #createEffect1(fn) {
-      let effect = null;
-      effect = createStoppableEffect(() => {
-        if (effect) this.#effects.add(effect);
-        // nest the user's effect so that if it re-runs a lot it is not deleting/adding from/to our #effects Set a lot.
-        createEffect(fn);
-        onCleanup(() => this.#effects.delete(effect));
-      });
-      this.#effects.add(effect);
-    }
-    #stopEffects1() {
-      for (const effect of this.#effects) effect.stop();
-    }
-
-    // Method 2 //////////////////////////////////////////
-    // Works, with nesting, no leaks.
-
-    #owner = null;
-    #dispose = null;
-    #createEffect2(fn) {
-      if (!this.#owner) {
-        createRoot(dispose => {
-          this.#owner = getOwner();
-          this.#dispose = dispose;
-          this.#createEffect2(fn);
-        });
-      } else {
-        let owner = getOwner();
-        while (owner && owner !== this.#owner) owner = owner?.owner ?? null;
-
-        // this.#owner found in the parents of current owner therefore,
-        // run with current nested owner like a regular solid
-        // createEffect()
-        if (owner === this.#owner) return createEffect(fn);
-
-        // this.#owner wasn't found on the parent owners
-        // run with this.#owner
-        runWithOwner(this.#owner, () => createEffect(fn));
-      }
-    }
-    #stopEffects2() {
+      if (!this.#started) return;
+      this.#started = false;
       this.#dispose?.();
     }
-  };
+
+    /**
+     * Stop all effects and clear the stored effect functions. After calling
+     * this, `startEffects()` will not restart any effects because there are
+     * none stored. This is useful for cleanup scenarios where you'll make
+     * new effects using `this.createEffect()` instead of restarting old
+     * ones, namely for backwards compatibility for example with custom
+     * elements that may be disconnected and reconnected to the DOM and
+     * currently call `this.createEffect()` in connectedCallback. Example:
+     *
+     * ```ts
+     * class MyElement extends Effectful(HTMLElement) {
+     *   connectedCallback() {
+     *     // Create any number of effects on connect.
+     *     this.createEffect(() => {...})
+     *     this.createEffect(() => {...})
+     *     this.createEffect(() => {...})
+     *   }
+     *
+     *   disconnectedCallback() {
+     *     // Clean up all effects on disconnect.
+     *     this.clearEffects()
+     *   }
+     * }
+     * ```
+     */
+    clearEffects() {
+      this.stopEffects();
+      this.#effectFunctions = [];
+    }
+    #owner = null;
+    #dispose = null;
+    #createEffect(fn) {
+      const owner = getOwner();
+
+      // If nested in an existing owner (f.e. nested effect), delegate to
+      // regular createEffect.
+      if (owner) return createEffect(fn);
+
+      // Store top-level effect functions so they can be replayed when
+      // startEffects() is called
+      if (!this.#isRestarting) this.#effectFunctions.push(fn);
+
+      // If top-level call either attach to an existing root, or make a
+      // new one if we don't have one yet.
+      if (this.#owner) runWithOwner(this.#owner, () => createEffect(fn));else {
+        createRoot(dispose => {
+          this.#owner = getOwner();
+          this.#dispose = () => {
+            dispose();
+            this.#owner = null;
+          };
+          createEffect(fn);
+        });
+      }
+    }
+  }
+  ;
+  EffectfulClass.prototype[isInstance] = true;
+  Object.defineProperty(EffectfulClass, Symbol.hasInstance, {
+    value: instanceCheck
+  });
+  return EffectfulClass;
+}
+Object.defineProperty(Effectful, Symbol.hasInstance, {
+  value: instanceCheck
+});
+function instanceCheck(obj) {
+  if (!obj || typeof obj !== 'object') return false;
+  return isInstance in obj;
 }
 
 /**

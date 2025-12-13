@@ -86,7 +86,19 @@ describe('Reactivity Tracking in Constructors', () => {
 
 	it('automatically does not track reactivity in constructors when using @memo', () => {
 		class Foo {
-			@signal amount = 3
+			@signal amount = (() => {
+				debugger
+				return 3
+			})()
+
+			// @signal accessor yo = 123
+
+			// @signal get bar() {
+			// 	return this
+			// }
+			// @signal set bar(v) {
+			// 	// do nothing
+			// }
 		}
 
 		class Bar extends Foo {

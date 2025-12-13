@@ -128,7 +128,19 @@ describe('Reactivity Tracking in Constructors', () => {
       constructor() {
         _init_extra_amount3(this);
       }
-      amount = _init_amount3(this, 3);
+      amount = _init_amount3(this, (() => {
+        debugger;
+        return 3;
+      })());
+
+      // @signal accessor yo = 123
+
+      // @signal get bar() {
+      // 	return this
+      // }
+      // @signal set bar(v) {
+      // 	// do nothing
+      // }
     }
     class Bar extends Foo {
       static {

@@ -1,5 +1,5 @@
 import { getInheritedDescriptor } from 'lowclass/dist/getInheritedDescriptor.js';
-import { $PROXY, untrack } from 'solid-js';
+import { $PROXY, batch, untrack } from 'solid-js';
 import { createSignalFunction } from './createSignalFunction.js';
 import { isMemoGetter, isSignalGetter } from '../_state.js';
 
@@ -135,10 +135,14 @@ export function createSignalAccessor__(obj, prop, initialVal, skipFunctionProper
       return getSignal__(this, signalStorage, initialVal)();
     },
     set: isAccessor ? function (newValue) {
-      originalSet.call(this, newValue);
-      trackPropSetAtLeastOnce__(this, prop);
-      const s = getSignal__(this, signalStorage, initialVal);
-      s(typeof newValue === 'function' ? () => newValue : newValue);
+      // batch, for example in case setter calls super setter, to
+      // avoid multiple effect runs on a single property set.
+      batch(() => {
+        originalSet.call(this, newValue);
+        trackPropSetAtLeastOnce__(this, prop);
+        const s = getSignal__(this, signalStorage, initialVal);
+        s(typeof newValue === 'function' ? () => newValue : newValue);
+      });
     } : function (newValue) {
       trackPropSetAtLeastOnce__(this, prop);
       const s = getSignal__(this, signalStorage, initialVal);

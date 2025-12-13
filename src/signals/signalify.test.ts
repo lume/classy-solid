@@ -11,8 +11,8 @@ describe('classy-solid', () => {
 			let obj2 = signalify(obj, 'n')
 			expect(obj).toBe(obj2)
 
-			obj = createMutable({n: 123})
-			obj2 = signalify(obj, 'n')
+			obj = createMutable({n: 123}) // Returns a Proxy wrapping the original object
+			obj2 = signalify(obj, 'n') // Should return early with the same Proxy
 			expect(obj).toBe(obj2)
 		})
 

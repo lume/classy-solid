@@ -1,14 +1,23 @@
-import {createEffect} from 'solid-js'
+import {$PROXY, createEffect} from 'solid-js'
+import {createMutable} from 'solid-js/store'
 import {testButterflyProps} from '../index.test.js'
 import {signal} from './signal.js'
 import {signalify} from '../signals/signalify.js'
+import type {ClassySolidMetadata} from './types.js'
+import {isSignalGetter} from '../_state.js'
+import {memo} from './memo.js'
 
 describe('classy-solid', () => {
-	describe('@signal', () => {
+	describe('@signal decorator', () => {
 		class Butterfly {
 			@signal colors = 3
 
 			#wingSize = 2
+
+			// Stick this here to ensure that nested constructor doesn't
+			// interfere with decorator behavior mid-way through initialization
+			// of the wrapper parent class (tested with a subclass)
+			child: Butterfly | null = this.constructor !== Butterfly ? new Butterfly() : null
 
 			@signal get wingSize() {
 				return this.#wingSize
@@ -165,14 +174,13 @@ describe('classy-solid', () => {
 			expect(count).toBe(2)
 		}
 
-		const ensure = it
-
-		ensure('overridden fields work as expected', async () => {
+		it('allows overridden fields to work as expected', async () => {
 			class Mid extends Butterfly {
 				override colors = 0
 			}
 
 			// ensure subclass did not interfere with functionality of base class
+			new Butterfly() // ensure first instantiation doesn't affect later ones
 			const b0 = new Butterfly()
 			testProp(b0, 'colors', 3, 4, true)
 			expect(Object.getOwnPropertyDescriptor(b0, 'colors')?.get?.call(b0) === 4).toBe(true) // accessor descriptor
@@ -303,6 +311,277 @@ describe('classy-solid', () => {
 				o[prop]++
 				expect(count).toBe(2) // it would be 3 if there were an extra signal
 			}
+		})
+
+		it('throws on invalid usage', () => {
+			expect(() => {
+				class InvalidStatic {
+					@signal static val = 1
+				}
+				new InvalidStatic()
+			}).toThrowError('@signal is not supported on static fields yet.')
+
+			expect(() => {
+				class InvalidMethod {
+					// @ts-expect-error type error because method is invalid
+					@signal method() {
+						return 1
+					}
+				}
+				new InvalidMethod()
+			}).toThrowError('The @signal decorator is only for use on fields, getters, setters, and auto accessors.')
+		})
+
+		it('no-ops with Solid proxies to avoid an unnecessary extra signal', () => {
+			let plain!: Human
+			let proxy!: Human
+
+			class Human {
+				constructor() {
+					plain = this
+					return (proxy = createMutable(this))
+				}
+			}
+
+			let metadata!: ClassySolidMetadata
+
+			const _signal: typeof signal = (_, context) => {
+				metadata = context.metadata as ClassySolidMetadata
+				return signal(_, context)
+			}
+
+			let memoRuns = 0
+
+			class CoolKid extends Human {
+				@_signal age = 3
+
+				@memo get ageInDogYears() {
+					memoRuns++
+					return this.age * 7
+				}
+			}
+
+			const kid = new CoolKid()
+
+			// Verify we got a Solid Proxy.
+			expect(plain === proxy).toBe(false)
+			expect((plain as any)[$PROXY] === proxy).toBe(true)
+
+			expect(metadata.classySolid_members!.find(m => m.name === 'age')!.applied.get(kid)).toBe(true)
+
+			// Verify it there is not our own signal getter applied (it may be
+			// the Solid Proxy's, or none, depending on how the Solid Proxy
+			// implementation goes).
+			const descriptor = Object.getOwnPropertyDescriptor(kid, 'age')
+			const getter = descriptor!.get!
+			expect(isSignalGetter.has(getter)).toBe(false)
+
+			let count = 0
+			createEffect(() => {
+				count++
+				kid.age
+			})
+
+			expect(count).toBe(1)
+			expect(kid.age).toBe(3)
+			// check that @memo still works with the Proxy
+			expect(memoRuns).toBe(1)
+			expect(kid.ageInDogYears).toBe(21)
+
+			kid.age = 4
+
+			expect(count).toBe(2)
+			expect(kid.age).toBe(4)
+			// check that @memo still works with the Proxy
+			expect(memoRuns).toBe(2)
+			expect(kid.ageInDogYears).toBe(28)
+		})
+
+		describe('subclass signal overriding/extending', () => {
+			it('supports subclass signal field extending base signal field', () => {
+				class Base {
+					@signal val = 1
+				}
+
+				class Sub extends Base {
+					// @ts-ignore this is valid in plain JS, TS complains about using field before initialization
+					@signal override val = this.val + 1 // override field with initial value from base class
+				}
+
+				const s = new Sub()
+				let count = 0
+				createEffect(() => {
+					count++
+					s.val
+				})
+
+				expect(s.val).toBe(2)
+				expect(count).toBe(1)
+
+				s.val = 5
+				expect(s.val).toBe(5)
+				expect(count).toBe(2)
+			})
+
+			it('supports subclass signal auto accessor extending base signal auto accessor with super', () => {
+				class Base {
+					@signal accessor n = 1
+				}
+
+				class Sub extends Base {
+					@signal override accessor n = super.n + 1 // initialize with initial super value
+				}
+
+				const s = new Sub()
+				let count = 0
+				createEffect(() => {
+					count++
+					s.n
+				})
+
+				expect(s.n).toBe(2)
+				expect(count).toBe(1)
+
+				s.n = 7
+				expect(s.n).toBe(7)
+				expect(count).toBe(2)
+			})
+
+			it('supports subclass signal getter/setter extending base signal getter/setter with super', () => {
+				class Base {
+					#n = 1
+					@signal get n() {
+						return this.#n
+					}
+					@signal set n(v: number) {
+						this.#n = v
+					}
+				}
+
+				class Sub extends Base {
+					@signal override get n() {
+						return super.n + 1 // extend read
+					}
+					@signal override set n(v: number) {
+						super.n = v + 1 // extend write
+					}
+				}
+
+				const s = new Sub()
+				let count = 0
+				let last = 0
+				createEffect(() => {
+					count++
+					last = s.n
+				})
+
+				expect(last).toBe(1 + 1)
+				expect(count).toBe(1)
+
+				s.n = 10
+				expect(last).toBe(10 + 1 + 1)
+				expect(count).toBe(2)
+			})
+
+			it('supports multi-level signal getter/setter extension with super', () => {
+				let runs = 0
+				class Base {
+					_val = 1
+					@signal get val() {
+						return this._val
+					}
+					@signal set val(v) {
+						this._val = v
+					}
+				}
+				class Mid extends Base {
+					@signal override get val() {
+						return super.val + 10
+					}
+					@signal override set val(v) {
+						super.val = v - 10
+					}
+				}
+				class Sub extends Mid {
+					@signal override get val() {
+						return super.val + 100
+					}
+					@signal override set val(v) {
+						super.val = v - 100
+					}
+				}
+				const o = new Sub()
+
+				createEffect(() => {
+					runs++
+					o.val
+				})
+
+				expect(o._val).toBe(1)
+				expect(o.val).toBe(1 + 10 + 100)
+				expect(runs).toBe(1)
+
+				o.val = 200
+				expect(runs).toBe(2)
+				expect(o._val).toBe(200 - 100 - 10)
+				expect(o.val).toBe(90 + 10 + 100)
+			})
+
+			it('supports subclass signal getter/setter overriding base signal getter/setter without super', () => {
+				class Base {
+					#v = 1
+					@signal get v() {
+						return this.#v
+					}
+					@signal set v(x: number) {
+						this.#v = x
+					}
+				}
+
+				class Sub extends Base {
+					#y = 100
+					@signal override get v() {
+						return this.#y
+					}
+					@signal override set v(x: number) {
+						this.#y = x
+					}
+				}
+
+				const s = new Sub()
+				let count = 0
+				createEffect(() => {
+					s.v
+					count++
+				})
+
+				expect(s.v).toBe(100)
+				expect(count).toBe(1)
+
+				s.v = 50
+				expect(s.v).toBe(50)
+				expect(count).toBe(2)
+			})
+		})
+
+		describe('invalid usage', () => {
+			it('throws on duplicate members', () => {
+				const run = () => {
+					class SuperDuper {
+						@signal dupe = 0
+						// @ts-expect-error duplicate member
+						@signal dupe = 0
+					}
+
+					new SuperDuper()
+				}
+
+				// This one works the same way whether compiling with Babel or
+				// TypeScript. See the same tests for @memo and @effect.
+				expect(run).toThrow(
+					'@signal decorated member "dupe" has already been signalified. This can happen if there are duplicated class members.',
+				)
+			})
 		})
 	})
 })

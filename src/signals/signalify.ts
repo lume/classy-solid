@@ -1,5 +1,5 @@
 import {getInheritedDescriptor} from 'lowclass/dist/getInheritedDescriptor.js'
-import {$PROXY, untrack} from 'solid-js'
+import {$PROXY, batch, untrack} from 'solid-js'
 import type {PropKey} from '../decorators/types.js'
 import {createSignalFunction, type SignalFunction} from './createSignalFunction.js'
 import {isMemoGetter, isSignalGetter} from '../_state.js'
@@ -159,11 +159,15 @@ export function createSignalAccessor__<T extends object>(
 			  },
 		set: isAccessor
 			? function (this: object, newValue: unknown) {
-					originalSet!.call(this, newValue)
-					trackPropSetAtLeastOnce__(this, prop)
+					// batch, for example in case setter calls super setter, to
+					// avoid multiple effect runs on a single property set.
+					batch(() => {
+						originalSet!.call(this, newValue)
+						trackPropSetAtLeastOnce__(this, prop)
 
-					const s = getSignal__(this, signalStorage, initialVal)
-					s(typeof newValue === 'function' ? () => newValue : newValue)
+						const s = getSignal__(this, signalStorage, initialVal)
+						s(typeof newValue === 'function' ? () => newValue : newValue)
+					})
 			  }
 			: function (this: object, newValue: unknown) {
 					trackPropSetAtLeastOnce__(this, prop)

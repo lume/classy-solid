@@ -1,48 +1,54 @@
-import {signal, reactive} from './index.js'
+import {signal, effect} from './index.js'
 import {createEffect} from 'solid-js'
 
-@reactive
-class Other {
-	@signal yoo = 'hoo'
-}
-
-new Other()
-
-@reactive
 class Foo {
 	@signal foo = 123
 
 	@signal get lorem() {
 		return 123
 	}
-	set lorem(v) {
+	@signal set lorem(v) {
 		v
 	}
 }
 
-@reactive
 class Bar extends Foo {
-	@signal bar = 456
-
+	// This causes a TDZ error if it comes after bar. See "TDZ" example in signal.test.ts.
+	// Spec ordering issue: https://github.com/tc39/proposal-decorators/issues/571
 	#baz = 789
 
-	@signal
-	get baz() {
+	@signal bar = 456
+
+	// This would cause a TDZ error.
+	// #baz = 789
+
+	@signal get baz() {
 		return this.#baz
 	}
-	set baz(v) {
+	@signal set baz(v) {
 		this.#baz = v
 	}
 
-	constructor() {
-		super()
+	@effect logFoo() {
+		console.log('this.foo:', this.foo)
+	}
 
-		console.log('Bar')
+	@effect logLorem() {
+		console.log('this.lorem:', this.lorem)
+	}
+
+	@effect logBar() {
+		console.log('this.bar:', this.bar)
+	}
+
+	@effect logBaz() {
+		console.log('this.baz:', this.baz)
 	}
 }
 
 export {Foo}
 
+console.log('---------')
 const b = new Bar()
 
 createEffect(() => {

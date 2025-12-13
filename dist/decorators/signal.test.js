@@ -3,12 +3,15 @@ function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" 
 function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != typeof i) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
 function _setFunctionName(e, t, n) { "symbol" == typeof t && (t = (t = t.description) ? "[" + t + "]" : ""); try { Object.defineProperty(e, "name", { configurable: !0, value: n ? n + " " + t : t }); } catch (e) {} return e; }
 function _checkInRHS(e) { if (Object(e) !== e) throw TypeError("right-hand side of 'in' should be an object, got " + (null !== e ? typeof e : "null")); return e; }
-import { createEffect } from 'solid-js';
+import { $PROXY, createEffect } from 'solid-js';
+import { createMutable } from 'solid-js/store';
 import { testButterflyProps } from '../index.test.js';
 import { signal } from './signal.js';
 import { signalify } from '../signals/signalify.js';
+import { isSignalGetter } from '../_state.js';
+import { memo } from './memo.js';
 describe('classy-solid', () => {
-  describe('@signal', () => {
+  describe('@signal decorator', () => {
     let _initProto, _init_colors, _init_extra_colors, _init_colors2, _init_extra_colors2, _init_wingSize, _init_extra_wingSize, _initProto2, _init_colors3, _init_extra_colors3, _init_colors4, _init_extra_colors4, _init_wingSize2, _init_extra_wingSize2, _init_colors5, _init_extra_colors5, _init_wingSize3, _init_extra_wingSize3, _init_colors6, _get_colors, _set_colors, _init_extra_colors6, _initProto3, _call_colors, _call_colors2, _initProto4, _initProto5;
     class Butterfly {
       static {
@@ -16,6 +19,11 @@ describe('classy-solid', () => {
       }
       colors = (_initProto(this), _init_colors(this, 3));
       #wingSize = (_init_extra_colors(this), 2);
+
+      // Stick this here to ensure that nested constructor doesn't
+      // interfere with decorator behavior mid-way through initialization
+      // of the wrapper parent class (tested with a subclass)
+      child = this.constructor !== Butterfly ? new Butterfly() : null;
       get wingSize() {
         return this.#wingSize;
       }
@@ -195,14 +203,14 @@ describe('classy-solid', () => {
       expect(b.getColors()).toBe(5);
       expect(count).toBe(2);
     }
-    const ensure = it;
-    ensure('overridden fields work as expected', async () => {
+    it('allows overridden fields to work as expected', async () => {
       let _init_colors7, _init_extra_colors7;
       class Mid extends Butterfly {
         colors = 0;
       }
 
       // ensure subclass did not interfere with functionality of base class
+      new Butterfly(); // ensure first instantiation doesn't affect later ones
       const b0 = new Butterfly();
       testProp(b0, 'colors', 3, 4, true);
       expect(Object.getOwnPropertyDescriptor(b0, 'colors')?.get?.call(b0) === 4).toBe(true); // accessor descriptor
@@ -337,6 +345,339 @@ describe('classy-solid', () => {
         o[prop]++;
         expect(count).toBe(2); // it would be 3 if there were an extra signal
       }
+    });
+    it('throws on invalid usage', () => {
+      expect(() => {
+        let _init_val, _init_extra_val;
+        class InvalidStatic {
+          static {
+            [_init_val, _init_extra_val] = _applyDecs(this, [], [[signal, 8, "val"]]).e;
+          }
+          static val = _init_val(1);
+          static {
+            _init_extra_val();
+          }
+        }
+        new InvalidStatic();
+      }).toThrowError('@signal is not supported on static fields yet.');
+      expect(() => {
+        let _initProto8;
+        class InvalidMethod {
+          static {
+            [_initProto8] = _applyDecs(this, [], [[signal, 2, "method"]]).e;
+          }
+          constructor() {
+            _initProto8(this);
+          }
+          // @ts-expect-error type error because method is invalid
+          method() {
+            return 1;
+          }
+        }
+        new InvalidMethod();
+      }).toThrowError('The @signal decorator is only for use on fields, getters, setters, and auto accessors.');
+    });
+    it('no-ops with Solid proxies to avoid an unnecessary extra signal', () => {
+      let _initProto9, _init_age, _init_extra_age;
+      let plain;
+      let proxy;
+      class Human {
+        constructor() {
+          plain = this;
+          return proxy = createMutable(this);
+        }
+      }
+      let metadata;
+      const _signal = (_, context) => {
+        metadata = context.metadata;
+        return signal(_, context);
+      };
+      let memoRuns = 0;
+      class CoolKid extends Human {
+        static {
+          [_init_age, _init_extra_age, _initProto9] = _applyDecs(this, [], [[_signal, 0, "age"], [memo, 3, "ageInDogYears"]], 0, void 0, Human).e;
+        }
+        constructor(...args) {
+          super(...args);
+          _init_extra_age(this);
+        }
+        age = (_initProto9(this), _init_age(this, 3));
+        get ageInDogYears() {
+          memoRuns++;
+          return this.age * 7;
+        }
+      }
+      const kid = new CoolKid();
+
+      // Verify we got a Solid Proxy.
+      expect(plain === proxy).toBe(false);
+      expect(plain[$PROXY] === proxy).toBe(true);
+      expect(metadata.classySolid_members.find(m => m.name === 'age').applied.get(kid)).toBe(true);
+
+      // Verify it there is not our own signal getter applied (it may be
+      // the Solid Proxy's, or none, depending on how the Solid Proxy
+      // implementation goes).
+      const descriptor = Object.getOwnPropertyDescriptor(kid, 'age');
+      const getter = descriptor.get;
+      expect(isSignalGetter.has(getter)).toBe(false);
+      let count = 0;
+      createEffect(() => {
+        count++;
+        kid.age;
+      });
+      expect(count).toBe(1);
+      expect(kid.age).toBe(3);
+      // check that @memo still works with the Proxy
+      expect(memoRuns).toBe(1);
+      expect(kid.ageInDogYears).toBe(21);
+      kid.age = 4;
+      expect(count).toBe(2);
+      expect(kid.age).toBe(4);
+      // check that @memo still works with the Proxy
+      expect(memoRuns).toBe(2);
+      expect(kid.ageInDogYears).toBe(28);
+    });
+    describe('subclass signal overriding/extending', () => {
+      it('supports subclass signal field extending base signal field', () => {
+        let _init_val2, _init_extra_val2, _init_val3, _init_extra_val3;
+        class Base {
+          static {
+            [_init_val2, _init_extra_val2] = _applyDecs(this, [], [[signal, 0, "val"]]).e;
+          }
+          constructor() {
+            _init_extra_val2(this);
+          }
+          val = _init_val2(this, 1);
+        }
+        class Sub extends Base {
+          static {
+            [_init_val3, _init_extra_val3] = _applyDecs(this, [], [[signal, 0, "val"]], 0, void 0, Base).e;
+          }
+          constructor(...args) {
+            super(...args);
+            _init_extra_val3(this);
+          }
+          // @ts-ignore this is valid in plain JS, TS complains about using field before initialization
+          val = _init_val3(this, this.val + 1); // override field with initial value from base class
+        }
+        const s = new Sub();
+        let count = 0;
+        createEffect(() => {
+          count++;
+          s.val;
+        });
+        expect(s.val).toBe(2);
+        expect(count).toBe(1);
+        s.val = 5;
+        expect(s.val).toBe(5);
+        expect(count).toBe(2);
+      });
+      it('supports subclass signal auto accessor extending base signal auto accessor with super', () => {
+        let _init_n, _init_extra_n, _init_n2, _init_extra_n2;
+        class Base {
+          static {
+            [_init_n, _init_extra_n] = _applyDecs(this, [], [[signal, 1, "n"]]).e;
+          }
+          constructor() {
+            _init_extra_n(this);
+          }
+          #A = _init_n(this, 1);
+          get n() {
+            return this.#A;
+          }
+          set n(v) {
+            this.#A = v;
+          }
+        }
+        class Sub extends Base {
+          static {
+            [_init_n2, _init_extra_n2] = _applyDecs(this, [], [[signal, 1, "n"]], 0, void 0, Base).e;
+          }
+          constructor(...args) {
+            super(...args);
+            _init_extra_n2(this);
+          }
+          #A = _init_n2(this, super.n + 1); // initialize with initial super value
+          get n() {
+            return this.#A;
+          }
+          set n(v) {
+            this.#A = v;
+          }
+        }
+        const s = new Sub();
+        let count = 0;
+        createEffect(() => {
+          count++;
+          s.n;
+        });
+        expect(s.n).toBe(2);
+        expect(count).toBe(1);
+        s.n = 7;
+        expect(s.n).toBe(7);
+        expect(count).toBe(2);
+      });
+      it('supports subclass signal getter/setter extending base signal getter/setter with super', () => {
+        let _initProto0, _initProto1;
+        class Base {
+          static {
+            [_initProto0] = _applyDecs(this, [], [[signal, 3, "n"], [signal, 4, "n"]]).e;
+          }
+          #n = (_initProto0(this), 1);
+          get n() {
+            return this.#n;
+          }
+          set n(v) {
+            this.#n = v;
+          }
+        }
+        class Sub extends Base {
+          static {
+            [_initProto1] = _applyDecs(this, [], [[signal, 3, "n"], [signal, 4, "n"]], 0, void 0, Base).e;
+          }
+          constructor(...args) {
+            super(...args);
+            _initProto1(this);
+          }
+          get n() {
+            return super.n + 1; // extend read
+          }
+          set n(v) {
+            super.n = v + 1; // extend write
+          }
+        }
+        const s = new Sub();
+        let count = 0;
+        let last = 0;
+        createEffect(() => {
+          count++;
+          last = s.n;
+        });
+        expect(last).toBe(1 + 1);
+        expect(count).toBe(1);
+        s.n = 10;
+        expect(last).toBe(10 + 1 + 1);
+        expect(count).toBe(2);
+      });
+      it('supports multi-level signal getter/setter extension with super', () => {
+        let _initProto10, _initProto11, _initProto12;
+        let runs = 0;
+        class Base {
+          static {
+            [_initProto10] = _applyDecs(this, [], [[signal, 3, "val"], [signal, 4, "val"]]).e;
+          }
+          _val = (_initProto10(this), 1);
+          get val() {
+            return this._val;
+          }
+          set val(v) {
+            this._val = v;
+          }
+        }
+        class Mid extends Base {
+          static {
+            [_initProto11] = _applyDecs(this, [], [[signal, 3, "val"], [signal, 4, "val"]], 0, void 0, Base).e;
+          }
+          constructor(...args) {
+            super(...args);
+            _initProto11(this);
+          }
+          get val() {
+            return super.val + 10;
+          }
+          set val(v) {
+            super.val = v - 10;
+          }
+        }
+        class Sub extends Mid {
+          static {
+            [_initProto12] = _applyDecs(this, [], [[signal, 3, "val"], [signal, 4, "val"]], 0, void 0, Mid).e;
+          }
+          constructor(...args) {
+            super(...args);
+            _initProto12(this);
+          }
+          get val() {
+            return super.val + 100;
+          }
+          set val(v) {
+            super.val = v - 100;
+          }
+        }
+        const o = new Sub();
+        createEffect(() => {
+          runs++;
+          o.val;
+        });
+        expect(o._val).toBe(1);
+        expect(o.val).toBe(1 + 10 + 100);
+        expect(runs).toBe(1);
+        o.val = 200;
+        expect(runs).toBe(2);
+        expect(o._val).toBe(200 - 100 - 10);
+        expect(o.val).toBe(90 + 10 + 100);
+      });
+      it('supports subclass signal getter/setter overriding base signal getter/setter without super', () => {
+        let _initProto13, _initProto14;
+        class Base {
+          static {
+            [_initProto13] = _applyDecs(this, [], [[signal, 3, "v"], [signal, 4, "v"]]).e;
+          }
+          #v = (_initProto13(this), 1);
+          get v() {
+            return this.#v;
+          }
+          set v(x) {
+            this.#v = x;
+          }
+        }
+        class Sub extends Base {
+          static {
+            [_initProto14] = _applyDecs(this, [], [[signal, 3, "v"], [signal, 4, "v"]], 0, void 0, Base).e;
+          }
+          #y = (_initProto14(this), 100);
+          get v() {
+            return this.#y;
+          }
+          set v(x) {
+            this.#y = x;
+          }
+        }
+        const s = new Sub();
+        let count = 0;
+        createEffect(() => {
+          s.v;
+          count++;
+        });
+        expect(s.v).toBe(100);
+        expect(count).toBe(1);
+        s.v = 50;
+        expect(s.v).toBe(50);
+        expect(count).toBe(2);
+      });
+    });
+    describe('invalid usage', () => {
+      it('throws on duplicate members', () => {
+        const run = () => {
+          let _init_dupe, _init_extra_dupe, _init_dupe2, _init_extra_dupe2;
+          class SuperDuper {
+            static {
+              [_init_dupe, _init_extra_dupe, _init_dupe2, _init_extra_dupe2] = _applyDecs(this, [], [[signal, 0, "dupe"], [signal, 0, "dupe"]]).e;
+            }
+            constructor() {
+              _init_extra_dupe2(this);
+            }
+            dupe = _init_dupe(this, 0);
+            // @ts-expect-error duplicate member
+            dupe = (_init_extra_dupe(this), _init_dupe2(this, 0));
+          }
+          new SuperDuper();
+        };
+
+        // This one works the same way whether compiling with Babel or
+        // TypeScript. See the same tests for @memo and @effect.
+        expect(run).toThrow('@signal decorated member "dupe" has already been signalified. This can happen if there are duplicated class members.');
+      });
     });
   });
 });

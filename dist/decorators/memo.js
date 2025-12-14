@@ -1,4 +1,5 @@
-import { finalizeMemos, getMemberStat, getSignalsAndMemos, isPriorSignalOrMemoDefined, memoifyIfNeeded, sortSignalsMemosInMetadata } from '../_state.js';
+import { finalizeMembersIfLast, getMemberStat, getMembers, memoifyIfNeeded } from '../_state.js';
+import './metadata-shim.js';
 
 /**
  * A decorator that make a signal property derived from a memoized computation
@@ -10,35 +11,42 @@ import { finalizeMemos, getMemberStat, getSignalsAndMemos, isPriorSignalOrMemoDe
  * ```ts
  * import {reactive, signal, memo} from "classy-solid";
  *
- * @reactive
  * class Example {
  *   @signal a = 1
  *   @signal b = 2
  *
- *   // @memo can be used on a field, getter, or accessor.
- *
- *   // Writable memo via field (requires function to have a parameter (arity > 0))
- *   @memo sum = (v?: number) => this.a + this.b
+ *   // @memo can be used on a getter, accessor, or method, with readonly and
+ *   // writable variants:
  *
  *   // Readonly memo via getter only
- *   @memo get sum2() {
- *     return this.a + this.b
- *   }
- *
- *   // Readonly memo via accessor (requires arrow function, not writable because no parameter (arity = 0))
- *   @memo accessor sum3 = () => this.a + this.b
- *
- *   // Readonly memo via method
- *   @memo sum4() {
+ *   @memo get sum1() {
  *     return this.a + this.b
  *   }
  *
  *   // Writable memo via getter with setter
- *   @memo get sum5() {
+ *   @memo get sum2() {
  *     return this.a + this.b
  *   }
- *   @memo set sum5(value: number) {
- *     // empty setter makes it writable (logic in here will be ignored if any)
+ *   @memo set sum2(value: number) {
+ *     // use an empty setter to enable writable (logic in here will be ignored if any)
+ *   }
+ *
+ *   // Readonly memo via auto accessor (requires arrow function, not writable because no parameter (arity = 0))
+ *   @memo accessor sum3 = () => this.a + this.b
+ *
+ *   // Writable memo via auto accessor (requires arrow function with parameter, arity > 0)
+ *   // Ignore the parameter, it only enables writable memo
+ *   @memo accessor sum4 = (v?: number) => this.a + this.b
+ *
+ *   // Readonly memo via method
+ *   @memo sum5() {
+ *     return this.a + this.b
+ *   }
+ *
+ *   // Writable memo via method with parameter (arity > 0)
+ *   @memo sum6(value?: number) {
+ *     // Ignore the parameter, it only enables writable memo
+ *     return this.a + this.b
  *   }
  *
  *   // The following variants are not supported yet as no runtime or TS support exists yet for the syntax.
@@ -67,30 +75,30 @@ import { finalizeMemos, getMemberStat, getSignalsAndMemos, isPriorSignalOrMemoDe
  *   }
  * }
  *
- * const ex = new Example();
+ * const ex = new Example()
  *
- * console.log(ex.sum(), ex.sum2, ex.sum3(), ex.sum4(), ex.sum5);  // 3 3 3 3 3
+ * console.log(ex.sum1, ex.sum2, ex.sum3(), ex.sum4(), ex.sum5(), ex.sum6()) // 3 3 3 3 3 3
  *
  * createEffect(() => {
- *   console.log(ex.sum(), ex.sum2, ex.sum3(), ex.sum4(), ex.sum5);
+ *   console.log(ex.sum1, ex.sum2, ex.sum3(), ex.sum4(), ex.sum5(), ex.sum6())
  * });
  *
- * ex.a = 5; // Logs: 7 7 7 7 7
+ * ex.a = 5 // Logs: 7 7 7 7 7 7
  *
  * // This won't log anything since the computed memo values don't change (all still 7).
  * batch(() => {
- *   ex.a = 3;
- *   ex.b = 4;
+ *   ex.a = 3
+ *   ex.b = 4
  * })
  *
- * ex.sum(20); // Logs: 20 7 7 7 7 (only sum is updated)
+ * ex.sum2 = 20 // Logs: 20 7 7 7 7 7 (only sum2 is updated)
  *
- * ex.sum5 = 15; // Logs: 20 7 7 7 15 (only sum5 is updated)
+ * ex.sum6(15) // Logs: 20 7 7 7 7 15 (only sum6 is updated)
  *
- * ex.sum2 = 10; // Runtime error: Cannot set readonly property "sum2".
+ * ex.sum1 = 10 // Runtime error: Cannot set readonly property "sum1".
  * ```
  */
-export function memo(_value,
+export function memo(value,
 // today's auto-accessors, writable memo
 context) {
   if (context.static) throw new Error('@memo is not supported on static fields yet.');
@@ -99,53 +107,24 @@ context) {
     name
   } = context;
   const metadata = context.metadata;
-  const signalsAndMemos = getSignalsAndMemos(metadata);
-  if (kind === 'field') {
-    const stat = getMemberStat(name, 'memo-field', signalsAndMemos);
-    context.addInitializer(function () {
-      sortSignalsMemosInMetadata(metadata);
-      memoifyIfNeeded(this, name, stat);
+  const signalsAndMemos = getMembers(metadata);
 
-      // If we skipped memoifying prior memo members (accessor and method
-      // memos) because of prior signal-fields, memo-fields, or
-      // memo-auto-accessors, finalize those memos now.
-      finalizeMemos(this, stat, signalsAndMemos);
-    });
-  } else if (kind === 'accessor') {
-    const stat = getMemberStat(name, 'memo-auto-accessor', signalsAndMemos);
-    context.addInitializer(function () {
-      sortSignalsMemosInMetadata(metadata);
-      memoifyIfNeeded(this, name, stat, true);
+  // Apply finalization logic to all except setters (setters are finalized
+  // together with their getters).
+  // By skipping setters we also avoid double-counting the getter+setter pair
+  // in the finalizeMembersIfLast logic.
+  if (kind === 'setter') return;
 
-      // If we skipped memoifying prior memo members (accessor and method
-      // memos) because of prior signal-fields, memo-fields, or
-      // memo-auto-accessors, finalize those memos now.
-      finalizeMemos(this, stat, signalsAndMemos);
-    });
-  } else if (kind === 'method') {
-    const stat = getMemberStat(name, 'memo-method', signalsAndMemos);
-    context.addInitializer(function () {
-      sortSignalsMemosInMetadata(metadata);
-
-      // If any signal-fields, memo-fields, or memo-auto-accessors are
-      // defined on the class (thus sorted before this memo method), skip
-      // memoifying now because we need those to be initialized first,
-      // then we'll memoify after that.
-      if (isPriorSignalOrMemoDefined(this, name, signalsAndMemos)) return;
-      memoifyIfNeeded(this, name, stat);
-    });
-  } else if (kind === 'getter' || kind === 'setter') {
-    const stat = getMemberStat(name, 'memo-accessor', signalsAndMemos);
-    context.addInitializer(function () {
-      sortSignalsMemosInMetadata(metadata);
-
-      // If any signal-fields, memo-fields, or memo-auto-accessors are
-      // defined on the class (thus sorted before this memo method), skip
-      // memoifying now because we need those to be initialized first,
-      // then we'll memoify after that.
-      if (isPriorSignalOrMemoDefined(this, name, signalsAndMemos)) return;
-      memoifyIfNeeded(this, name, stat);
-    });
-  }
+  // @ts-expect-error skip type checking in case of invalid kind in plain JS
+  if (kind === 'field') throw new Error('@memo is not supported on class fields.');
+  const memberType = kind === 'accessor' ? 'memo-auto-accessor' : kind === 'method' ? 'memo-method' : 'memo-accessor';
+  const stat = getMemberStat(name, memberType, signalsAndMemos);
+  stat.finalize = function () {
+    memoifyIfNeeded(this, name, stat);
+  };
+  context.addInitializer(function () {
+    finalizeMembersIfLast(this, signalsAndMemos);
+  });
+  if (kind === 'method' || kind === 'getter') stat.value = value;else if (kind === 'accessor') stat.value = value.get;
 }
 //# sourceMappingURL=memo.js.map

@@ -1,3 +1,4 @@
+import './metadata-shim.js';
 /**
  * @decorator
  * Decorate properties of a class with `@signal` to back them with Solid

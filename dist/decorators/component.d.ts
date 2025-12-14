@@ -1,5 +1,6 @@
 import { Constructor } from 'lowclass/dist/Constructor.js';
 import { type JSX } from 'solid-js';
+import './metadata-shim.js';
 /**
  * A decorator for using classes as Solid components.
  *
@@ -7,7 +8,6 @@ import { type JSX } from 'solid-js';
  *
  * ```js
  * ⁣@component
- * ⁣@reactive
  * class MyComp {
  *   ⁣@signal last = 'none'
  *
@@ -38,5 +38,6 @@ declare module 'solid-js' {
 }
 export type Props<T extends object, K extends keyof T> = Pick<T, K> & {
     children?: JSX.Element;
+    ref?: (component: T) => void;
 };
 //# sourceMappingURL=component.d.ts.map

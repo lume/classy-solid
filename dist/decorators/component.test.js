@@ -6,23 +6,31 @@ function _checkInRHS(e) { if (Object(e) !== e) throw TypeError("right-hand side 
 import html from 'solid-js/html';
 import { component } from './component.js';
 import { render } from 'solid-js/web';
-import { reactive } from './reactive.js';
 import { signal } from './signal.js';
 import { createSignal } from 'solid-js';
 import { createSignalFunction } from '../signals/createSignalFunction.js';
 import { signalify } from '../signals/signalify.js';
 import { createMutable } from 'solid-js/store';
+import { memo } from './memo.js';
+import { effect } from './effect.js';
 describe('classy-solid', () => {
   describe('@component', () => {
     it('allows to define a class using class syntax', () => {
-      let _initClass;
+      let _initClass, _init_foo, _init_extra_foo;
       let onMountCalled = false;
       let onCleanupCalled = false;
       let _CoolComp;
       class CoolComp {
         static {
-          [_CoolComp, _initClass] = _applyDecs(this, [component], []).c;
+          ({
+            e: [_init_foo, _init_extra_foo],
+            c: [_CoolComp, _initClass]
+          } = _applyDecs(this, [component], [[signal, 0, "foo"]]));
         }
+        constructor() {
+          _init_extra_foo(this);
+        }
+        foo = _init_foo(this, 0);
         onMount() {
           onMountCalled = true;
         }
@@ -30,23 +38,31 @@ describe('classy-solid', () => {
           onCleanupCalled = true;
         }
         template(props) {
-          expect(props.foo).toBe(123);
-          return html`<div>hello classes!</div>`;
+          expect(props.foo).toBe(123); // not recommended to access props this way
+
+          expect(this.foo).toBe(0); // initial value only
+
+          return html`<div>hello classes! ${() => this.foo}</div>`;
         }
         static {
           _initClass();
         }
       }
+
+      // Component classes cannot be instantiated directly, they can only
+      // be used as Solid components in JSX or html templates.
+      expect(() => new _CoolComp()).toThrow();
       const root = document.createElement('div');
       document.body.append(root);
       const dispose = render(() => html`<${_CoolComp} foo=${123} />`, root);
-      expect(root.textContent).toBe('hello classes!');
+      expect(root.textContent).toBe('hello classes! 123');
       expect(onMountCalled).toBe(true);
       expect(onCleanupCalled).toBe(false);
       dispose();
       root.remove();
       expect(onCleanupCalled).toBe(true);
-
+    });
+    it('throws on invalid use', () => {
       // throws on non-class use
       expect(() => {
         let _initProto;
@@ -63,44 +79,86 @@ describe('classy-solid', () => {
         CoolComp;
       }).toThrow('component decorator should only be used on a class');
     });
-    it('works in tandem with @reactive and @signal for reactivity', async () => {
-      let _initClass2, _init_foo, _init_extra_foo, _init_bar, _init_extra_bar;
+    it('allows getting a ref to the class instance', () => {
+      let _initClass2;
       let _CoolComp2;
       class CoolComp {
         static {
-          ({
-            e: [_init_foo, _init_extra_foo, _init_bar, _init_extra_bar],
-            c: [_CoolComp2, _initClass2]
-          } = _applyDecs(this, [component, reactive], [[signal, 0, "foo"], [signal, 0, "bar"]]));
+          [_CoolComp2, _initClass2] = _applyDecs(this, [component], []).c;
         }
-        constructor() {
-          _init_extra_bar(this);
-        }
-        foo = _init_foo(this, 0);
-        bar = (_init_extra_foo(this), _init_bar(this, 0));
-        template() {
-          return html`<div>foo: ${() => this.foo}, bar: ${() => this.bar}</div>`;
-        }
+        coolness = Infinity;
+        template = () => html`<div>hello refs!</div>`;
         static {
           _initClass2();
         }
       }
       const root = document.createElement('div');
       document.body.append(root);
+      let compRef;
+      const dispose = render(() => html`<${_CoolComp2} ref=${comp => compRef = comp} />`, root);
+      expect(root.textContent).toBe('hello refs!');
+      expect(compRef instanceof _CoolComp2).toBe(true);
+      expect(compRef.coolness).toBe(Infinity);
+      dispose();
+      root.remove();
+    });
+    it('works in tandem with @signal, @memo, and @effect for reactivity', async () => {
+      let _initProto2, _initClass3, _init_foo2, _init_extra_foo2, _init_bar, _init_extra_bar;
+      let _CoolComp3;
+      class CoolComp {
+        static {
+          ({
+            e: [_init_foo2, _init_extra_foo2, _init_bar, _init_extra_bar, _initProto2],
+            c: [_CoolComp3, _initClass3]
+          } = _applyDecs(this, [component], [[signal, 0, "foo"], [signal, 0, "bar"], [memo, 3, "sum"], [effect, 2, "logSum"]]));
+        }
+        foo = (_initProto2(this), _init_foo2(this, 0));
+        bar = (_init_extra_foo2(this), _init_bar(this, 0));
+        get sum() {
+          return this.foo + this.bar;
+        }
+        runs = (_init_extra_bar(this), 0);
+        result = 0;
+        logSum() {
+          this.runs++;
+          this.result = this.sum;
+        }
+        template() {
+          return html`<div>foo: ${() => this.foo}, bar: ${() => this.bar}</div>`;
+        }
+        static {
+          _initClass3();
+        }
+      }
+      const root = document.createElement('div');
+      document.body.append(root);
       const [a, setA] = createSignal(1);
       const b = createSignalFunction(2);
+      let compRef;
 
       // FIXME Why do we need `() => b()` instead of just `b` here? Does `html`
       // check the `length` of the function and do something based on
       // that? Or does it get passed to a @signal property's setter and
       // receives the previous value?
-      const dispose = render(() => html`<${_CoolComp2} foo=${a} bar=${() => b()} />`, root);
+      const dispose = render(() => html` <${_CoolComp3} ref=${comp => compRef = comp} foo=${a} bar=${() => b()} /> `, root);
       expect(root.textContent).toBe('foo: 1, bar: 2');
+      expect(compRef.result).toBe(3);
+      expect(compRef.runs).toBe(2); // 1 initial run with 0 and 0, 1 run from setting foo and bar props
+
       setA(3);
+      expect(root.textContent).toBe('foo: 3, bar: 2');
+      expect(compRef.result).toBe(5);
+      expect(compRef.runs).toBe(3);
       b(4);
       expect(root.textContent).toBe('foo: 3, bar: 4');
+      expect(compRef.result).toBe(7);
+      expect(compRef.runs).toBe(4);
       dispose();
       root.remove();
+      setA(5);
+      b(6);
+      expect(compRef.result).toBe(7); // no change after dispose
+      expect(compRef.runs).toBe(4); // no change after dispose
     });
     it('works without decorators', () => {
       const CoolComp = component(class CoolComp {
@@ -131,27 +189,28 @@ describe('classy-solid', () => {
       root.remove();
     });
 
-    // FIXME not working, the spread doesn't seem to do anything.
-    xit('works with reactive spreads', async () => {
-      let _initClass3, _init_foo2, _init_extra_foo2, _init_bar2, _init_extra_bar2;
-      let _CoolComp3;
+    // FIXME not working, spread syntax not supported yet in solid-js/html
+    // TODO unit test using JSX
+    it.skip('works with reactive spreads', async () => {
+      let _initClass4, _init_foo3, _init_extra_foo3, _init_bar2, _init_extra_bar2;
+      let _CoolComp4;
       class CoolComp {
         static {
           ({
-            e: [_init_foo2, _init_extra_foo2, _init_bar2, _init_extra_bar2],
-            c: [_CoolComp3, _initClass3]
-          } = _applyDecs(this, [component, reactive], [[signal, 0, "foo"], [signal, 0, "bar"]]));
+            e: [_init_foo3, _init_extra_foo3, _init_bar2, _init_extra_bar2],
+            c: [_CoolComp4, _initClass4]
+          } = _applyDecs(this, [component], [[signal, 0, "foo"], [signal, 0, "bar"]]));
         }
         constructor() {
           _init_extra_bar2(this);
         }
-        foo = _init_foo2(this, 0);
-        bar = (_init_extra_foo2(this), _init_bar2(this, 0));
+        foo = _init_foo3(this, 0);
+        bar = (_init_extra_foo3(this), _init_bar2(this, 0));
         template() {
           return html`<div>foo: ${() => this.foo}, bar: ${() => this.bar}</div>`;
         }
         static {
-          _initClass3();
+          _initClass4();
         }
       }
       const root = document.createElement('div');
@@ -164,7 +223,7 @@ describe('classy-solid', () => {
 
       // neither of these work
       // const dispose = render(() => html`<${CoolComp} ...${() => o.o} />`, root)
-      const dispose = render(() => html`<${_CoolComp3} ...${o.o} />`, root);
+      const dispose = render(() => html`<${_CoolComp4} ...${o.o} />`, root);
       expect(root.textContent).toBe('foo: 123, bar: 0');
       o.o = {
         bar: 456

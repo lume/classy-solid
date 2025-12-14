@@ -1,4 +1,5 @@
 import type { AnyConstructor } from 'lowclass/dist/Constructor.js';
+import './metadata-shim.js';
 /**
  * A decorator that makes a class's contructor untracked.
  *

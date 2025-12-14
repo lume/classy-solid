@@ -1,6 +1,8 @@
 import type {Constructor} from 'lowclass/dist/Constructor.js'
 import type {SignalFunction} from '../signals/createSignalFunction.js'
 
+export type AnyObject = Record<PropertyKey, unknown>
+
 export type DecoratedValue = Constructor | Function | ClassAccessorDecoratorTarget<object, unknown> | undefined
 
 export type PropKey = string | symbol
@@ -14,12 +16,27 @@ export interface PropSpec {
 	kind: SupportedKind
 }
 
-export type SignalOrMemoType = 'signal-field' | 'memo-field' | 'memo-accessor' | 'memo-auto-accessor' | 'memo-method'
+export type SignalOrMemoType =
+	| 'signal-field'
+	| 'memo-auto-accessor'
+	| 'memo-accessor'
+	| 'memo-method'
+	| 'effect-auto-accessor'
+	| 'effect-method'
 
-export type SignalMetadata = {
-	signalFieldsAndMemos?: Array<[key: PropKey, stat: {type: SignalOrMemoType; applied: WeakMap<object, boolean>}]>
+export type MetadataMembers = Array<MemberStat>
 
-	getterSetterSignals?: Record<PropKey, WeakMap<object, SignalFunction<unknown>> | undefined>
+export type MemberStat = {
+	type: SignalOrMemoType
+	name: PropKey
+	applied: WeakMap<object, boolean>
+	finalize?(this: AnyObject): void
+	value?: unknown
+}
 
-	getterSetterPairCounts: {[key: PropKey]: 0 | 1 | 2}
+export type ClassySolidMetadata = {
+	__proto__: ClassySolidMetadata
+	classySolid_members?: MetadataMembers
+	classySolid_getterSetterSignals?: Record<PropKey, WeakMap<object, SignalFunction<unknown>> | undefined>
+	classySolid_getterSetterPairCounts?: {[key: PropKey]: 0 | 1 | 2}
 }

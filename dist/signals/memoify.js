@@ -3,6 +3,12 @@ import { createWritableMemo } from '@solid-primitives/memo';
 import { getInheritedDescriptor } from 'lowclass/dist/getInheritedDescriptor.js';
 import { isMemoGetter, isSignalGetter } from '../_state.js';
 const Undefined = Symbol();
+let memberStat = null;
+
+/** @private internal only */
+export function setMemoifyMemberStat(stat) {
+  memberStat = stat;
+}
 
 /**
  * Convert properties on an object into Solid.js memoized properties.
@@ -73,25 +79,41 @@ const Undefined = Symbol();
  * ```
  */
 
-/** This overload is for use by the @memo decorator */
-
-export function memoify(obj, propOrBoolean, ...props) {
-  const isAutoAccessor = typeof propOrBoolean === 'boolean' ? propOrBoolean : false;
-  props = typeof propOrBoolean === 'boolean' ? props : typeof propOrBoolean !== 'undefined' ? [propOrBoolean, ...props] : props;
-
+export function memoify(obj, ...props) {
   // If no props specified, use all keys (including symbols)
   const keys = props.length ? props : [...Object.keys(obj), ...Object.getOwnPropertySymbols(obj)];
+  const isAutoAccessor = memberStat?.type === 'memo-auto-accessor';
   for (const key of keys) {
     const descriptor = getInheritedDescriptor(obj, key);
-    if (!descriptor) continue;
+    if (!descriptor) {
+      memberStat = null;
+      continue;
+    }
 
     // Skip if already memoified or signalified
-    if (descriptor.get && (isMemoGetter.has(descriptor.get) || isSignalGetter.has(descriptor.get))) continue;
+    if (descriptor.get && (isMemoGetter.has(descriptor.get) || isSignalGetter.has(descriptor.get))) {
+      memberStat = null;
+      continue;
+    }
 
     // Handle methods (function-valued properties)
     if (typeof descriptor.value === 'function' || isAutoAccessor) {
+      // Skip base class memoify if a subclass is overriding an auto-accessor memo.
+      const leafmostMemberValue = isAutoAccessor ? descriptor.get : descriptor.value;
+      if (memberStat && leafmostMemberValue !== memberStat.value) {
+        memberStat = null;
+        continue;
+      }
       const fn = isAutoAccessor ? descriptor.get?.call(obj) : descriptor.value;
-      if (typeof fn !== 'function') continue;
+      if (typeof fn !== 'function') {
+        // Throw in decorator mode only.
+        if (memberStat) {
+          memberStat = null;
+          throw new Error(`memo value for "${String(key)}" is not a function: ${fn}`);
+        }
+        // Otherwise just skip non-function properties (f.e. using memoify(obj) directly on a plain object, without decorators).
+        else continue;
+      }
       const name = fn.name || String(key);
       let value;
 
@@ -124,7 +146,11 @@ export function memoify(obj, propOrBoolean, ...props) {
     }
 
     // Handle accessors
-    else if (descriptor.get) {
+    else if (descriptor.get || descriptor.set) {
+      if (!descriptor.get) {
+        memberStat = null;
+        throw new Error(`Cannot memoify accessor "${String(key)}" without a getter.`);
+      }
       let get;
       let set;
 
@@ -147,11 +173,15 @@ export function memoify(obj, propOrBoolean, ...props) {
         enumerable: descriptor.enumerable
       });
       isMemoGetter.add(get);
+    } else {
+      // Throw in decorator mode only.
+      if (memberStat) {
+        memberStat = null;
+        throw new Error(`memo value for "${String(key)}" is not a function: ${descriptor.value}`);
+      }
     }
-
-    // Skip non-function, non-accessor properties
-    continue;
   }
+  memberStat = null;
   return obj;
 }
 //# sourceMappingURL=memoify.js.map

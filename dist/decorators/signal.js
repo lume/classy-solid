@@ -1,6 +1,7 @@
-import { $PROXY } from 'solid-js';
-import { getSignal__, trackPropSetAtLeastOnce__, signalify } from '../signals/signalify.js';
-import { sortSignalsMemosInMetadata, isSignalGetter, getMemberStat, finalizeMemos, getSignalsAndMemos } from '../_state.js';
+import { batch } from 'solid-js';
+import { getSignal__, trackPropSetAtLeastOnce__ } from '../signals/signalify.js';
+import { isSignalGetter, getMemberStat, finalizeMembersIfLast, getMembers, signalifyIfNeeded } from '../_state.js';
+import './metadata-shim.js';
 const Undefined = Symbol();
 
 /**
@@ -38,27 +39,23 @@ export function signal(value, context) {
     name
   } = context;
   const metadata = context.metadata;
-  const signalsAndMemos = getSignalsAndMemos(metadata);
+  const signalsAndMemos = getMembers(metadata);
   if (!(kind === 'field' || kind === 'accessor' || kind === 'getter' || kind === 'setter')) throw new InvalidSignalDecoratorError();
   if (kind === 'field') {
     const stat = getMemberStat(name, 'signal-field', signalsAndMemos);
+    stat.finalize = function () {
+      signalifyIfNeeded(this, name, stat);
+    };
     context.addInitializer(function () {
-      // Special case for Solid proxies: if the object is already a solid proxy,
-      // all properties are already reactive, no need to signalify.
-      // @ts-expect-error special indexed access
-      const proxy = this[$PROXY];
-      if (proxy) return;
-      sortSignalsMemosInMetadata(metadata);
-      if (stat.applied.get(this)) return;
-      signalify(this, [name, this[name]]);
-      stat.applied.set(this, true);
-
-      // If we skipped memoifying prior memo members (accessor and method
-      // memos) because of prior signal-fields, memo-fields, or
-      // memo-auto-accessors, finalize those memos now.
-      finalizeMemos(this, stat, signalsAndMemos);
+      finalizeMembersIfLast(this, signalsAndMemos);
     });
-  } else if (kind === 'accessor') {
+  }
+
+  // It's ok that getters/setters/auto-accessors are not finalized the same
+  // way as with fields above and as with memos/effects, because we do the set
+  // up during decoration which happens well before any initializers (before
+  // any memos and effects, so these will be tracked).
+  else if (kind === 'accessor') {
     const {
       get,
       set
@@ -75,11 +72,15 @@ export function signal(value, context) {
         return get.call(this);
       },
       set: function (newValue) {
-        set.call(this, newValue);
-        trackPropSetAtLeastOnce__(this, name); // not needed anymore? test it
+        // batch, for example in case setter calls super setter, to
+        // avoid multiple effect runs on a single property set.
+        batch(() => {
+          set.call(this, newValue);
+          trackPropSetAtLeastOnce__(this, name); // not needed anymore? test it
 
-        const s = getSignal__(this, signalStorage, initialValue);
-        s(typeof newValue === 'function' ? () => newValue : newValue);
+          const s = getSignal__(this, signalStorage, initialValue);
+          s(typeof newValue === 'function' ? () => newValue : newValue);
+        });
       }
     };
     isSignalGetter.add(newValue.get);
@@ -87,16 +88,18 @@ export function signal(value, context) {
   } else if (kind === 'getter' || kind === 'setter') {
     const getOrSet = value;
     const initialValue = Undefined;
-    if (!Object.hasOwn(metadata, 'getterSetterSignals')) metadata.getterSetterSignals = {};
-    const signalsStorages = metadata.getterSetterSignals;
+    if (!Object.hasOwn(metadata, 'classySolid_getterSetterSignals')) metadata.classySolid_getterSetterSignals = {};
+    const signalsStorages = metadata.classySolid_getterSetterSignals;
     let signalStorage = signalsStorages[name];
     if (!signalStorage) signalsStorages[name] = signalStorage = new WeakMap();
-    if (!Object.hasOwn(metadata, 'getterSetterPairCounts')) metadata.getterSetterPairCounts = {};
-    const pairs = metadata.getterSetterPairCounts;
+    if (!Object.hasOwn(metadata, 'classySolid_getterSetterPairCounts')) metadata.classySolid_getterSetterPairCounts = {};
+    const pairs = metadata.classySolid_getterSetterPairCounts;
 
     // Show a helpful error in case someone forgets to decorate both a getter and setter.
     queueMicrotask(() => {
-      if (pairs[name] !== 2) throw new MissingSignalDecoratorError(name);
+      queueMicrotask(() => delete metadata.classySolid_getterSetterPairCounts);
+      const missing = pairs[name] !== 2;
+      if (missing) throw new MissingSignalDecoratorError(name);
     });
     if (kind === 'getter') {
       pairs[name] ??= 0;
@@ -110,12 +113,17 @@ export function signal(value, context) {
     } else {
       pairs[name] ??= 0;
       pairs[name]++;
-      return function (newValue) {
-        getOrSet.call(this, newValue);
-        trackPropSetAtLeastOnce__(this, name);
-        const s = getSignal__(this, signalStorage, initialValue);
-        s(typeof newValue === 'function' ? () => newValue : newValue);
+      const newSetter = function (newValue) {
+        // batch, for example in case setter calls super setter, to
+        // avoid multiple effect runs on a single property set.
+        batch(() => {
+          getOrSet.call(this, newValue);
+          trackPropSetAtLeastOnce__(this, name);
+          const s = getSignal__(this, signalStorage, initialValue);
+          s(typeof newValue === 'function' ? () => newValue : newValue);
+        });
       };
+      return newSetter;
     }
   }
 }

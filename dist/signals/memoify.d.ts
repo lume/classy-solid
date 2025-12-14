@@ -1,3 +1,6 @@
+import type { MemberStat } from '../decorators/types.js';
+/** @private internal only */
+export declare function setMemoifyMemberStat(stat: MemberStat): void;
 /**
  * Convert properties on an object into Solid.js memoized properties.
  *
@@ -68,6 +71,4 @@
  */
 export declare function memoify<T extends object, K extends keyof T>(obj: T): T;
 export declare function memoify<T extends object>(obj: T, ...props: (keyof T)[]): T;
-/** This overload is for use by the @memo decorator */
-export declare function memoify<T extends object>(obj: T, isAutoAccessor: boolean, ...props: (keyof T)[]): T;
 //# sourceMappingURL=memoify.d.ts.map

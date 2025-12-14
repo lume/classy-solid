@@ -3,103 +3,23 @@ function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" 
 function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != typeof i) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
 function _setFunctionName(e, t, n) { "symbol" == typeof t && (t = (t = t.description) ? "[" + t + "]" : ""); try { Object.defineProperty(e, "name", { configurable: !0, value: n ? n + " " + t : t }); } catch (e) {} return e; }
 function _checkInRHS(e) { if (Object(e) !== e) throw TypeError("right-hand side of 'in' should be an object, got " + (null !== e ? typeof e : "null")); return e; }
-import { createEffect, batch } from 'solid-js';
+import { createEffect, batch, createSignal } from 'solid-js';
 import { signal } from './signal.js';
 import { memo } from './memo.js';
+import { effect } from './effect.js';
 describe('classy-solid', () => {
-  describe('@memo', () => {
-    it('creates a readonly memo via field', () => {
-      let _init_a, _init_extra_a, _init_b, _init_extra_b, _init_sum, _init_extra_sum;
-      class Example {
-        static {
-          [_init_a, _init_extra_a, _init_b, _init_extra_b, _init_sum, _init_extra_sum] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [memo, 0, "sum"]]).e;
-        }
-        constructor() {
-          _init_extra_sum(this);
-        }
-        a = _init_a(this, 1);
-        b = (_init_extra_a(this), _init_b(this, 2));
-        sum = (_init_extra_b(this), _init_sum(this, () => this.a + this.b));
-      }
-      const ex = new Example();
-      let count = 0;
-      let lastSum = 0;
-      createEffect(() => {
-        lastSum = ex.sum();
-        count++;
-      });
-      expect(ex.sum()).toBe(3);
-      expect(count).toBe(1);
-      ex.a = 5;
-      expect(ex.sum()).toBe(7);
-      expect(lastSum).toBe(7);
-      expect(count).toBe(2);
-
-      // This should not trigger the effect since the computed value doesn't change (still 7)
-      batch(() => {
-        ex.a = 3;
-        ex.b = 4;
-      });
-      expect(ex.sum()).toBe(7);
-      expect(lastSum).toBe(7);
-      expect(count).toBe(2); // count should still be 2, not 3
-
-      // @ts-expect-error Readonly memo cannot be set - should throw
-      expect(() => ex.sum(20)).toThrow();
-    });
-    it('creates a writable memo via field', () => {
-      let _init_a2, _init_extra_a2, _init_b2, _init_extra_b2, _init_sum2, _init_extra_sum2;
-      class Example {
-        static {
-          [_init_a2, _init_extra_a2, _init_b2, _init_extra_b2, _init_sum2, _init_extra_sum2] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [memo, 0, "sum"]]).e;
-        }
-        constructor() {
-          _init_extra_sum2(this);
-        }
-        a = _init_a2(this, 1);
-        b = (_init_extra_a2(this), _init_b2(this, 2));
-        sum = (_init_extra_b2(this), _init_sum2(this, _val => this.a + this.b));
-      }
-      const ex = new Example();
-      let count = 0;
-      let lastSum = 0;
-      createEffect(() => {
-        lastSum = ex.sum();
-        count++;
-      });
-      expect(ex.sum()).toBe(3);
-      expect(count).toBe(1);
-      ex.a = 5;
-      expect(ex.sum()).toBe(7);
-      expect(lastSum).toBe(7);
-      expect(count).toBe(2);
-
-      // This should not trigger the effect since the computed value doesn't change (still 7)
-      batch(() => {
-        ex.a = 3;
-        ex.b = 4;
-      });
-      expect(ex.sum()).toBe(7);
-      expect(lastSum).toBe(7);
-      expect(count).toBe(2); // count should still be 2, not 3
-
-      // Writable memo can be set directly
-      ex.sum(20);
-      expect(ex.sum()).toBe(20);
-      expect(lastSum).toBe(20);
-      expect(count).toBe(3);
-    });
+  describe('@memo decorator', () => {
     it('creates a readonly memo via getter', () => {
-      let _initProto, _init_a3, _init_extra_a3, _init_b3, _init_extra_b3;
+      let _initProto, _init_a, _init_extra_a, _init_b, _init_extra_b;
       class Example {
         static {
-          [_init_a3, _init_extra_a3, _init_b3, _init_extra_b3, _initProto] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [memo, 3, "sum2"]]).e;
+          [_init_a, _init_extra_a, _init_b, _init_extra_b, _initProto] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [memo, 3, "sum2"]]).e;
         }
         constructor() {
-          _init_extra_b3(this);
+          _init_extra_b(this);
         }
-        a = (_initProto(this), _init_a3(this, 1));
-        b = (_init_extra_a3(this), _init_b3(this, 2));
+        a = (_initProto(this), _init_a(this, 1));
+        b = (_init_extra_a(this), _init_b(this, 2));
         get sum2() {
           return this.a + this.b;
         }
@@ -134,16 +54,16 @@ describe('classy-solid', () => {
       }).toThrow();
     });
     it('creates a writable memo via getter+setter', () => {
-      let _initProto2, _init_a4, _init_extra_a4, _init_b4, _init_extra_b4;
+      let _initProto2, _init_a2, _init_extra_a2, _init_b2, _init_extra_b2;
       class Example {
         static {
-          [_init_a4, _init_extra_a4, _init_b4, _init_extra_b4, _initProto2] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [memo, 3, "sum2"], [memo, 4, "sum2"]]).e;
+          [_init_a2, _init_extra_a2, _init_b2, _init_extra_b2, _initProto2] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [memo, 3, "sum2"], [memo, 4, "sum2"]]).e;
         }
         constructor() {
-          _init_extra_b4(this);
+          _init_extra_b2(this);
         }
-        a = (_initProto2(this), _init_a4(this, 1));
-        b = (_init_extra_a4(this), _init_b4(this, 2));
+        a = (_initProto2(this), _init_a2(this, 1));
+        b = (_init_extra_a2(this), _init_b2(this, 2));
         get sum2() {
           return this.a + this.b;
         }
@@ -179,17 +99,17 @@ describe('classy-solid', () => {
       expect(count).toBe(3);
     });
     it('creates a readonly memo via accessor function value', () => {
-      let _init_a5, _init_extra_a5, _init_b5, _init_extra_b5, _init_sum3, _init_extra_sum3;
+      let _init_a3, _init_extra_a3, _init_b3, _init_extra_b3, _init_sum, _init_extra_sum;
       class Example {
         static {
-          [_init_sum3, _init_extra_sum3, _init_a5, _init_extra_a5, _init_b5, _init_extra_b5] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [memo, 1, "sum3"]]).e;
+          [_init_sum, _init_extra_sum, _init_a3, _init_extra_a3, _init_b3, _init_extra_b3] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [memo, 1, "sum3"]]).e;
         }
         constructor() {
-          _init_extra_sum3(this);
+          _init_extra_sum(this);
         }
-        a = _init_a5(this, 1);
-        b = (_init_extra_a5(this), _init_b5(this, 2));
-        #A = (_init_extra_b5(this), _init_sum3(this, () => this.a + this.b));
+        a = _init_a3(this, 1);
+        b = (_init_extra_a3(this), _init_b3(this, 2));
+        #A = (_init_extra_b3(this), _init_sum(this, () => this.a + this.b));
         get sum3() {
           return this.#A;
         }
@@ -198,18 +118,18 @@ describe('classy-solid', () => {
         }
       }
       const ex = new Example();
-      let count = 0;
+      let runs = 0;
       let lastSum = 0;
       createEffect(() => {
         lastSum = ex.sum3();
-        count++;
+        runs++;
       });
       expect(ex.sum3()).toBe(3);
-      expect(count).toBe(1);
+      expect(runs).toBe(1);
       ex.a = 5;
       expect(ex.sum3()).toBe(7);
       expect(lastSum).toBe(7);
-      expect(count).toBe(2);
+      expect(runs).toBe(2);
 
       // This should not trigger the effect since the computed value doesn't change (still 7)
       batch(() => {
@@ -218,23 +138,23 @@ describe('classy-solid', () => {
       });
       expect(ex.sum3()).toBe(7);
       expect(lastSum).toBe(7);
-      expect(count).toBe(2); // count should still be 2, not 3
+      expect(runs).toBe(2); // count should still be 2, not 3
 
       // @ts-expect-error Readonly memo cannot be set - should throw
       expect(() => ex.sum3(20)).toThrow();
     });
     it('creates a writable memo via accessor function value', () => {
-      let _init_a6, _init_extra_a6, _init_b6, _init_extra_b6, _init_sum4, _init_extra_sum4;
+      let _init_a4, _init_extra_a4, _init_b4, _init_extra_b4, _init_sum2, _init_extra_sum2;
       class Example {
         static {
-          [_init_sum4, _init_extra_sum4, _init_a6, _init_extra_a6, _init_b6, _init_extra_b6] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [memo, 1, "sum3"]]).e;
+          [_init_sum2, _init_extra_sum2, _init_a4, _init_extra_a4, _init_b4, _init_extra_b4] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [memo, 1, "sum3"]]).e;
         }
         constructor() {
-          _init_extra_sum4(this);
+          _init_extra_sum2(this);
         }
-        a = _init_a6(this, 1);
-        b = (_init_extra_a6(this), _init_b6(this, 2));
-        #A = (_init_extra_b6(this), _init_sum4(this, _val => this.a + this.b));
+        a = _init_a4(this, 1);
+        b = (_init_extra_a4(this), _init_b4(this, 2));
+        #A = (_init_extra_b4(this), _init_sum2(this, _val => this.a + this.b));
         get sum3() {
           return this.#A;
         }
@@ -272,16 +192,16 @@ describe('classy-solid', () => {
       expect(count).toBe(3);
     });
     it('creates a readonly memo via method', () => {
-      let _initProto3, _init_a7, _init_extra_a7, _init_b7, _init_extra_b7;
+      let _initProto3, _init_a5, _init_extra_a5, _init_b5, _init_extra_b5;
       class Example {
         static {
-          [_init_a7, _init_extra_a7, _init_b7, _init_extra_b7, _initProto3] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [memo, 2, "sum4"]]).e;
+          [_init_a5, _init_extra_a5, _init_b5, _init_extra_b5, _initProto3] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [memo, 2, "sum4"]]).e;
         }
         constructor() {
-          _init_extra_b7(this);
+          _init_extra_b5(this);
         }
-        a = (_initProto3(this), _init_a7(this, 1));
-        b = (_init_extra_a7(this), _init_b7(this, 2));
+        a = (_initProto3(this), _init_a5(this, 1));
+        b = (_init_extra_a5(this), _init_b5(this, 2));
         sum4() {
           return this.a + this.b;
         }
@@ -316,16 +236,16 @@ describe('classy-solid', () => {
       }).toThrow();
     });
     it('creates a writable memo via method', () => {
-      let _initProto4, _init_a8, _init_extra_a8, _init_b8, _init_extra_b8;
+      let _initProto4, _init_a6, _init_extra_a6, _init_b6, _init_extra_b6;
       class Example {
         static {
-          [_init_a8, _init_extra_a8, _init_b8, _init_extra_b8, _initProto4] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [memo, 2, "sum4"]]).e;
+          [_init_a6, _init_extra_a6, _init_b6, _init_extra_b6, _initProto4] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [memo, 2, "sum4"]]).e;
         }
         constructor() {
-          _init_extra_b8(this);
+          _init_extra_b6(this);
         }
-        a = (_initProto4(this), _init_a8(this, 1));
-        b = (_init_extra_a8(this), _init_b8(this, 2));
+        a = (_initProto4(this), _init_a6(this, 1));
+        b = (_init_extra_a6(this), _init_b6(this, 2));
         sum4(_val) {
           return this.a + this.b;
         }
@@ -394,20 +314,22 @@ describe('classy-solid', () => {
       expect(calc.computeCount).toBe(2);
     });
     it('works with multiple memo properties', () => {
-      let _initProto6, _init_value, _init_extra_value, _init_double, _init_extra_double, _init_quadruple, _init_extra_quadruple;
+      let _initProto6, _init_value, _init_extra_value, _init_quadruple, _init_extra_quadruple;
       class MultiMemo {
         static {
-          [_init_quadruple, _init_extra_quadruple, _init_value, _init_extra_value, _init_double, _init_extra_double, _initProto6] = _applyDecs(this, [], [[signal, 0, "value"], [memo, 0, "double"], [memo, 3, "triple"], [memo, 1, "quadruple"]]).e;
+          [_init_quadruple, _init_extra_quadruple, _init_value, _init_extra_value, _initProto6] = _applyDecs(this, [], [[signal, 0, "value"], [memo, 2, "double"], [memo, 3, "triple"], [memo, 1, "quadruple"]]).e;
         }
         constructor() {
           _init_extra_quadruple(this);
         }
         value = (_initProto6(this), _init_value(this, 10));
-        double = (_init_extra_value(this), _init_double(this, () => this.value * 2));
+        double() {
+          return this.value * 2;
+        }
         get triple() {
           return this.value * 3;
         }
-        #A = (_init_extra_double(this), _init_quadruple(this, () => this.value * 4));
+        #A = (_init_extra_value(this), _init_quadruple(this, () => this.value * 4));
         get quadruple() {
           return this.#A;
         }
@@ -476,54 +398,17 @@ describe('classy-solid', () => {
       expect(cm.cubed).toBe(27);
       expect(count).toBe(2);
     });
-    it('correctly handles writable field memo overriding explicit value', () => {
-      let _init_a9, _init_extra_a9, _init_b9, _init_extra_b9, _init_sum5, _init_extra_sum5;
-      class WritableOverride {
-        static {
-          [_init_a9, _init_extra_a9, _init_b9, _init_extra_b9, _init_sum5, _init_extra_sum5] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [memo, 0, "sum"]]).e;
-        }
-        constructor() {
-          _init_extra_sum5(this);
-        }
-        a = _init_a9(this, 5);
-        b = (_init_extra_a9(this), _init_b9(this, 10));
-        sum = (_init_extra_b9(this), _init_sum5(this, _val => this.a + this.b));
-      }
-      const wo = new WritableOverride();
-      let count = 0;
-      let lastValue = 0;
-      createEffect(() => {
-        lastValue = wo.sum();
-        count++;
-      });
-      expect(wo.sum()).toBe(15);
-      expect(count).toBe(1);
-      expect(lastValue).toBe(15);
-
-      // Override with direct value
-      wo.sum(100);
-      expect(wo.sum()).toBe(100);
-      expect(count).toBe(2);
-      expect(lastValue).toBe(100);
-
-      // Changing dependencies should still work after override
-      wo.a = 20;
-      // The memo should now compute based on signals again
-      expect(wo.sum()).toBe(30); // 20 + 10
-      expect(count).toBe(3);
-      expect(lastValue).toBe(30);
-    });
     it('correctly handles writable getter+setter memo overriding explicit value', () => {
-      let _initProto8, _init_a0, _init_extra_a0, _init_b0, _init_extra_b0;
+      let _initProto8, _init_a7, _init_extra_a7, _init_b7, _init_extra_b7;
       class WritableOverride {
         static {
-          [_init_a0, _init_extra_a0, _init_b0, _init_extra_b0, _initProto8] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [memo, 3, "sum"], [memo, 4, "sum"]]).e;
+          [_init_a7, _init_extra_a7, _init_b7, _init_extra_b7, _initProto8] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [memo, 3, "sum"], [memo, 4, "sum"]]).e;
         }
         constructor() {
-          _init_extra_b0(this);
+          _init_extra_b7(this);
         }
-        a = (_initProto8(this), _init_a0(this, 5));
-        b = (_init_extra_a0(this), _init_b0(this, 10));
+        a = (_initProto8(this), _init_a7(this, 5));
+        b = (_init_extra_a7(this), _init_b7(this, 10));
         get sum() {
           return this.a + this.b;
         }
@@ -554,17 +439,17 @@ describe('classy-solid', () => {
       expect(lastValue).toBe(30);
     });
     it('correctly handles writable accessor memo overriding explicit value', () => {
-      let _init_a1, _init_extra_a1, _init_b1, _init_extra_b1, _init_sum6, _init_extra_sum6;
+      let _init_a8, _init_extra_a8, _init_b8, _init_extra_b8, _init_sum3, _init_extra_sum3;
       class WritableOverride {
         static {
-          [_init_sum6, _init_extra_sum6, _init_a1, _init_extra_a1, _init_b1, _init_extra_b1] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [memo, 1, "sum"]]).e;
+          [_init_sum3, _init_extra_sum3, _init_a8, _init_extra_a8, _init_b8, _init_extra_b8] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [memo, 1, "sum"]]).e;
         }
         constructor() {
-          _init_extra_sum6(this);
+          _init_extra_sum3(this);
         }
-        a = _init_a1(this, 5);
-        b = (_init_extra_a1(this), _init_b1(this, 10));
-        #A = (_init_extra_b1(this), _init_sum6(this, _val => this.a + this.b));
+        a = _init_a8(this, 5);
+        b = (_init_extra_a8(this), _init_b8(this, 10));
+        #A = (_init_extra_b8(this), _init_sum3(this, _val => this.a + this.b));
         get sum() {
           return this.#A;
         }
@@ -597,16 +482,16 @@ describe('classy-solid', () => {
       expect(lastValue).toBe(30);
     });
     it('correctly handles writable method memo overriding explicit value', () => {
-      let _initProto9, _init_a10, _init_extra_a10, _init_b10, _init_extra_b10;
+      let _initProto9, _init_a9, _init_extra_a9, _init_b9, _init_extra_b9;
       class WritableOverride {
         static {
-          [_init_a10, _init_extra_a10, _init_b10, _init_extra_b10, _initProto9] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [memo, 2, "sum"]]).e;
+          [_init_a9, _init_extra_a9, _init_b9, _init_extra_b9, _initProto9] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [memo, 2, "sum"]]).e;
         }
         constructor() {
-          _init_extra_b10(this);
+          _init_extra_b9(this);
         }
-        a = (_initProto9(this), _init_a10(this, 5));
-        b = (_init_extra_a10(this), _init_b10(this, 10));
+        a = (_initProto9(this), _init_a9(this, 5));
+        b = (_init_extra_a9(this), _init_b9(this, 10));
         sum(_val) {
           return this.a + this.b;
         }
@@ -661,6 +546,527 @@ describe('classy-solid', () => {
       const val = cm.constant;
       expect(val).toBe(42);
       expect(count).toBe(1);
+    });
+    describe('subclass memo overriding/extending', () => {
+      it('supports subclass memo extending base memo (getter)', () => {
+        let _initProto1, _init_a0, _init_extra_a0, _initProto10;
+        class Base {
+          static {
+            [_init_a0, _init_extra_a0, _initProto1] = _applyDecs(this, [], [[signal, 0, "a"], [memo, 3, "baseVal"]]).e;
+          }
+          constructor() {
+            _init_extra_a0(this);
+          }
+          a = (_initProto1(this), _init_a0(this, 1));
+          get baseVal() {
+            return this.a + 1;
+          }
+        }
+        class Sub extends Base {
+          static {
+            [_initProto10] = _applyDecs(this, [], [[memo, 3, "baseVal"]], 0, void 0, Base).e;
+          }
+          constructor(...args) {
+            super(...args);
+            _initProto10(this);
+          }
+          get baseVal() {
+            return super.baseVal + 1; // extend
+          }
+        }
+        const s = new Sub();
+        let runs = 0;
+        let last = 0;
+        createEffect(() => {
+          runs++;
+          last = s.baseVal;
+        });
+        expect(last).toBe(1 + 1 + 1);
+        expect(runs).toBe(1);
+        s.a = 5;
+        expect(last).toBe(5 + 1 + 1);
+        expect(runs).toBe(2);
+      });
+      it('supports subclass memo overriding base memo (getter no super)', () => {
+        let _initProto11, _init_a1, _init_extra_a1, _initProto12;
+        class Base {
+          static {
+            [_init_a1, _init_extra_a1, _initProto11] = _applyDecs(this, [], [[signal, 0, "a"], [memo, 3, "val"]]).e;
+          }
+          constructor() {
+            _init_extra_a1(this);
+          }
+          a = (_initProto11(this), _init_a1(this, 1));
+          get val() {
+            return this.a + 1;
+          }
+        }
+        class Sub extends Base {
+          static {
+            [_initProto12] = _applyDecs(this, [], [[memo, 3, "val"]], 0, void 0, Base).e;
+          }
+          constructor(...args) {
+            super(...args);
+            _initProto12(this);
+          }
+          get val() {
+            return this.a * 2; // override
+          }
+        }
+        const s = new Sub();
+        let runs = 0;
+        let last = 0;
+        createEffect(() => {
+          runs++;
+          last = s.val;
+        });
+        expect(last).toBe(1 * 2);
+        expect(runs).toBe(1);
+        s.a = 5;
+        expect(last).toBe(5 * 2);
+        expect(runs).toBe(2);
+      });
+      it('supports getter override with no super', () => {
+        let _initProto13, _initProto14;
+        const [a, setA] = createSignal(10);
+        let baseRuns = 0;
+        let subRuns = 0;
+        class Base {
+          static {
+            [_initProto13] = _applyDecs(this, [], [[memo, 3, "val"]]).e;
+          }
+          constructor() {
+            _initProto13(this);
+          }
+          get val() {
+            baseRuns++;
+            return a() + 1;
+          }
+        }
+        class Sub extends Base {
+          static {
+            [_initProto14] = _applyDecs(this, [], [[memo, 3, "val"]], 0, void 0, Base).e;
+          }
+          constructor(...args) {
+            super(...args);
+            _initProto14(this);
+          }
+          get val() {
+            subRuns++;
+            return a() + 10;
+          }
+        }
+        const o = new Sub();
+        let effectRuns = 0;
+        let effectVal = 0;
+        createEffect(() => {
+          effectRuns++;
+          effectVal = o.val;
+        });
+        expect(effectVal).toBe(10 + 10);
+        expect(baseRuns).toBe(0);
+        expect(subRuns).toBe(1);
+        expect(effectRuns).toBe(1);
+        setA(20);
+        expect(effectVal).toBe(20 + 10);
+        expect(baseRuns).toBe(0);
+        expect(subRuns).toBe(2);
+        expect(effectRuns).toBe(2);
+      });
+      it('supports multi-level getter extension with super', () => {
+        let _initProto15, _initProto16, _initProto17;
+        const [a, setA] = createSignal(10);
+        let baseRuns = 0;
+        let midRuns = 0;
+        let subRuns = 0;
+        class Base {
+          static {
+            [_initProto15] = _applyDecs(this, [], [[memo, 3, "val"]]).e;
+          }
+          constructor() {
+            _initProto15(this);
+          }
+          get val() {
+            baseRuns++;
+            return a() + 1;
+          }
+        }
+        class Mid extends Base {
+          static {
+            [_initProto16] = _applyDecs(this, [], [[memo, 3, "val"]], 0, void 0, Base).e;
+          }
+          constructor(...args) {
+            super(...args);
+            _initProto16(this);
+          }
+          get val() {
+            midRuns++;
+            return super.val + 10;
+          }
+        }
+        class Sub extends Mid {
+          static {
+            [_initProto17] = _applyDecs(this, [], [[memo, 3, "val"]], 0, void 0, Mid).e;
+          }
+          constructor(...args) {
+            super(...args);
+            _initProto17(this);
+          }
+          get val() {
+            subRuns++;
+            return super.val + 100;
+          }
+        }
+        const o = new Sub();
+        let effectRuns = 0;
+        let effectVal = 0;
+        createEffect(() => {
+          effectRuns++;
+          effectVal = o.val;
+        });
+        expect(effectVal).toBe(10 + 1 + 10 + 100);
+        expect(baseRuns).toBe(1);
+        expect(midRuns).toBe(1);
+        expect(subRuns).toBe(1);
+        expect(effectRuns).toBe(1);
+        setA(20);
+        expect(effectVal).toBe(20 + 1 + 10 + 100);
+        expect(baseRuns).toBe(2);
+        expect(midRuns).toBe(2);
+        expect(subRuns).toBe(2);
+        expect(effectRuns).toBe(2);
+      });
+      it('supports subclass memo method extension with super', () => {
+        let _initProto18, _init_a10, _init_extra_a10, _initProto19;
+        let baseRuns = 0;
+        class BaseM {
+          static {
+            [_init_a10, _init_extra_a10, _initProto18] = _applyDecs(this, [], [[signal, 0, "a"], [memo, 2, "val"]]).e;
+          }
+          constructor() {
+            _init_extra_a10(this);
+          }
+          a = (_initProto18(this), _init_a10(this, 1));
+          val() {
+            baseRuns++;
+            return this.a + 1;
+          }
+        }
+        let subRuns = 0;
+        class SubM extends BaseM {
+          static {
+            [_initProto19] = _applyDecs(this, [], [[memo, 2, "val"]], 0, void 0, BaseM).e;
+          }
+          constructor(...args) {
+            super(...args);
+            _initProto19(this);
+          }
+          val() {
+            subRuns++;
+            return super.val() + 2;
+          }
+        }
+        const s = new SubM();
+        let effectRuns = 0;
+        let last = 0;
+        createEffect(() => {
+          effectRuns++;
+          last = s.val();
+        });
+        expect(last).toBe(1 + 1 + 2);
+        expect(baseRuns).toBe(1);
+        expect(subRuns).toBe(1);
+        expect(effectRuns).toBe(1);
+        s.a = 5;
+        expect(last).toBe(5 + 1 + 2);
+        expect(baseRuns).toBe(2);
+        expect(subRuns).toBe(2);
+        expect(effectRuns).toBe(2);
+      });
+      it('supports subclass memo method override with no super', () => {
+        let _initProto20, _init_a11, _init_extra_a11, _initProto21;
+        let baseRuns = 0;
+        let subRuns = 0;
+        class BaseM {
+          static {
+            [_init_a11, _init_extra_a11, _initProto20] = _applyDecs(this, [], [[signal, 0, "a"], [memo, 2, "val"]]).e;
+          }
+          constructor() {
+            _init_extra_a11(this);
+          }
+          a = (_initProto20(this), _init_a11(this, 1));
+          val() {
+            baseRuns++;
+            return this.a + 1;
+          }
+        }
+        class SubM extends BaseM {
+          static {
+            [_initProto21] = _applyDecs(this, [], [[memo, 2, "val"]], 0, void 0, BaseM).e;
+          }
+          constructor(...args) {
+            super(...args);
+            _initProto21(this);
+          }
+          val() {
+            subRuns++;
+            return this.a + 2;
+          }
+        }
+        const s = new SubM();
+        let effectRuns = 0;
+        let last = 0;
+        createEffect(() => {
+          effectRuns++;
+          last = s.val();
+        });
+        expect(last).toBe(1 + 2);
+        expect(baseRuns).toBe(0);
+        expect(subRuns).toBe(1);
+        expect(effectRuns).toBe(1);
+        s.a = 5;
+        expect(last).toBe(5 + 2);
+        expect(baseRuns).toBe(0);
+        expect(subRuns).toBe(2);
+        expect(effectRuns).toBe(2);
+      });
+      it('supports subclass memo auto accessor extension with super', () => {
+        let _init_a12, _init_extra_a12, _init_val, _init_extra_val, _init_val2, _init_extra_val2;
+        let baseRuns = 0;
+        let subRuns = 0;
+        class BaseFO {
+          static {
+            [_init_val, _init_extra_val, _init_a12, _init_extra_a12] = _applyDecs(this, [], [[signal, 0, "a"], [memo, 1, "val"]]).e;
+          }
+          constructor() {
+            _init_extra_val(this);
+          }
+          a = _init_a12(this, 1);
+          #A = (_init_extra_a12(this), _init_val(this, () => {
+            baseRuns++;
+            return this.a + 1;
+          }));
+          get val() {
+            return this.#A;
+          }
+          set val(v) {
+            this.#A = v;
+          }
+        }
+        class SubFO extends BaseFO {
+          static {
+            [_init_val2, _init_extra_val2] = _applyDecs(this, [], [[memo, 1, "val"]], 0, void 0, BaseFO).e;
+          }
+          constructor(...args) {
+            super(...args);
+            _init_extra_val2(this);
+          }
+          #A = _init_val2(this, () => {
+            subRuns++;
+            return super.val() * 3;
+          });
+          get val() {
+            return this.#A;
+          }
+          set val(v) {
+            this.#A = v;
+          }
+        }
+        const s = new SubFO();
+        let effectRuns = 0;
+        let last = 0;
+        createEffect(() => {
+          effectRuns++;
+          last = s.val();
+        });
+        expect(last).toBe((1 + 1) * 3);
+        expect(baseRuns).toBe(1);
+        expect(subRuns).toBe(1);
+        expect(effectRuns).toBe(1);
+        s.a = 4;
+        expect(last).toBe((4 + 1) * 3);
+        expect(baseRuns).toBe(2);
+        expect(subRuns).toBe(2);
+        expect(effectRuns).toBe(2);
+      });
+      it('supports subclass memo auto accessor override with no super', () => {
+        let _init_a13, _init_extra_a13, _init_val3, _init_extra_val3, _init_val4, _init_extra_val4;
+        let baseRuns = 0;
+        let subRuns = 0;
+        class BaseFO {
+          static {
+            [_init_val3, _init_extra_val3, _init_a13, _init_extra_a13] = _applyDecs(this, [], [[signal, 0, "a"], [memo, 1, "val"]]).e;
+          }
+          constructor() {
+            _init_extra_val3(this);
+          }
+          a = _init_a13(this, 1);
+          #A = (_init_extra_a13(this), _init_val3(this, () => {
+            baseRuns++;
+            return this.a + 1;
+          }));
+          get val() {
+            return this.#A;
+          }
+          set val(v) {
+            this.#A = v;
+          }
+        }
+        class SubFO extends BaseFO {
+          static {
+            [_init_val4, _init_extra_val4] = _applyDecs(this, [], [[memo, 1, "val"]], 0, void 0, BaseFO).e;
+          }
+          constructor(...args) {
+            super(...args);
+            _init_extra_val4(this);
+          }
+          #A = _init_val4(this, () => {
+            subRuns++;
+            return this.a * 3;
+          });
+          get val() {
+            return this.#A;
+          }
+          set val(v) {
+            this.#A = v;
+          }
+        }
+        const s = new SubFO();
+        let effectRuns = 0;
+        let last = 0;
+        createEffect(() => {
+          effectRuns++;
+          last = s.val();
+        });
+        expect(last).toBe(1 * 3);
+        expect(baseRuns).toBe(0);
+        expect(subRuns).toBe(1);
+        expect(effectRuns).toBe(1);
+        s.a = 4;
+        expect(last).toBe(4 * 3);
+        expect(baseRuns).toBe(0);
+        expect(subRuns).toBe(2);
+        expect(effectRuns).toBe(2);
+      });
+    });
+    describe('invalid usage', () => {
+      it('throws on non-function value', () => {
+        let _init_foo, _init_extra_foo;
+        class Base {
+          static {
+            [_init_foo, _init_extra_foo] = _applyDecs(this, [], [[memo, 1, "foo"]]).e;
+          }
+          constructor() {
+            _init_extra_foo(this);
+          }
+          // @ts-expect-error non-function value
+          #A = _init_foo(this, 1);
+          get foo() {
+            return this.#A;
+          }
+          set foo(v) {
+            this.#A = v;
+          }
+        }
+        expect(() => new Base()).toThrow('memo value for "foo" is not a function: 1');
+      });
+      it('throws on @memo used on class field', () => {
+        const [a] = createSignal(10);
+        expect(() => {
+          let _init_a14, _init_extra_a14;
+          class InvalidMemo {
+            static {
+              [_init_a14, _init_extra_a14] = _applyDecs(this, [], [[memo, 0, "a"]]).e;
+            }
+            constructor() {
+              _init_extra_a14(this);
+            }
+            // @ts-expect-error @memo not usable on fields
+            a = _init_a14(this, () => a());
+          }
+          new InvalidMemo();
+        }).toThrow('@memo is not supported on class fields.');
+      });
+      it('throws on duplicate members', () => {
+        const run = () => {
+          let _initProto22;
+          class SuperDuper {
+            static {
+              [_initProto22] = _applyDecs(this, [], [[memo, 3, "dupe"], [memo, 3, "dupe"]]).e;
+            }
+            constructor() {
+              _initProto22(this);
+            }
+            // @ts-expect-error duplicate member
+            get dupe() {
+              return 2;
+            }
+            // @ts-expect-error duplicate member
+            get dupe() {
+              return 3;
+            }
+          }
+          new SuperDuper();
+        };
+
+        // When compiling with Babel, decorators currently throw an error when applied onto multiple members of the same name.
+        expect(run).toThrow('Decorating two elements with the same name (get dupe) is not supported yet');
+
+        // When compiling with TypeScript, decorating duplicate members is allowed, and the last one wins.
+        // expect(run).toThrow(
+        // 	'@memo decorated member "dupe" has already been memoified. This can happen if there are duplicated class members.',
+        // )
+
+        // TODO ^ update Babel to latest in @lume/cli, see if decorators on duplicate members work in classy-solid
+      });
+      it('throws due to TDZ when accessing private fields defined after regular fields', () => {
+        let _initProto23, _init_bar, _init_extra_bar, _initProto24, _init_bar2, _init_extra_bar2;
+        class Bar {
+          static {
+            [_init_bar, _init_extra_bar, _initProto23] = _applyDecs(this, [], [[signal, 0, "bar"], [signal, 3, "baz"], [signal, 4, "baz"], [effect, 2, "logBar"]]).e;
+          }
+          bar = (_initProto23(this), _init_bar(this, 456));
+          #baz = (_init_extra_bar(this), 789);
+          get baz() {
+            return this.#baz;
+          }
+          set baz(v) {
+            this.#baz = v;
+          }
+
+          // This throws because #baz is used before its initialization
+          // The ordering is:
+          // 1. bar field initialized
+          // 2. bar field runs finalizers because it is last in the ordering of extra initializers (so #baz is not initialized yet)
+          // 3. During the logBar finalizer (executed in the bar extra initializer), the baz getter is accessed, which accesses #baz before it is initialized
+          logBar() {
+            console.log('this.baz:', this.baz);
+          }
+        }
+        expect(() => new Bar()).toThrow('Cannot read private member #baz from an object whose class did not declare it');
+
+        // To work around the problem, place private fields before regular fields:
+        class Bar2 {
+          static {
+            [_init_bar2, _init_extra_bar2, _initProto24] = _applyDecs(this, [], [[signal, 0, "bar"], [signal, 3, "baz"], [signal, 4, "baz"], [effect, 2, "logBar"]]).e;
+          }
+          constructor() {
+            _init_extra_bar2(this);
+          }
+          #baz = (_initProto24(this), 789);
+          bar = _init_bar2(this, 456);
+          get baz() {
+            return this.#baz;
+          }
+          set baz(v) {
+            this.#baz = v;
+          }
+          logBar() {
+            console.log('this.baz:', this.baz);
+          }
+        }
+        expect(() => new Bar2()).not.toThrow();
+      });
     });
   });
 });

@@ -97,5 +97,5 @@ import './metadata-shim.js';
  * ```
  */
 export declare function memo(value: ((val?: any) => any) | (() => any) | ((val?: any) => void) | (() => void) | ClassAccessorDecoratorTarget<unknown, () => any> | ClassAccessorDecoratorTarget<unknown, (val?: number) => any>, // today's auto-accessors, writable memo
-context: ClassGetterDecoratorContext | ClassSetterDecoratorContext | ClassAccessorDecoratorContext | ClassMethodDecoratorContext): void;
+context: ClassGetterDecoratorContext | ClassSetterDecoratorContext | ClassAccessorDecoratorContext | ClassMethodDecoratorContext): any;
 //# sourceMappingURL=memo.d.ts.map

@@ -547,28 +547,187 @@ describe('classy-solid', () => {
       expect(val).toBe(42);
       expect(count).toBe(1);
     });
+    it('supports private getter/setters', () => {
+      let _initProto1, _init_a0, _init_extra_a0, _init_b0, _init_extra_b0, _call_sumPrivate, _call_sumPrivate2;
+      class Example {
+        static {
+          [_call_sumPrivate, _call_sumPrivate2, _init_a0, _init_extra_a0, _init_b0, _init_extra_b0, _initProto1] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [memo, 3, "sumPrivate", function () {
+            return this.a + this.b;
+          }], [memo, 4, "sumPrivate", function (_val) {}]], 0, _ => #sumPrivate in _).e;
+        }
+        constructor() {
+          _init_extra_b0(this);
+        }
+        a = (_initProto1(this), _init_a0(this, 1));
+        b = (_init_extra_a0(this), _init_b0(this, 2));
+        get #sumPrivate() {
+          return _call_sumPrivate(this);
+        }
+        set #sumPrivate(v) {
+          _call_sumPrivate2(this, v);
+        }
+        get sum() {
+          return this.#sumPrivate;
+        }
+        set sum(val) {
+          this.#sumPrivate = val;
+        }
+      }
+      const ex = new Example();
+      let count = 0;
+      let lastSum = 0;
+      createEffect(() => {
+        lastSum = ex.sum;
+        count++;
+      });
+      expect(lastSum).toBe(3);
+      expect(count).toBe(1);
+      ex.a = 5;
+      expect(lastSum).toBe(7);
+      expect(count).toBe(2);
+      batch(() => {
+        ex.a = 3;
+        ex.b = 4;
+      });
+      expect(lastSum).toBe(7);
+      expect(count).toBe(2); // should not run because sum didn't change
+
+      ex.sum = 20;
+      expect(lastSum).toBe(20);
+      expect(count).toBe(3);
+    });
+    function accessorGetSet(value) {
+      return function (_, __) {
+        return value;
+      };
+    }
+
+    // This is undocumented, but helps us get set up for concise accessors once that syntax lands.
+    it('supports private auto accessors', () => {
+      let _init_a1, _init_extra_a1, _init_b1, _init_extra_b1, _sumPrivateDecs, _init_sumPrivate, _get_sumPrivate, _set_sumPrivate, _init_extra_sumPrivate;
+      class Example {
+        static {
+          [_init_sumPrivate, _get_sumPrivate, _set_sumPrivate, _init_extra_sumPrivate, _init_a1, _init_extra_a1, _init_b1, _init_extra_b1] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [_sumPrivateDecs, 1, "sumPrivate", o => o.#A, (o, v) => o.#A = v]], 0, _ => #sumPrivate in _).e;
+        }
+        constructor() {
+          _init_extra_sumPrivate(this);
+        }
+        [(_sumPrivateDecs = [memo, accessorGetSet({
+          get() {
+            return this.a + this.b;
+          },
+          set() {}
+        })], "a")] = _init_a1(this, 1);
+        b = (_init_extra_a1(this), _init_b1(this, 2));
+
+        // @ts-ignore
+        #A = (_init_extra_b1(this), _init_sumPrivate(this, 0)); // initial value won't matter, memo will override initially
+        set #sumPrivate(v) {
+          _set_sumPrivate(this, v);
+        }
+        get #sumPrivate() {
+          return _get_sumPrivate(this);
+        }
+        get sum() {
+          return this.#sumPrivate;
+        }
+        set sum(val) {
+          this.#sumPrivate = val;
+        }
+      }
+      const ex = new Example();
+      let count = 0;
+      let lastSum = 0;
+      createEffect(() => {
+        lastSum = ex.sum;
+        count++;
+      });
+      expect(lastSum).toBe(1 + 2);
+      expect(count).toBe(1);
+      ex.a = 5;
+      expect(lastSum).toBe(5 + 2);
+      expect(count).toBe(2);
+      batch(() => {
+        ex.a = 3;
+        ex.b = 4;
+      });
+      expect(lastSum).toBe(7);
+      expect(count).toBe(2); // should not run because sum didn't change
+
+      ex.sum = 20;
+      expect(lastSum).toBe(20);
+      expect(count).toBe(3);
+    });
+    it('supports private methods', () => {
+      let _initProto10, _init_a10, _init_extra_a10, _init_b10, _init_extra_b10, _call_sumPrivate3;
+      class Example {
+        static {
+          [_call_sumPrivate3, _init_a10, _init_extra_a10, _init_b10, _init_extra_b10, _initProto10] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [memo, 2, "sumPrivate", function (_val) {
+            return this.a + this.b;
+          }]], 0, _ => #sumPrivate in _).e;
+        }
+        constructor() {
+          _init_extra_b10(this);
+        }
+        #sumPrivate = _call_sumPrivate3;
+        a = (_initProto10(this), _init_a10(this, 1));
+        b = (_init_extra_a10(this), _init_b10(this, 2));
+        get sum() {
+          return this.#sumPrivate();
+        }
+        set sum(val) {
+          this.#sumPrivate(val);
+        }
+      }
+      const ex = new Example();
+      let count = 0;
+      let lastSum = 0;
+      createEffect(() => {
+        lastSum = ex.sum;
+        count++;
+      });
+      expect(lastSum).toBe(1 + 2);
+      expect(count).toBe(1);
+      ex.a = 5;
+      expect(lastSum).toBe(5 + 2);
+      expect(count).toBe(2);
+      batch(() => {
+        ex.a = 3;
+        ex.b = 4;
+      });
+      expect(lastSum).toBe(7);
+      expect(count).toBe(2); // should not run because sum didn't change
+
+      // CONTINUE writing not working yet for private method memos
+      // Uncomment when fixed
+      debugger;
+      ex.sum = 20;
+      console.log('sum?', ex.sum);
+      expect(lastSum).toBe(20);
+      expect(count).toBe(3);
+    });
     describe('subclass memo overriding/extending', () => {
       it('supports subclass memo extending base memo (getter)', () => {
-        let _initProto1, _init_a0, _init_extra_a0, _initProto10;
+        let _initProto11, _init_a11, _init_extra_a11, _initProto12;
         class Base {
           static {
-            [_init_a0, _init_extra_a0, _initProto1] = _applyDecs(this, [], [[signal, 0, "a"], [memo, 3, "baseVal"]]).e;
+            [_init_a11, _init_extra_a11, _initProto11] = _applyDecs(this, [], [[signal, 0, "a"], [memo, 3, "baseVal"]]).e;
           }
           constructor() {
-            _init_extra_a0(this);
+            _init_extra_a11(this);
           }
-          a = (_initProto1(this), _init_a0(this, 1));
+          a = (_initProto11(this), _init_a11(this, 1));
           get baseVal() {
             return this.a + 1;
           }
         }
         class Sub extends Base {
           static {
-            [_initProto10] = _applyDecs(this, [], [[memo, 3, "baseVal"]], 0, void 0, Base).e;
+            [_initProto12] = _applyDecs(this, [], [[memo, 3, "baseVal"]], 0, void 0, Base).e;
           }
           constructor(...args) {
             super(...args);
-            _initProto10(this);
+            _initProto12(this);
           }
           get baseVal() {
             return super.baseVal + 1; // extend
@@ -588,26 +747,26 @@ describe('classy-solid', () => {
         expect(runs).toBe(2);
       });
       it('supports subclass memo overriding base memo (getter no super)', () => {
-        let _initProto11, _init_a1, _init_extra_a1, _initProto12;
+        let _initProto13, _init_a12, _init_extra_a12, _initProto14;
         class Base {
           static {
-            [_init_a1, _init_extra_a1, _initProto11] = _applyDecs(this, [], [[signal, 0, "a"], [memo, 3, "val"]]).e;
+            [_init_a12, _init_extra_a12, _initProto13] = _applyDecs(this, [], [[signal, 0, "a"], [memo, 3, "val"]]).e;
           }
           constructor() {
-            _init_extra_a1(this);
+            _init_extra_a12(this);
           }
-          a = (_initProto11(this), _init_a1(this, 1));
+          a = (_initProto13(this), _init_a12(this, 1));
           get val() {
             return this.a + 1;
           }
         }
         class Sub extends Base {
           static {
-            [_initProto12] = _applyDecs(this, [], [[memo, 3, "val"]], 0, void 0, Base).e;
+            [_initProto14] = _applyDecs(this, [], [[memo, 3, "val"]], 0, void 0, Base).e;
           }
           constructor(...args) {
             super(...args);
-            _initProto12(this);
+            _initProto14(this);
           }
           get val() {
             return this.a * 2; // override
@@ -627,16 +786,16 @@ describe('classy-solid', () => {
         expect(runs).toBe(2);
       });
       it('supports getter override with no super', () => {
-        let _initProto13, _initProto14;
+        let _initProto15, _initProto16;
         const [a, setA] = createSignal(10);
         let baseRuns = 0;
         let subRuns = 0;
         class Base {
           static {
-            [_initProto13] = _applyDecs(this, [], [[memo, 3, "val"]]).e;
+            [_initProto15] = _applyDecs(this, [], [[memo, 3, "val"]]).e;
           }
           constructor() {
-            _initProto13(this);
+            _initProto15(this);
           }
           get val() {
             baseRuns++;
@@ -645,11 +804,11 @@ describe('classy-solid', () => {
         }
         class Sub extends Base {
           static {
-            [_initProto14] = _applyDecs(this, [], [[memo, 3, "val"]], 0, void 0, Base).e;
+            [_initProto16] = _applyDecs(this, [], [[memo, 3, "val"]], 0, void 0, Base).e;
           }
           constructor(...args) {
             super(...args);
-            _initProto14(this);
+            _initProto16(this);
           }
           get val() {
             subRuns++;
@@ -674,17 +833,17 @@ describe('classy-solid', () => {
         expect(effectRuns).toBe(2);
       });
       it('supports multi-level getter extension with super', () => {
-        let _initProto15, _initProto16, _initProto17;
+        let _initProto17, _initProto18, _initProto19;
         const [a, setA] = createSignal(10);
         let baseRuns = 0;
         let midRuns = 0;
         let subRuns = 0;
         class Base {
           static {
-            [_initProto15] = _applyDecs(this, [], [[memo, 3, "val"]]).e;
+            [_initProto17] = _applyDecs(this, [], [[memo, 3, "val"]]).e;
           }
           constructor() {
-            _initProto15(this);
+            _initProto17(this);
           }
           get val() {
             baseRuns++;
@@ -693,11 +852,11 @@ describe('classy-solid', () => {
         }
         class Mid extends Base {
           static {
-            [_initProto16] = _applyDecs(this, [], [[memo, 3, "val"]], 0, void 0, Base).e;
+            [_initProto18] = _applyDecs(this, [], [[memo, 3, "val"]], 0, void 0, Base).e;
           }
           constructor(...args) {
             super(...args);
-            _initProto16(this);
+            _initProto18(this);
           }
           get val() {
             midRuns++;
@@ -706,11 +865,11 @@ describe('classy-solid', () => {
         }
         class Sub extends Mid {
           static {
-            [_initProto17] = _applyDecs(this, [], [[memo, 3, "val"]], 0, void 0, Mid).e;
+            [_initProto19] = _applyDecs(this, [], [[memo, 3, "val"]], 0, void 0, Mid).e;
           }
           constructor(...args) {
             super(...args);
-            _initProto17(this);
+            _initProto19(this);
           }
           get val() {
             subRuns++;
@@ -737,16 +896,16 @@ describe('classy-solid', () => {
         expect(effectRuns).toBe(2);
       });
       it('supports subclass memo method extension with super', () => {
-        let _initProto18, _init_a10, _init_extra_a10, _initProto19;
+        let _initProto20, _init_a13, _init_extra_a13, _initProto21;
         let baseRuns = 0;
         class BaseM {
           static {
-            [_init_a10, _init_extra_a10, _initProto18] = _applyDecs(this, [], [[signal, 0, "a"], [memo, 2, "val"]]).e;
+            [_init_a13, _init_extra_a13, _initProto20] = _applyDecs(this, [], [[signal, 0, "a"], [memo, 2, "val"]]).e;
           }
           constructor() {
-            _init_extra_a10(this);
+            _init_extra_a13(this);
           }
-          a = (_initProto18(this), _init_a10(this, 1));
+          a = (_initProto20(this), _init_a13(this, 1));
           val() {
             baseRuns++;
             return this.a + 1;
@@ -755,11 +914,11 @@ describe('classy-solid', () => {
         let subRuns = 0;
         class SubM extends BaseM {
           static {
-            [_initProto19] = _applyDecs(this, [], [[memo, 2, "val"]], 0, void 0, BaseM).e;
+            [_initProto21] = _applyDecs(this, [], [[memo, 2, "val"]], 0, void 0, BaseM).e;
           }
           constructor(...args) {
             super(...args);
-            _initProto19(this);
+            _initProto21(this);
           }
           val() {
             subRuns++;
@@ -784,17 +943,17 @@ describe('classy-solid', () => {
         expect(effectRuns).toBe(2);
       });
       it('supports subclass memo method override with no super', () => {
-        let _initProto20, _init_a11, _init_extra_a11, _initProto21;
+        let _initProto22, _init_a14, _init_extra_a14, _initProto23;
         let baseRuns = 0;
         let subRuns = 0;
         class BaseM {
           static {
-            [_init_a11, _init_extra_a11, _initProto20] = _applyDecs(this, [], [[signal, 0, "a"], [memo, 2, "val"]]).e;
+            [_init_a14, _init_extra_a14, _initProto22] = _applyDecs(this, [], [[signal, 0, "a"], [memo, 2, "val"]]).e;
           }
           constructor() {
-            _init_extra_a11(this);
+            _init_extra_a14(this);
           }
-          a = (_initProto20(this), _init_a11(this, 1));
+          a = (_initProto22(this), _init_a14(this, 1));
           val() {
             baseRuns++;
             return this.a + 1;
@@ -802,11 +961,11 @@ describe('classy-solid', () => {
         }
         class SubM extends BaseM {
           static {
-            [_initProto21] = _applyDecs(this, [], [[memo, 2, "val"]], 0, void 0, BaseM).e;
+            [_initProto23] = _applyDecs(this, [], [[memo, 2, "val"]], 0, void 0, BaseM).e;
           }
           constructor(...args) {
             super(...args);
-            _initProto21(this);
+            _initProto23(this);
           }
           val() {
             subRuns++;
@@ -831,18 +990,18 @@ describe('classy-solid', () => {
         expect(effectRuns).toBe(2);
       });
       it('supports subclass memo auto accessor extension with super', () => {
-        let _init_a12, _init_extra_a12, _init_val, _init_extra_val, _init_val2, _init_extra_val2;
+        let _init_a15, _init_extra_a15, _init_val, _init_extra_val, _init_val2, _init_extra_val2;
         let baseRuns = 0;
         let subRuns = 0;
         class BaseFO {
           static {
-            [_init_val, _init_extra_val, _init_a12, _init_extra_a12] = _applyDecs(this, [], [[signal, 0, "a"], [memo, 1, "val"]]).e;
+            [_init_val, _init_extra_val, _init_a15, _init_extra_a15] = _applyDecs(this, [], [[signal, 0, "a"], [memo, 1, "val"]]).e;
           }
           constructor() {
             _init_extra_val(this);
           }
-          a = _init_a12(this, 1);
-          #A = (_init_extra_a12(this), _init_val(this, () => {
+          a = _init_a15(this, 1);
+          #A = (_init_extra_a15(this), _init_val(this, () => {
             baseRuns++;
             return this.a + 1;
           }));
@@ -890,18 +1049,18 @@ describe('classy-solid', () => {
         expect(effectRuns).toBe(2);
       });
       it('supports subclass memo auto accessor override with no super', () => {
-        let _init_a13, _init_extra_a13, _init_val3, _init_extra_val3, _init_val4, _init_extra_val4;
+        let _init_a16, _init_extra_a16, _init_val3, _init_extra_val3, _init_val4, _init_extra_val4;
         let baseRuns = 0;
         let subRuns = 0;
         class BaseFO {
           static {
-            [_init_val3, _init_extra_val3, _init_a13, _init_extra_a13] = _applyDecs(this, [], [[signal, 0, "a"], [memo, 1, "val"]]).e;
+            [_init_val3, _init_extra_val3, _init_a16, _init_extra_a16] = _applyDecs(this, [], [[signal, 0, "a"], [memo, 1, "val"]]).e;
           }
           constructor() {
             _init_extra_val3(this);
           }
-          a = _init_a13(this, 1);
-          #A = (_init_extra_a13(this), _init_val3(this, () => {
+          a = _init_a16(this, 1);
+          #A = (_init_extra_a16(this), _init_val3(this, () => {
             baseRuns++;
             return this.a + 1;
           }));
@@ -973,29 +1132,29 @@ describe('classy-solid', () => {
       it('throws on @memo used on class field', () => {
         const [a] = createSignal(10);
         expect(() => {
-          let _init_a14, _init_extra_a14;
+          let _init_a17, _init_extra_a17;
           class InvalidMemo {
             static {
-              [_init_a14, _init_extra_a14] = _applyDecs(this, [], [[memo, 0, "a"]]).e;
+              [_init_a17, _init_extra_a17] = _applyDecs(this, [], [[memo, 0, "a"]]).e;
             }
             constructor() {
-              _init_extra_a14(this);
+              _init_extra_a17(this);
             }
             // @ts-expect-error @memo not usable on fields
-            a = _init_a14(this, () => a());
+            a = _init_a17(this, () => a());
           }
           new InvalidMemo();
         }).toThrow('@memo is not supported on class fields.');
       });
       it('throws on duplicate members', () => {
         const run = () => {
-          let _initProto22;
+          let _initProto24;
           class SuperDuper {
             static {
-              [_initProto22] = _applyDecs(this, [], [[memo, 3, "dupe"], [memo, 3, "dupe"]]).e;
+              [_initProto24] = _applyDecs(this, [], [[memo, 3, "dupe"], [memo, 3, "dupe"]]).e;
             }
             constructor() {
-              _initProto22(this);
+              _initProto24(this);
             }
             // @ts-expect-error duplicate member
             get dupe() {
@@ -1020,12 +1179,12 @@ describe('classy-solid', () => {
         // TODO ^ update Babel to latest in @lume/cli, see if decorators on duplicate members work in classy-solid
       });
       it('throws due to TDZ when accessing private fields defined after regular fields', () => {
-        let _initProto23, _init_bar, _init_extra_bar, _initProto24, _init_bar2, _init_extra_bar2;
+        let _initProto25, _init_bar, _init_extra_bar, _initProto26, _init_bar2, _init_extra_bar2;
         class Bar {
           static {
-            [_init_bar, _init_extra_bar, _initProto23] = _applyDecs(this, [], [[signal, 0, "bar"], [signal, 3, "baz"], [signal, 4, "baz"], [effect, 2, "logBar"]]).e;
+            [_init_bar, _init_extra_bar, _initProto25] = _applyDecs(this, [], [[signal, 0, "bar"], [signal, 3, "baz"], [signal, 4, "baz"], [effect, 2, "logBar"]]).e;
           }
-          bar = (_initProto23(this), _init_bar(this, 456));
+          bar = (_initProto25(this), _init_bar(this, 456));
           #baz = (_init_extra_bar(this), 789);
           get baz() {
             return this.#baz;
@@ -1040,7 +1199,7 @@ describe('classy-solid', () => {
           // 2. bar field runs finalizers because it is last in the ordering of extra initializers (so #baz is not initialized yet)
           // 3. During the logBar finalizer (executed in the bar extra initializer), the baz getter is accessed, which accesses #baz before it is initialized
           logBar() {
-            console.log('this.baz:', this.baz);
+            this.baz;
           }
         }
         expect(() => new Bar()).toThrow('Cannot read private member #baz from an object whose class did not declare it');
@@ -1048,12 +1207,12 @@ describe('classy-solid', () => {
         // To work around the problem, place private fields before regular fields:
         class Bar2 {
           static {
-            [_init_bar2, _init_extra_bar2, _initProto24] = _applyDecs(this, [], [[signal, 0, "bar"], [signal, 3, "baz"], [signal, 4, "baz"], [effect, 2, "logBar"]]).e;
+            [_init_bar2, _init_extra_bar2, _initProto26] = _applyDecs(this, [], [[signal, 0, "bar"], [signal, 3, "baz"], [signal, 4, "baz"], [effect, 2, "logBar"]]).e;
           }
           constructor() {
             _init_extra_bar2(this);
           }
-          #baz = (_initProto24(this), 789);
+          #baz = (_initProto26(this), 789);
           bar = _init_bar2(this, 456);
           get baz() {
             return this.#baz;
@@ -1062,7 +1221,7 @@ describe('classy-solid', () => {
             this.#baz = v;
           }
           logBar() {
-            console.log('this.baz:', this.baz);
+            this.baz;
           }
         }
         expect(() => new Bar2()).not.toThrow();

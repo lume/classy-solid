@@ -2,20 +2,25 @@ import { memoify, setMemoifyMemberStat } from './signals/memoify.js';
 import { getInheritedDescriptor } from 'lowclass/dist/getInheritedDescriptor.js';
 import { signalify } from './signals/signalify.js';
 import { Effects } from './mixins/Effectful.js';
+import { untrack } from 'solid-js';
+
+/** Libraries that wrap classy-solid signal accessors should add their overriding getters to this set. */
 export const isSignalGetter = new WeakSet();
+/** Libraries that wrap classy-solid memo accessors should add their overriding getters to this set. */
 export const isMemoGetter = new WeakSet();
 export function getMembers(metadata) {
   if (!Object.hasOwn(metadata, 'classySolid_members')) metadata.classySolid_members = []; // we don't extend the array from parent classes
   return metadata.classySolid_members;
 }
-export function getMemberStat(name, type, members) {
+export function getMemberStat(name, type, members, context) {
   const index = members.findIndex(member => member.name === name);
   const existingStat = members[index];
   const newStat = {
     type,
     name,
     applied: new WeakMap(),
-    finalize: () => {}
+    finalize: () => {},
+    context
   };
 
   // replace stat in the array with the latest (f.e. duplicate class members, last one wins)
@@ -67,32 +72,52 @@ function sortMetadataMembersCustomOrder(members) {
   // auto-accessors, finally memo accessors and methods.
   members.sort((a, b) => customSortOrder[a.type] - customSortOrder[b.type]);
 }
-export function signalifyIfNeeded(obj, name, stat) {
+export function signalifyIfNeeded(obj, stat) {
+  const {
+    name
+  } = stat;
   if (stat.applied.get(obj)) throw new Error(`@signal decorated member "${String(name)}" has already been signalified. This can happen if there are duplicated class members.`);
-  signalify(obj, [name, /*untrack*/() => obj[name]]); // untrack in case obj[name] is already a signal (f.e. from a Solid Proxy)
-
+  if (!stat.reuseExistingSignal) signalify(obj, [name, untrack(() => obj[name])]);
   stat.applied.set(obj, true);
 }
-export function memoifyIfNeeded(obj, name, stat) {
+export function memoifyIfNeeded(obj, stat) {
+  const {
+    name,
+    context
+  } = stat;
   if (stat.applied.get(obj)) throw new Error(`@memo decorated member "${String(name)}" has already been memoified. This can happen if there are duplicated class members.`);
-  setMemoifyMemberStat(stat);
-  memoify(obj, name);
+  if (context.private && context.kind === 'getter') {
+    // stat.memoGet
+  } else {
+    setMemoifyMemberStat(stat);
+    memoify(obj, name);
+  }
   stat.applied.set(obj, true);
 }
 
 /** @private internal state */
 export const effects__ = new WeakMap();
-export function effectifyIfNeeded(obj, name, stat) {
+export function effectifyIfNeeded(obj, stat) {
+  const {
+    name,
+    context
+  } = stat;
   if (stat.applied.get(obj)) throw new Error(`@effect decorated member "${String(name)}" has already been effectified. This can happen if there are duplicated class members.`);
-  const decoratorValue = stat.value;
-  if (!decoratorValue) throw new Error('not possible');
-  const descriptor = getInheritedDescriptor(obj, name);
-  const leafmostMemberValue = stat.type === 'effect-auto-accessor' ? descriptor.get : obj[name];
+  if (context.kind !== 'method' && context.kind !== 'accessor') throw new Error('not possible');
+  const decoratedMember = stat.value;
+  if (!decoratedMember) throw new Error('not possible');
+
+  // In case of private members, there is no inheritance, so the decorated value is the member itself.
+  const privateMember = context.private && decoratedMember;
+
+  // Get any overriding/extending member from the prototype chain.
+  const leafmostMember = privateMember ? privateMember : stat.type === 'effect-auto-accessor' ? getInheritedDescriptor(obj, name).get // auto-accessor getter is the member (not the value)
+  : obj[name]; // method is both value and member
 
   // Skip base class effectify if a subclass is overriding an effect.
-  if (leafmostMemberValue !== decoratorValue) return;
-  const fn = obj[name];
-  if (typeof fn !== 'function') throw new Error(`@effect decorated member "${String(name)}" is not a function: ${fn}`);
+  if (leafmostMember !== decoratedMember) return;
+  const effectFn = context.access.get(obj);
+  if (typeof effectFn !== 'function') throw new Error(`@effect decorated member "${String(name)}" is not a function: ${effectFn}`);
   let effects = effects__.get(obj);
   if (!effects) {
     // If the object is already an Effects instance, use it directly.
@@ -100,7 +125,7 @@ export function effectifyIfNeeded(obj, name, stat) {
     // Otherwise, create a new Effects instance to manage the effects.
     else effects__.set(obj, effects = new Effects());
   }
-  effects.createEffect(() => fn.call(obj));
+  effects.createEffect(() => effectFn.call(obj));
   stat.applied.set(obj, true);
 }
 

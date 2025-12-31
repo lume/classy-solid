@@ -8,8 +8,7 @@ signals, and for using `class`es as Solid.js components.
 # Table of Contents <!-- omit in toc -->
 
 - [At a glance](#at-a-glance)
-- [Install](#install)
-      - [`npm install classy-solid`](#npm-install-classy-solid)
+- [Install](#install) - [`npm install classy-solid`](#npm-install-classy-solid)
   - [Vite Setup](#vite-setup)
   - [Babel Setup](#babel-setup)
 - [API and Usage](#api-and-usage)
@@ -200,6 +199,16 @@ export class Car {
 	@signal set speed(value) {
 		this.#speed = value
 	}
+
+	// Alternatively, put the signal on the private field, depending on your
+	// needs:
+	// @signal #speed = 0
+	// get speed() {
+	// 	return this.#speed
+	// }
+	// set speed(value) {
+	// 	this.#speed = value
+	// }
 }
 ```
 
@@ -242,6 +251,8 @@ Supported member forms:
 | Accessor (auto) writable | `@memo accessor sum = (_v?: number) => this.a + this.b` | `ex.sum()` / `ex.sum(20)` | Yes       | Arrow fn arity > 0 => writable         |
 | Method readonly          | `@memo sum() { return this.a + this.b }`                | `ex.sum()`                | No        | Method arity 0 => readonly             |
 | Method writable          | `@memo sum(_v?: number) { return this.a + this.b }`     | `ex.sum()` / `ex.sum(20)` | Yes       | Method arity > 0 => writable           |
+
+All forms work with public or private (`#private`) members.
 
 Writable memos: Setting a writable memo (e.g. `ex.sum(20)` or `ex.sum = 20`)
 overrides the current derived value. Subsequent dependency changes resume normal
@@ -345,6 +356,10 @@ them, use:
 - **Method** (recommended): `@effect methodName() { ... }`
 - **Auto accessor**: `@effect accessor name = () => { ... }`
 
+Both forms work with public or private (`#private`) members. Private effects are
+recommended, as people typically shouldn't rely on calling public methods to
+trigger logic that should already be automatic.
+
 **Example with `stopEffects()` and `startEffects()`:**
 
 ```ts
@@ -356,12 +371,13 @@ const [a, setA] = createSignal(1)
 class Counter {
 	@signal count = 0
 
-	@effect logSum() {
+	// Method form (recommended)
+	@effect #logSum() {
 		console.log('Sum:', a() + this.count)
 	}
 
-	// Auto accessor form (less common)
-	@effect accessor logCount = () => {
+	// Auto accessor form (not recommended, only to keep any possibly pre-existing code as-is)
+	@effect accessor #logCount = () => {
 		console.log('Count:', this.count)
 	}
 }
@@ -397,12 +413,14 @@ const [a, setA] = createSignal(1)
 class Counter extends Effects {
 	@signal count = 0
 
-	@memo sum() {
+	// Example: this memo is private, used only within the class.
+	@memo get #sum() {
 		return a() + this.count
 	}
 
-	@effect logSum() {
-		console.log('Sum:', this.sum)
+	// Example: this effect is private, used only within the class.
+	@effect #logSum() {
+		console.log('Sum:', this.#sum)
 	}
 }
 
@@ -473,7 +491,7 @@ import {effect, signal, startEffects, stopEffects} from 'classy-solid'
 import {externalState} from './hypothetical-app-state.js'
 
 class MyElement extends HTMLElement {
-	@effect logCount() {
+	@effect #logCount() {
 		console.log('Value is now:', externalState.value)
 	}
 
@@ -619,6 +637,9 @@ class MyComp {
 		// providing an empty setter makes this a writable memo (backed by createWritableMemo from solid-primitives)
 	}
 
+	// This effect is public (not recommended, if people need to rely on calling
+	// it, something is wrong, effects should be solely dependent on reactive
+	// state).
 	@effect logDoubleCount() {
 		console.log('Double count is now:', this.doubleCount)
 
@@ -673,7 +694,7 @@ class MyComp {
 
 	#h1
 
-	@memo doubleCount() {
+	@memo get doubleCount() {
 		return this.count * 2
 	}
 
@@ -684,7 +705,7 @@ class MyComp {
 		onCleanup(() => clearInterval(this.int))
 	}
 
-	@effect logDoubleCount() {
+	@effect #logDoubleCount() {
 		console.log('Double count is now:', this.doubleCount)
 
 		// If this effect has anything to clean up:
@@ -909,7 +930,8 @@ class MyComp {
 	@signal name = 'Anon'
 	@signal count = 123
 
-	@memo get doubleCount() {
+	// Example: this is private, used only within the class.
+	@memo get #doubleCount() {
 		return this.count * 2
 	}
 
@@ -921,7 +943,7 @@ class MyComp {
 
 	template = () => (
 		<h1 ref={this.#h1}>
-			Hello, my name is {this.name}! The count is {this.count}. The double count is {this.doubleCount}.
+			Hello, my name is {this.name}! The count is {this.count}. The double count is {this.#doubleCount}.
 		</h1>
 	)
 }
@@ -950,9 +972,7 @@ class Counter {
 class Example1 {
 	@signal counterRef: Counter | null = null
 
-	// CONTINUE: make a test to ensure effects via decorator on @component classes
-	// are cleaned up.
-	@effect log() {
+	@effect #log() {
 		console.log(this.counterRef)
 	}
 

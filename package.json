@@ -1,6 +1,6 @@
 {
 	"name": "classy-solid",
-	"version": "0.5.0",
+	"version": "0.5.1",
 	"description": "Solid.js reactivity patterns for classes, and class components.",
 	"author": "Joe Pea <joe@trusktr.io>",
 	"contributors": [

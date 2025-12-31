@@ -105,10 +105,12 @@ export function trackPropSetAtLeastOnce__(instance: object, prop: string | symbo
 	propsSetAtLeastOnce.get(instance)!.add(prop)
 }
 
+const Undefined = Symbol()
+
 export function createSignalAccessor__<T extends object>(
 	obj: T,
 	prop: Exclude<keyof T, number>,
-	initialVal: unknown,
+	initialVal: unknown = Undefined,
 	skipFunctionProperties = false,
 ): void {
 	let descriptor: PropertyDescriptor | undefined = getInheritedDescriptor(obj, prop)
@@ -140,7 +142,7 @@ export function createSignalAccessor__<T extends object>(
 			// for initialVal. For example, if the user class modifies the value
 			// after the initializer, it will have a different value than what
 			// we tracked from the initializer.
-			initialVal = descriptor.value
+			initialVal = initialVal === Undefined ? descriptor.value : initialVal
 		}
 	}
 

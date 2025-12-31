@@ -76,14 +76,14 @@ export function effect(value, context) {
     name
   } = context;
   const metadata = context.metadata;
-  const signalsAndMemos = getMembers(metadata);
-  if (!(kind === 'method' || kind === 'accessor')) throw new Error('@effect can only be used on methods or function-valued accessors');
-  const stat = kind === 'accessor' ? getMemberStat(name, 'effect-auto-accessor', signalsAndMemos) : getMemberStat(name, 'effect-method', signalsAndMemos);
+  const members = getMembers(metadata);
+  if (!(kind === 'method' || kind === 'accessor')) throw new Error('@effect can only be used on methods or function-valued auto accessors');
+  const stat = kind === 'accessor' ? getMemberStat(name, 'effect-auto-accessor', members, context) : getMemberStat(name, 'effect-method', members, context);
   stat.finalize = function () {
-    effectifyIfNeeded(this, name, stat);
+    effectifyIfNeeded(this, stat);
   };
   context.addInitializer(function () {
-    finalizeMembersIfLast(this, signalsAndMemos);
+    finalizeMembersIfLast(this, members);
   });
   if (kind === 'method') stat.value = value;else if (kind === 'accessor') stat.value = value.get;
 }

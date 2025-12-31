@@ -506,6 +506,162 @@ describe('classy-solid', () => {
 			expect(count).toBe(1)
 		})
 
+		it('supports private getter/setters', () => {
+			class Example {
+				@signal a = 1
+				@signal b = 2
+
+				@memo get #sumPrivate() {
+					return this.a + this.b
+				}
+				@memo set #sumPrivate(_val: number) {}
+
+				get sum() {
+					return this.#sumPrivate
+				}
+				set sum(val) {
+					this.#sumPrivate = val
+				}
+			}
+
+			const ex = new Example()
+			let count = 0
+			let lastSum = 0
+
+			createEffect(() => {
+				lastSum = ex.sum
+				count++
+			})
+
+			expect(lastSum).toBe(3)
+			expect(count).toBe(1)
+
+			ex.a = 5
+			expect(lastSum).toBe(7)
+			expect(count).toBe(2)
+
+			batch(() => {
+				ex.a = 3
+				ex.b = 4
+			})
+
+			expect(lastSum).toBe(7)
+			expect(count).toBe(2) // should not run because sum didn't change
+
+			ex.sum = 20
+			expect(lastSum).toBe(20)
+			expect(count).toBe(3)
+		})
+
+		function accessorGetSet(value: ClassAccessorDecoratorTarget<unknown, any>) {
+			return function (_: ClassAccessorDecoratorTarget<unknown, any>, __: ClassAccessorDecoratorContext) {
+				return value
+			}
+		}
+
+		// This is undocumented, but helps us get set up for concise accessors once that syntax lands.
+		it('supports private auto accessors', () => {
+			class Example {
+				@signal a = 1
+				@signal b = 2
+
+				// @ts-ignore
+				@memo
+				@accessorGetSet({
+					get(this: any) {
+						return this.a + this.b
+					},
+					set() {},
+				})
+				accessor #sumPrivate = 0 // initial value won't matter, memo will override initially
+
+				get sum() {
+					return this.#sumPrivate
+				}
+				set sum(val) {
+					this.#sumPrivate = val
+				}
+			}
+
+			const ex = new Example()
+			let count = 0
+			let lastSum = 0
+
+			createEffect(() => {
+				lastSum = ex.sum
+				count++
+			})
+
+			expect(lastSum).toBe(1 + 2)
+			expect(count).toBe(1)
+
+			ex.a = 5
+			expect(lastSum).toBe(5 + 2)
+			expect(count).toBe(2)
+
+			batch(() => {
+				ex.a = 3
+				ex.b = 4
+			})
+
+			expect(lastSum).toBe(7)
+			expect(count).toBe(2) // should not run because sum didn't change
+
+			ex.sum = 20
+			expect(lastSum).toBe(20)
+			expect(count).toBe(3)
+		})
+
+		it('supports private methods', () => {
+			class Example {
+				@signal a = 1
+				@signal b = 2
+
+				@memo #sumPrivate(_val?: number) {
+					return this.a + this.b
+				}
+
+				get sum() {
+					return this.#sumPrivate()
+				}
+				set sum(val) {
+					this.#sumPrivate(val)
+				}
+			}
+
+			const ex = new Example()
+			let count = 0
+			let lastSum = 0
+
+			createEffect(() => {
+				lastSum = ex.sum
+				count++
+			})
+
+			expect(lastSum).toBe(1 + 2)
+			expect(count).toBe(1)
+
+			ex.a = 5
+			expect(lastSum).toBe(5 + 2)
+			expect(count).toBe(2)
+
+			batch(() => {
+				ex.a = 3
+				ex.b = 4
+			})
+
+			expect(lastSum).toBe(7)
+			expect(count).toBe(2) // should not run because sum didn't change
+
+			// CONTINUE writing not working yet for private method memos
+			// Uncomment when fixed
+			debugger
+			ex.sum = 20
+			console.log('sum?', ex.sum)
+			expect(lastSum).toBe(20)
+			expect(count).toBe(3)
+		})
+
 		describe('subclass memo overriding/extending', () => {
 			it('supports subclass memo extending base memo (getter)', () => {
 				class Base {
@@ -889,7 +1045,7 @@ describe('classy-solid', () => {
 					// 2. bar field runs finalizers because it is last in the ordering of extra initializers (so #baz is not initialized yet)
 					// 3. During the logBar finalizer (executed in the bar extra initializer), the baz getter is accessed, which accesses #baz before it is initialized
 					@effect logBar() {
-						console.log('this.baz:', this.baz)
+						this.baz
 					}
 				}
 
@@ -909,7 +1065,7 @@ describe('classy-solid', () => {
 					}
 
 					@effect logBar() {
-						console.log('this.baz:', this.baz)
+						this.baz
 					}
 				}
 

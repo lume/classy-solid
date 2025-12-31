@@ -95,7 +95,8 @@ export function trackPropSetAtLeastOnce__(instance, prop) {
   if (!propsSetAtLeastOnce.has(instance)) propsSetAtLeastOnce.set(instance, new Set());
   propsSetAtLeastOnce.get(instance).add(prop);
 }
-export function createSignalAccessor__(obj, prop, initialVal, skipFunctionProperties = false) {
+const Undefined = Symbol();
+export function createSignalAccessor__(obj, prop, initialVal = Undefined, skipFunctionProperties = false) {
   let descriptor = getInheritedDescriptor(obj, prop);
   let originalGet;
   let originalSet;
@@ -121,7 +122,7 @@ export function createSignalAccessor__(obj, prop, initialVal, skipFunctionProper
       // for initialVal. For example, if the user class modifies the value
       // after the initializer, it will have a different value than what
       // we tracked from the initializer.
-      initialVal = descriptor.value;
+      initialVal = initialVal === Undefined ? descriptor.value : initialVal;
     }
   }
   const signalStorage = new WeakMap();

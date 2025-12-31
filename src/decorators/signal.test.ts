@@ -313,25 +313,6 @@ describe('classy-solid', () => {
 			}
 		})
 
-		it('throws on invalid usage', () => {
-			expect(() => {
-				class InvalidStatic {
-					@signal static val = 1
-				}
-				new InvalidStatic()
-			}).toThrowError('@signal is not supported on static fields yet.')
-
-			expect(() => {
-				class InvalidMethod {
-					// @ts-expect-error type error because method is invalid
-					@signal method() {
-						return 1
-					}
-				}
-				new InvalidMethod()
-			}).toThrowError('The @signal decorator is only for use on fields, getters, setters, and auto accessors.')
-		})
-
 		it('no-ops with Solid proxies to avoid an unnecessary extra signal', () => {
 			let plain!: Human
 			let proxy!: Human
@@ -345,7 +326,7 @@ describe('classy-solid', () => {
 
 			let metadata!: ClassySolidMetadata
 
-			const _signal: typeof signal = (_, context) => {
+			const _signal = (_: unknown, context: ClassFieldDecoratorContext) => {
 				metadata = context.metadata as ClassySolidMetadata
 				return signal(_, context)
 			}
@@ -397,6 +378,90 @@ describe('classy-solid', () => {
 			expect(kid.ageInDogYears).toBe(28)
 		})
 
+		it('cannot support private fields', () => {
+			expect(() => {
+				class Secretive {
+					@signal #secret = 42
+
+					getSecret() {
+						return this.#secret
+					}
+
+					setSecret(v: number) {
+						this.#secret = v
+					}
+				}
+				Secretive
+			}).toThrow(
+				'@signal cannot signalify #private fields. Use a #private getter/setter or auto accessor instead. F.e. convert `@signal #foo = 0` to `@signal accessor #foo = 0`.',
+			)
+		})
+
+		it('supports private auto accessors', () => {
+			class Secretive {
+				@signal accessor #secret = 42
+
+				getSecret() {
+					return this.#secret
+				}
+
+				setSecret(v: number) {
+					this.#secret = v
+				}
+			}
+
+			const s = new Secretive()
+
+			let count = 0
+			createEffect(() => {
+				count++
+				s.getSecret()
+			})
+
+			expect(s.getSecret()).toBe(42)
+			expect(count).toBe(1)
+
+			s.setSecret(100)
+			expect(s.getSecret()).toBe(100)
+			expect(count).toBe(2)
+		})
+
+		it('supports private getter/setters', () => {
+			class Secretive {
+				#secret_ = 42
+
+				@signal get #secret() {
+					return this.#secret_
+				}
+				@signal set #secret(v: number) {
+					this.#secret_ = v
+				}
+
+				getSecret() {
+					return this.#secret
+				}
+
+				setSecret(v: number) {
+					this.#secret = v
+				}
+			}
+
+			const s = new Secretive()
+
+			let count = 0
+			createEffect(() => {
+				count++
+				s.getSecret()
+			})
+
+			expect(s.getSecret()).toBe(42)
+			expect(count).toBe(1)
+
+			s.setSecret(100)
+			expect(s.getSecret()).toBe(100)
+			expect(count).toBe(2)
+		})
+
 		describe('subclass signal overriding/extending', () => {
 			it('supports subclass signal field extending base signal field', () => {
 				class Base {
@@ -410,16 +475,17 @@ describe('classy-solid', () => {
 
 				const s = new Sub()
 				let count = 0
+				let val = 0
 				createEffect(() => {
 					count++
-					s.val
+					val = s.val
 				})
 
-				expect(s.val).toBe(2)
+				expect(val).toBe(2)
 				expect(count).toBe(1)
 
 				s.val = 5
-				expect(s.val).toBe(5)
+				expect(val).toBe(5)
 				expect(count).toBe(2)
 			})
 
@@ -562,9 +628,195 @@ describe('classy-solid', () => {
 				expect(s.v).toBe(50)
 				expect(count).toBe(2)
 			})
+
+			it('keeps base class effects operational when subclass overrides signal field', () => {
+				let effectRuns = 0
+				let val = 0
+
+				class Base {
+					@signal val = 1
+
+					constructor() {
+						createEffect(() => {
+							effectRuns++
+							val = this.val
+						})
+
+						expect(val).toBe(1)
+						expect(effectRuns).toBe(1)
+					}
+				}
+
+				class Sub extends Base {
+					@signal override val = 10
+				}
+
+				const s = new Sub()
+
+				expect(val).toBe(10)
+				// 2 because the subclass signal override sets the original
+				// signal and triggers the base class effect again, otherwise
+				// the effect would be out of sync with the latest value.
+				expect(effectRuns).toBe(2)
+
+				s.val = 20
+				expect(val).toBe(20)
+				expect(effectRuns).toBe(3)
+			})
+
+			it('keeps base class effects operational when subclass overrides signal field, with intermediate decorator', () => {
+				let effectRuns = 0
+				let val = 0
+
+				class Base {
+					@signal val = 1
+
+					constructor() {
+						createEffect(() => {
+							effectRuns++
+							val = this.val
+						})
+
+						expect(val).toBe(1)
+						expect(effectRuns).toBe(1)
+					}
+				}
+
+				function someDeco(_: undefined, _context: ClassFieldDecoratorContext) {
+					// no-op
+					return function (this: any, initialVal: any) {
+						return initialVal - 1
+					}
+				}
+
+				class Sub extends Base {
+					@signal
+					@someDeco
+					override val = 11 // final initial value will be 10
+				}
+
+				const s = new Sub()
+
+				expect(val).toBe(10)
+				// 2 because the subclass signal override sets the original
+				// signal and triggers the base class effect again, otherwise
+				// the effect would be out of sync with the latest value.
+				expect(effectRuns).toBe(2)
+
+				s.val = 20
+				expect(val).toBe(20)
+				expect(effectRuns).toBe(3)
+			})
+
+			it('keeps base class effects operational when subclass overrides signal auto accessor', () => {
+				let effectRuns = 0
+				let val = 0
+
+				class Base {
+					@signal accessor val = 1
+
+					constructor() {
+						createEffect(() => {
+							effectRuns++
+							val = this.val
+						})
+
+						expect(val).toBe(1)
+						expect(effectRuns).toBe(1)
+					}
+				}
+
+				class Sub extends Base {
+					@signal override accessor val = 10
+				}
+
+				const s = new Sub()
+
+				// 2 because the subclass signal override sets the original
+				// signal and triggers the base class effect again, otherwise
+				// the effect would be out of sync with the latest value.
+				expect(effectRuns).toBe(2)
+				expect(val).toBe(10)
+
+				s.val = 20
+				expect(val).toBe(20)
+				expect(effectRuns).toBe(3)
+			})
+
+			it('keeps base class effects operational when subclass overrides signal getter/setter', () => {
+				let effectRuns = 0
+				let val = 0
+
+				class Base {
+					__foo = 1
+
+					@signal get val() {
+						return this.__foo
+					}
+					@signal set val(v: number) {
+						this.__foo = v
+					}
+
+					constructor() {
+						createEffect(() => {
+							effectRuns++
+							val = this.val
+						})
+
+						expect(val).toBe(1)
+						expect(effectRuns).toBe(1)
+					}
+				}
+
+				class Sub extends Base {
+					@signal override get val() {
+						return super.val
+					}
+					@signal override set val(v: number) {
+						super.val = v
+					}
+
+					constructor() {
+						super()
+						this.val = 10
+					}
+				}
+
+				const s = new Sub()
+
+				// 2 because the subclass sets the new value in its constructor,
+				// triggering the base class effect again.
+				expect(effectRuns).toBe(2)
+				expect(val).toBe(10)
+
+				s.val = 20
+				expect(val).toBe(20)
+				expect(effectRuns).toBe(3)
+			})
 		})
 
 		describe('invalid usage', () => {
+			it('throws on static fields', () => {
+				expect(() => {
+					class InvalidStatic {
+						@signal static val = 1
+					}
+					new InvalidStatic()
+				}).toThrow('@signal is not supported on static fields yet.')
+			})
+
+			it('throws on methods', () => {
+				expect(() => {
+					class InvalidMethod {
+						// @ts-expect-error type error because method is invalid
+						@signal method() {
+							return 1
+						}
+					}
+					new InvalidMethod()
+				}).toThrow('The @signal decorator is only for use on fields, getters, setters, and auto accessors.')
+			})
+
 			it('throws on duplicate members', () => {
 				const run = () => {
 					class SuperDuper {

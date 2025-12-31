@@ -7,91 +7,162 @@ import {testElementEffects, type MyElement4} from '../index.test.js'
 
 describe('classy-solid', () => {
 	describe('@effect decorator', () => {
-		it('runs a basic method effect with signals using stopEffects', () => {
+		it('runs a basic public method effect, using stopEffects', () => {
 			const [a, setA] = createSignal(1)
-			let last: number | null = null
-			let runs = 0
 
 			class Funkalicious {
+				last: number | null = null
+				runs = 0
+
 				@signal b = 2
 
 				@effect logSum() {
-					runs++
-					last = a() + this.b
+					this.runs++
+					this.last = a() + this.b
 				}
 			}
 
 			const fun = new Funkalicious()
-			expect(last).toBe(1 + 2)
-			expect(runs).toBe(1)
-
-			setA(5)
-			expect(last).toBe(5 + 2)
-			expect(runs).toBe(2)
-
-			fun.b = 10
-			expect(last).toBe(5 + 10)
-			expect(runs).toBe(3)
-
-			stopEffects(fun)
-			setA(1)
-			fun.b = 1
-			expect(last).toBe(5 + 10)
-			expect(runs).toBe(3)
-
-			startEffects(fun)
-			expect(last).toBe(1 + 1)
-			expect(runs).toBe(4)
-
-			// Ensure no duplicate effects
-			startEffects(fun)
-			expect(last).toBe(1 + 1)
-			expect(runs).toBe(4)
-
-			setA(3)
-			expect(last).toBe(3 + 1)
-			expect(runs).toBe(5)
-
-			stopEffects(fun)
-			setA(10)
-			fun.b = 20
-			expect(last).toBe(3 + 1)
-			expect(runs).toBe(5)
+			basicTest(fun, setA)
 		})
 
-		it('runs a basic method effect with signals using Effects', () => {
+		it('runs a basic private method effect, using stopEffects', () => {
 			const [a, setA] = createSignal(1)
-			let last: number | null = null
-			let runs = 0
+
+			class Funkalicious {
+				last: number | null = null
+				runs = 0
+
+				@signal b = 2
+
+				// @ts-expect-error unused private method
+				@effect #logSum() {
+					this.runs++
+					this.last = a() + this.b
+				}
+			}
+
+			const fun = new Funkalicious()
+			basicTest(fun, setA)
+		})
+
+		it('runs a basic private auto accessor effect, using stopEffects', () => {
+			const [a, setA] = createSignal(1)
+
+			class Funkalicious {
+				last: number | null = null
+				runs = 0
+
+				@signal b = 2
+
+				// @ts-expect-error unused private member
+				@effect accessor #logSum = () => {
+					this.runs++
+					this.last = a() + this.b
+				}
+			}
+
+			const fun = new Funkalicious()
+			basicTest(fun, setA)
+		})
+
+		it('runs a basic public method effect, using Effects', () => {
+			const [a, setA] = createSignal(1)
 
 			class Funkalicious extends Effects {
+				last: number | null = null
+				runs = 0
+
 				@signal b = 2
+
 				@effect logSum() {
-					runs++
-					last = a() + this.b
+					this.runs++
+					this.last = a() + this.b
 				}
 			}
 
 			const fun = new Funkalicious()
-			expect(last).toBe(3)
-			expect(runs).toBe(1)
-
-			setA(5)
-			expect(last).toBe(7)
-			expect(runs).toBe(2)
-
-			fun.b = 10
-			expect(last).toBe(15)
-			expect(runs).toBe(3)
-
-			fun.stopEffects()
-			setA(1)
-			fun.b = 1
-			expect(last).toBe(15)
-			expect(runs).toBe(3)
+			basicTest(fun, setA)
 		})
 
-		it('runs multiple effects independently using Effects', () => {
+		it('runs a basic private method effect, using Effects', () => {
+			const [a, setA] = createSignal(1)
+
+			class Funkalicious extends Effects {
+				last: number | null = null
+				runs = 0
+
+				@signal b = 2
+
+				// @ts-expect-error unused private method
+				@effect #logSum() {
+					this.runs++
+					this.last = a() + this.b
+				}
+			}
+
+			const fun = new Funkalicious()
+			basicTest(fun, setA)
+		})
+
+		it('runs a basic private auto accessor effect, using Effects', () => {
+			const [a, setA] = createSignal(1)
+
+			class Funkalicious extends Effects {
+				last: number | null = null
+				runs = 0
+
+				@signal b = 2
+
+				// @ts-expect-error unused private member
+				@effect accessor #logSum = () => {
+					this.runs++
+					this.last = a() + this.b
+				}
+			}
+
+			const fun = new Funkalicious()
+			basicTest(fun, setA)
+		})
+
+		function basicTest(fun: {b: number; last: number | null; runs: number}, setA: (v: number) => void) {
+			expect(fun.last).toBe(1 + 2)
+			expect(fun.runs).toBe(1)
+
+			setA(5)
+			expect(fun.last).toBe(5 + 2)
+			expect(fun.runs).toBe(2)
+
+			fun.b = 10
+			expect(fun.last).toBe(5 + 10)
+			expect(fun.runs).toBe(3)
+			fun instanceof Effects ? fun.stopEffects() : stopEffects(fun)
+			setA(1)
+			fun.b = 1
+			expect(fun.last).toBe(5 + 10)
+			expect(fun.runs).toBe(3)
+
+			fun instanceof Effects ? fun.startEffects() : startEffects(fun)
+			expect(fun.last).toBe(1 + 1)
+			expect(fun.runs).toBe(4)
+
+			// Ensure no duplicate effects
+			fun instanceof Effects ? fun.startEffects() : startEffects(fun)
+			expect(fun.last).toBe(1 + 1)
+			expect(fun.runs).toBe(4)
+
+			setA(3)
+			expect(fun.last).toBe(3 + 1)
+			expect(fun.runs).toBe(5)
+
+			fun instanceof Effects ? fun.stopEffects() : stopEffects(fun)
+			setA(10)
+			fun.b = 20
+			expect(fun.last).toBe(3 + 1)
+			expect(fun.runs).toBe(5)
+		}
+
+		it('runs multiple effects independently, using Effects', () => {
 			const [a, setA] = createSignal(1)
 			let sum1 = 0
 			let sum2 = 0
@@ -132,7 +203,7 @@ describe('classy-solid', () => {
 			expect(runs).toBe(6)
 		})
 
-		it('runs multiple effects independently using stopEffects', () => {
+		it('runs multiple effects independently, using stopEffects', () => {
 			const [a, setA] = createSignal(1)
 			let sum1 = 0
 			let sum2 = 0
@@ -173,7 +244,7 @@ describe('classy-solid', () => {
 			expect(runs).toBe(6)
 		})
 
-		it('reruns effect when memos change inside effect using Effects', () => {
+		it('reruns effect when memos change inside effect, using Effects', () => {
 			const [a, setA] = createSignal(1)
 			const [b, setB] = createSignal(2)
 			let memoVal = 0
@@ -214,7 +285,7 @@ describe('classy-solid', () => {
 			expect(effectRuns).toBe(3)
 		})
 
-		it('reruns effect when memos change inside effect using stopEffects', () => {
+		it('reruns effect when memos change inside effect, using stopEffects', () => {
 			const [a, setA] = createSignal(1)
 			const [b, setB] = createSignal(2)
 			let memoVal = 0
@@ -254,7 +325,7 @@ describe('classy-solid', () => {
 			expect(memoVal).toBe(11)
 		})
 
-		it('runs an effect on auto accessor using Effects', () => {
+		it('runs an effect on auto accessor, using Effects', () => {
 			const [a, setA] = createSignal(1)
 
 			class AccessorClass extends Effects {
@@ -293,7 +364,7 @@ describe('classy-solid', () => {
 			expect(o.runs).toBe(3)
 		})
 
-		it('runs an effect on auto accessor using stopEffects', () => {
+		it('runs an effect on auto accessor, using stopEffects', () => {
 			const [a, setA] = createSignal(1)
 
 			class AccessorClass {
@@ -694,7 +765,7 @@ describe('classy-solid', () => {
 						@effect nope = () => 123
 					}
 					new BadField()
-				}).toThrow('@effect can only be used on methods or function-valued accessors')
+				}).toThrow('@effect can only be used on methods or function-valued auto accessors')
 			})
 
 			it('throws on invalid getter usage', () => {
@@ -707,7 +778,7 @@ describe('classy-solid', () => {
 						}
 					}
 					new BadGetter()
-				}).toThrow('@effect can only be used on methods or function-valued accessors')
+				}).toThrow('@effect can only be used on methods or function-valued auto accessors')
 			})
 
 			it('throws on invalid static usage', () => {

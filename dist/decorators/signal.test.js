@@ -346,39 +346,8 @@ describe('classy-solid', () => {
         expect(count).toBe(2); // it would be 3 if there were an extra signal
       }
     });
-    it('throws on invalid usage', () => {
-      expect(() => {
-        let _init_val, _init_extra_val;
-        class InvalidStatic {
-          static {
-            [_init_val, _init_extra_val] = _applyDecs(this, [], [[signal, 8, "val"]]).e;
-          }
-          static val = _init_val(1);
-          static {
-            _init_extra_val();
-          }
-        }
-        new InvalidStatic();
-      }).toThrowError('@signal is not supported on static fields yet.');
-      expect(() => {
-        let _initProto8;
-        class InvalidMethod {
-          static {
-            [_initProto8] = _applyDecs(this, [], [[signal, 2, "method"]]).e;
-          }
-          constructor() {
-            _initProto8(this);
-          }
-          // @ts-expect-error type error because method is invalid
-          method() {
-            return 1;
-          }
-        }
-        new InvalidMethod();
-      }).toThrowError('The @signal decorator is only for use on fields, getters, setters, and auto accessors.');
-    });
     it('no-ops with Solid proxies to avoid an unnecessary extra signal', () => {
-      let _initProto9, _init_age, _init_extra_age;
+      let _initProto8, _init_age, _init_extra_age;
       let plain;
       let proxy;
       class Human {
@@ -395,13 +364,13 @@ describe('classy-solid', () => {
       let memoRuns = 0;
       class CoolKid extends Human {
         static {
-          [_init_age, _init_extra_age, _initProto9] = _applyDecs(this, [], [[_signal, 0, "age"], [memo, 3, "ageInDogYears"]], 0, void 0, Human).e;
+          [_init_age, _init_extra_age, _initProto8] = _applyDecs(this, [], [[_signal, 0, "age"], [memo, 3, "ageInDogYears"]], 0, void 0, Human).e;
         }
         constructor(...args) {
           super(...args);
           _init_extra_age(this);
         }
-        age = (_initProto9(this), _init_age(this, 3));
+        age = (_initProto8(this), _init_age(this, 3));
         get ageInDogYears() {
           memoRuns++;
           return this.age * 7;
@@ -437,39 +406,132 @@ describe('classy-solid', () => {
       expect(memoRuns).toBe(2);
       expect(kid.ageInDogYears).toBe(28);
     });
-    describe('subclass signal overriding/extending', () => {
-      it('supports subclass signal field extending base signal field', () => {
-        let _init_val2, _init_extra_val2, _init_val3, _init_extra_val3;
-        class Base {
+    it('cannot support private fields', () => {
+      expect(() => {
+        let _init_secret, _init_extra_secret;
+        class Secretive {
           static {
-            [_init_val2, _init_extra_val2] = _applyDecs(this, [], [[signal, 0, "val"]]).e;
+            [_init_secret, _init_extra_secret] = _applyDecs(this, [], [[signal, 0, "secret", o => o.#secret, (o, v) => o.#secret = v]], 0, _ => #secret in _).e;
           }
           constructor() {
-            _init_extra_val2(this);
+            _init_extra_secret(this);
           }
-          val = _init_val2(this, 1);
+          #secret = _init_secret(this, 42);
+          getSecret() {
+            return this.#secret;
+          }
+          setSecret(v) {
+            this.#secret = v;
+          }
+        }
+        Secretive;
+      }).toThrow('@signal cannot signalify #private fields. Use a #private getter/setter or auto accessor instead. F.e. convert `@signal #foo = 0` to `@signal accessor #foo = 0`.');
+    });
+    it('supports private auto accessors', () => {
+      let _init_secret2, _get_secret, _set_secret, _init_extra_secret2;
+      class Secretive {
+        static {
+          [_init_secret2, _get_secret, _set_secret, _init_extra_secret2] = _applyDecs(this, [], [[signal, 1, "secret", o => o.#A, (o, v) => o.#A = v]], 0, _ => #secret in _).e;
+        }
+        constructor() {
+          _init_extra_secret2(this);
+        }
+        #A = _init_secret2(this, 42);
+        set #secret(v) {
+          _set_secret(this, v);
+        }
+        get #secret() {
+          return _get_secret(this);
+        }
+        getSecret() {
+          return this.#secret;
+        }
+        setSecret(v) {
+          this.#secret = v;
+        }
+      }
+      const s = new Secretive();
+      let count = 0;
+      createEffect(() => {
+        count++;
+        s.getSecret();
+      });
+      expect(s.getSecret()).toBe(42);
+      expect(count).toBe(1);
+      s.setSecret(100);
+      expect(s.getSecret()).toBe(100);
+      expect(count).toBe(2);
+    });
+    it('supports private getter/setters', () => {
+      let _initProto9, _call_secret, _call_secret2;
+      class Secretive {
+        static {
+          [_call_secret, _call_secret2, _initProto9] = _applyDecs(this, [], [[signal, 3, "secret", function () {
+            return this.#secret_;
+          }], [signal, 4, "secret", function (v) {
+            this.#secret_ = v;
+          }]], 0, _ => #secret_ in _).e;
+        }
+        #secret_ = (_initProto9(this), 42);
+        get #secret() {
+          return _call_secret(this);
+        }
+        set #secret(v) {
+          _call_secret2(this, v);
+        }
+        getSecret() {
+          return this.#secret;
+        }
+        setSecret(v) {
+          this.#secret = v;
+        }
+      }
+      const s = new Secretive();
+      let count = 0;
+      createEffect(() => {
+        count++;
+        s.getSecret();
+      });
+      expect(s.getSecret()).toBe(42);
+      expect(count).toBe(1);
+      s.setSecret(100);
+      expect(s.getSecret()).toBe(100);
+      expect(count).toBe(2);
+    });
+    describe('subclass signal overriding/extending', () => {
+      it('supports subclass signal field extending base signal field', () => {
+        let _init_val, _init_extra_val, _init_val2, _init_extra_val2;
+        class Base {
+          static {
+            [_init_val, _init_extra_val] = _applyDecs(this, [], [[signal, 0, "val"]]).e;
+          }
+          constructor() {
+            _init_extra_val(this);
+          }
+          val = _init_val(this, 1);
         }
         class Sub extends Base {
           static {
-            [_init_val3, _init_extra_val3] = _applyDecs(this, [], [[signal, 0, "val"]], 0, void 0, Base).e;
+            [_init_val2, _init_extra_val2] = _applyDecs(this, [], [[signal, 0, "val"]], 0, void 0, Base).e;
           }
           constructor(...args) {
             super(...args);
-            _init_extra_val3(this);
+            _init_extra_val2(this);
           }
           // @ts-ignore this is valid in plain JS, TS complains about using field before initialization
-          val = _init_val3(this, this.val + 1); // override field with initial value from base class
+          val = _init_val2(this, this.val + 1); // override field with initial value from base class
         }
         const s = new Sub();
         let count = 0;
+        let val = 0;
         createEffect(() => {
           count++;
-          s.val;
+          val = s.val;
         });
-        expect(s.val).toBe(2);
+        expect(val).toBe(2);
         expect(count).toBe(1);
         s.val = 5;
-        expect(s.val).toBe(5);
+        expect(val).toBe(5);
         expect(count).toBe(2);
       });
       it('supports subclass signal auto accessor extending base signal auto accessor with super', () => {
@@ -655,8 +717,226 @@ describe('classy-solid', () => {
         expect(s.v).toBe(50);
         expect(count).toBe(2);
       });
+      it('keeps base class effects operational when subclass overrides signal field', () => {
+        let _init_val3, _init_extra_val3, _init_val4, _init_extra_val4;
+        let effectRuns = 0;
+        let val = 0;
+        class Base {
+          static {
+            [_init_val3, _init_extra_val3] = _applyDecs(this, [], [[signal, 0, "val"]]).e;
+          }
+          val = _init_val3(this, 1);
+          constructor() {
+            _init_extra_val3(this);
+            createEffect(() => {
+              effectRuns++;
+              val = this.val;
+            });
+            expect(val).toBe(1);
+            expect(effectRuns).toBe(1);
+          }
+        }
+        class Sub extends Base {
+          static {
+            [_init_val4, _init_extra_val4] = _applyDecs(this, [], [[signal, 0, "val"]], 0, void 0, Base).e;
+          }
+          constructor(...args) {
+            super(...args);
+            _init_extra_val4(this);
+          }
+          val = _init_val4(this, 10);
+        }
+        const s = new Sub();
+        expect(val).toBe(10);
+        // 2 because the subclass signal override sets the original
+        // signal and triggers the base class effect again, otherwise
+        // the effect would be out of sync with the latest value.
+        expect(effectRuns).toBe(2);
+        s.val = 20;
+        expect(val).toBe(20);
+        expect(effectRuns).toBe(3);
+      });
+      it('keeps base class effects operational when subclass overrides signal field, with intermediate decorator', () => {
+        let _init_val5, _init_extra_val5, _init_val6, _init_extra_val6;
+        let effectRuns = 0;
+        let val = 0;
+        class Base {
+          static {
+            [_init_val5, _init_extra_val5] = _applyDecs(this, [], [[signal, 0, "val"]]).e;
+          }
+          val = _init_val5(this, 1);
+          constructor() {
+            _init_extra_val5(this);
+            createEffect(() => {
+              effectRuns++;
+              val = this.val;
+            });
+            expect(val).toBe(1);
+            expect(effectRuns).toBe(1);
+          }
+        }
+        function someDeco(_, _context) {
+          // no-op
+          return function (initialVal) {
+            return initialVal - 1;
+          };
+        }
+        class Sub extends Base {
+          static {
+            [_init_val6, _init_extra_val6] = _applyDecs(this, [], [[[signal, someDeco], 0, "val"]], 0, void 0, Base).e;
+          }
+          constructor(...args) {
+            super(...args);
+            _init_extra_val6(this);
+          }
+          val = _init_val6(this, 11); // final initial value will be 10
+        }
+        const s = new Sub();
+        expect(val).toBe(10);
+        // 2 because the subclass signal override sets the original
+        // signal and triggers the base class effect again, otherwise
+        // the effect would be out of sync with the latest value.
+        expect(effectRuns).toBe(2);
+        s.val = 20;
+        expect(val).toBe(20);
+        expect(effectRuns).toBe(3);
+      });
+      it('keeps base class effects operational when subclass overrides signal auto accessor', () => {
+        let _init_val7, _init_extra_val7, _init_val8, _init_extra_val8;
+        let effectRuns = 0;
+        let val = 0;
+        class Base {
+          static {
+            [_init_val7, _init_extra_val7] = _applyDecs(this, [], [[signal, 1, "val"]]).e;
+          }
+          #A = _init_val7(this, 1);
+          get val() {
+            return this.#A;
+          }
+          set val(v) {
+            this.#A = v;
+          }
+          constructor() {
+            _init_extra_val7(this);
+            createEffect(() => {
+              effectRuns++;
+              val = this.val;
+            });
+            expect(val).toBe(1);
+            expect(effectRuns).toBe(1);
+          }
+        }
+        class Sub extends Base {
+          static {
+            [_init_val8, _init_extra_val8] = _applyDecs(this, [], [[signal, 1, "val"]], 0, void 0, Base).e;
+          }
+          constructor(...args) {
+            super(...args);
+            _init_extra_val8(this);
+          }
+          #A = _init_val8(this, 10);
+          get val() {
+            return this.#A;
+          }
+          set val(v) {
+            this.#A = v;
+          }
+        }
+        const s = new Sub();
+
+        // 2 because the subclass signal override sets the original
+        // signal and triggers the base class effect again, otherwise
+        // the effect would be out of sync with the latest value.
+        expect(effectRuns).toBe(2);
+        expect(val).toBe(10);
+        s.val = 20;
+        expect(val).toBe(20);
+        expect(effectRuns).toBe(3);
+      });
+      it('keeps base class effects operational when subclass overrides signal getter/setter', () => {
+        let _initProto15, _initProto16;
+        let effectRuns = 0;
+        let val = 0;
+        class Base {
+          static {
+            [_initProto15] = _applyDecs(this, [], [[signal, 3, "val"], [signal, 4, "val"]]).e;
+          }
+          __foo = (_initProto15(this), 1);
+          get val() {
+            return this.__foo;
+          }
+          set val(v) {
+            this.__foo = v;
+          }
+          constructor() {
+            createEffect(() => {
+              effectRuns++;
+              val = this.val;
+            });
+            expect(val).toBe(1);
+            expect(effectRuns).toBe(1);
+          }
+        }
+        class Sub extends Base {
+          static {
+            [_initProto16] = _applyDecs(this, [], [[signal, 3, "val"], [signal, 4, "val"]], 0, void 0, Base).e;
+          }
+          get val() {
+            return super.val;
+          }
+          set val(v) {
+            super.val = v;
+          }
+          constructor() {
+            _initProto16(super());
+            this.val = 10;
+          }
+        }
+        const s = new Sub();
+
+        // 2 because the subclass sets the new value in its constructor,
+        // triggering the base class effect again.
+        expect(effectRuns).toBe(2);
+        expect(val).toBe(10);
+        s.val = 20;
+        expect(val).toBe(20);
+        expect(effectRuns).toBe(3);
+      });
     });
     describe('invalid usage', () => {
+      it('throws on static fields', () => {
+        expect(() => {
+          let _init_val9, _init_extra_val9;
+          class InvalidStatic {
+            static {
+              [_init_val9, _init_extra_val9] = _applyDecs(this, [], [[signal, 8, "val"]]).e;
+            }
+            static val = _init_val9(1);
+            static {
+              _init_extra_val9();
+            }
+          }
+          new InvalidStatic();
+        }).toThrow('@signal is not supported on static fields yet.');
+      });
+      it('throws on methods', () => {
+        expect(() => {
+          let _initProto17;
+          class InvalidMethod {
+            static {
+              [_initProto17] = _applyDecs(this, [], [[signal, 2, "method"]]).e;
+            }
+            constructor() {
+              _initProto17(this);
+            }
+            // @ts-expect-error type error because method is invalid
+            method() {
+              return 1;
+            }
+          }
+          new InvalidMethod();
+        }).toThrow('The @signal decorator is only for use on fields, getters, setters, and auto accessors.');
+      });
       it('throws on duplicate members', () => {
         const run = () => {
           let _init_dupe, _init_extra_dupe, _init_dupe2, _init_extra_dupe2;

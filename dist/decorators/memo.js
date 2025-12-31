@@ -1,3 +1,5 @@
+import { createMemo, createRoot } from 'solid-js';
+import { createWritableMemo } from '@solid-primitives/memo';
 import { finalizeMembersIfLast, getMemberStat, getMembers, memoifyIfNeeded } from '../_state.js';
 import './metadata-shim.js';
 
@@ -107,24 +109,107 @@ context) {
     name
   } = context;
   const metadata = context.metadata;
-  const signalsAndMemos = getMembers(metadata);
+  const members = getMembers(metadata);
 
   // Apply finalization logic to all except setters (setters are finalized
   // together with their getters).
   // By skipping setters we also avoid double-counting the getter+setter pair
   // in the finalizeMembersIfLast logic.
-  if (kind === 'setter') return;
+  if (kind === 'setter') {
+    if (context.private) {
+      const getterSetterMemos = getGetterSetterMemos(metadata, name);
+      return function (val) {
+        let memo = getterSetterMemos.get(this);
+        if (!memo) throw new Error('Memo not initialized yet. Access the getter first (f.e. set up effects first), then write.');
+        memo[1](val);
+      }; // unable to make TypeScript happy about the return type here at @memo application sites
+    }
+    return;
+  }
+
+  // TODO move off of memoify() (memoifyIfNeeded()), and follow this pattern for
+  // public members like we do here with private members.
+  if (context.private) {
+    if (kind === 'getter') {
+      const memos = getGetterSetterMemos(metadata, name);
+      const memoFn = value;
+      return function () {
+        const self = this;
+        let memo = memos.get(self);
+        if (!memo) {
+          // Initialize memo on first usage.
+          // Use createRoot to detach the from any current effect or
+          // the memo will be cleaned up when an outer effect re-runs,
+          // stopping any effects that depend on the memo from
+          // re-running.
+          // https://github.com/solidjs/solid/issues/2571
+          memos.set(self, memo = createRoot(() => createWritableMemo(() => memoFn.call(this))));
+        }
+        return memo[0]();
+      };
+    } else if (kind === 'accessor') {
+      const memos = new WeakMap();
+      const memoFn = value.get;
+      const get = function () {
+        const memo = memos.get(this);
+        return memo[0]();
+      };
+      const set = function (val) {
+        const memo = memos.get(this);
+        memo[1](val);
+      };
+      const init = function (val) {
+        const self = this;
+        memos.set(self, createWritableMemo(() => memoFn.call(self), val));
+        return val;
+      };
+      return {
+        get,
+        set,
+        init
+      };
+    } else if (kind === 'method') {
+      const memos = new WeakMap();
+      const memoFn = value;
+      const Undefined = Symbol();
+      return function (val = Undefined) {
+        const self = this;
+        let memo = memos.get(self);
+        if (!memo) {
+          // Initialize memo on first usage.
+          memos.set(self,
+          // Use createRoot to detach the from any current effect or
+          // the memo will be cleaned up when an outer effect re-runs,
+          // stopping any effects that depend on the memo from
+          // re-running.
+          // https://github.com/solidjs/solid/issues/2571
+          memo = createRoot(() => memoFn.length === 0 ? [createMemo(() => memoFn.call(self)), () => {}] : createWritableMemo(() => {
+            debugger;
+            return memoFn.call(self);
+          })));
+        }
+        return val === Undefined ? memo[0]() : memo[1](val);
+      };
+    }
+  }
 
   // @ts-expect-error skip type checking in case of invalid kind in plain JS
   if (kind === 'field') throw new Error('@memo is not supported on class fields.');
   const memberType = kind === 'accessor' ? 'memo-auto-accessor' : kind === 'method' ? 'memo-method' : 'memo-accessor';
-  const stat = getMemberStat(name, memberType, signalsAndMemos);
+  const stat = getMemberStat(name, memberType, members, context);
   stat.finalize = function () {
-    memoifyIfNeeded(this, name, stat);
+    memoifyIfNeeded(this, stat);
   };
   context.addInitializer(function () {
-    finalizeMembersIfLast(this, signalsAndMemos);
+    finalizeMembersIfLast(this, members);
   });
   if (kind === 'method' || kind === 'getter') stat.value = value;else if (kind === 'accessor') stat.value = value.get;
+}
+function getGetterSetterMemos(metadata, name) {
+  if (!Object.hasOwn(metadata, 'classySolid_getterSetterMemos')) metadata.classySolid_getterSetterMemos = {};
+  const getterSetterMemoStorage = metadata.classySolid_getterSetterMemos;
+  let getterSetterMemos = getterSetterMemoStorage[name];
+  if (!getterSetterMemos) metadata.classySolid_getterSetterMemos[name] = getterSetterMemos = new WeakMap();
+  return getterSetterMemos;
 }
 //# sourceMappingURL=memo.js.map

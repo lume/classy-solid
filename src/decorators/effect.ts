@@ -78,22 +78,22 @@ export function effect(
 
 	const {kind, name} = context
 	const metadata = context.metadata as ClassySolidMetadata
-	const signalsAndMemos = getMembers(metadata)
+	const members = getMembers(metadata)
 
 	if (!(kind === 'method' || kind === 'accessor'))
-		throw new Error('@effect can only be used on methods or function-valued accessors')
+		throw new Error('@effect can only be used on methods or function-valued auto accessors')
 
 	const stat =
 		kind === 'accessor'
-			? getMemberStat(name, 'effect-auto-accessor', signalsAndMemos)
-			: getMemberStat(name, 'effect-method', signalsAndMemos)
+			? getMemberStat(name, 'effect-auto-accessor', members, context)
+			: getMemberStat(name, 'effect-method', members, context)
 
-	stat.finalize = function (this: unknown) {
-		effectifyIfNeeded(this as AnyObject, name, stat)
+	stat.finalize = function () {
+		effectifyIfNeeded(this as AnyObject, stat)
 	}
 
 	context.addInitializer(function () {
-		finalizeMembersIfLast(this as AnyObject, signalsAndMemos)
+		finalizeMembersIfLast(this as AnyObject, members)
 	})
 
 	if (kind === 'method') stat.value = value

@@ -3,6 +3,7 @@ import { getSignal__, trackPropSetAtLeastOnce__ } from '../signals/signalify.js'
 import { isSignalGetter, getMemberStat, finalizeMembersIfLast, getMembers, signalifyIfNeeded } from '../_state.js';
 import './metadata-shim.js';
 const Undefined = Symbol();
+const isExtending = new WeakSet();
 
 /**
  * @decorator
@@ -22,33 +23,83 @@ const Undefined = Symbol();
  *
  *   constructor() {
  *     setInterval(() => this.count++, 1000)
+ *
+ *     createEffect(() => {
+ *       console.log('count:', this.count)
+ *     })
  *   }
  * }
  *
  * const counter = new Counter()
  *
- * createEffect(() => {
- *   console.log('count:', counter.count)
- * })
+ * // When extending a class with a signal field, the subclass can override
+ * // the initial value while keeping base class effects and memos working:
+ * class SubCounter extends Counter {
+ *   ⁣@signal override count = 10 // starts at 10 instead of 0
+ * }
  * ```
  */
-export function signal(value, context) {
+
+export function signal(valueOrOptions, context) {
+  // Used as `@signal` without options
+  if (context) return signalImplementation(valueOrOptions, context);
+
+  // Used as `@signal({...})` with options
+
+  const options = valueOrOptions;
+  return function (value, context) {
+    return signalImplementation(value, context, options);
+  };
+}
+function signalImplementation(value, context, options = {
+  extend: true
+}) {
   if (context.static) throw new Error('@signal is not supported on static fields yet.');
+  options.extend ??= true;
   const {
     kind,
     name
   } = context;
   const metadata = context.metadata;
-  const signalsAndMemos = getMembers(metadata);
+  const members = getMembers(metadata);
   if (!(kind === 'field' || kind === 'accessor' || kind === 'getter' || kind === 'setter')) throw new InvalidSignalDecoratorError();
   if (kind === 'field') {
-    const stat = getMemberStat(name, 'signal-field', signalsAndMemos);
+    if (context.private) throw new Error('@signal cannot signalify #private fields. Use a #private getter/setter or auto accessor instead. F.e. convert `@signal #foo = 0` to `@signal accessor #foo = 0`.');
+    const stat = getMemberStat(name, 'signal-field', members, context);
     stat.finalize = function () {
-      signalifyIfNeeded(this, name, stat);
+      signalifyIfNeeded(this, stat);
     };
     context.addInitializer(function () {
-      finalizeMembersIfLast(this, signalsAndMemos);
+      if (stat.reuseExistingSignal) {
+        // Delete the value descriptor, put back the signal descriptor,
+        // and set the new initial value.
+        stat.newInitialValue = this[name];
+        delete this[name];
+        Object.defineProperty(this, name, stat.existingSignalDescriptor);
+        this[name] = stat.newInitialValue;
+      }
+      finalizeMembersIfLast(this, members);
     });
+    return function (initialVal) {
+      // Detect if we already have a signal for this instance, and if so
+      // re-use it.  This allows base class effects to stay operational
+      // instead of a new signal being created that the base class effect
+      // won't track.
+      const descriptor = Object.getOwnPropertyDescriptor(this, name);
+
+      // If we already have a signal descriptor, we will re-use it, so
+      // that any effects depending on it will continue to work.
+      if (isSignalGetter.has(descriptor?.get)) {
+        stat.reuseExistingSignal = true;
+        stat.newInitialValue = initialVal;
+        stat.existingSignalDescriptor = descriptor;
+      }
+
+      // The engine will define the property with this value in a value
+      // descriptor, which we need to convert to a signal accessor
+      // descriptor again (or for first time).
+      return initialVal;
+    };
   }
 
   // It's ok that getters/setters/auto-accessors are not finalized the same
@@ -61,27 +112,51 @@ export function signal(value, context) {
       set
     } = value;
     const signalStorage = new WeakMap();
-    let initialValue = undefined;
-    const newValue = {
-      init: function (initialVal) {
-        initialValue = initialVal;
-        return initialVal;
-      },
-      get: function () {
-        getSignal__(this, signalStorage, initialValue)();
-        return get.call(this);
-      },
-      set: function (newValue) {
-        // batch, for example in case setter calls super setter, to
-        // avoid multiple effect runs on a single property set.
-        batch(() => {
-          set.call(this, newValue);
-          trackPropSetAtLeastOnce__(this, name); // not needed anymore? test it
+    let initialValue = Undefined;
+    function init(initialVal) {
+      initialValue = initialVal;
+      return initialVal;
+    }
+    context.addInitializer(function () {
+      // Locate the prototype of this auto accessor.
+      const proto = getPrototypeOfMethodOrAccessor(this, name, newGet);
 
-          const s = getSignal__(this, signalStorage, initialValue);
-          s(typeof newValue === 'function' ? () => newValue : newValue);
-        });
+      // If not already deleted to unshadow base class accessor
+      if (proto) {
+        // While not on the current prototype, delete subclass descriptors if they are marked as extending.
+        let currentProto = this;
+        while (currentProto && currentProto !== proto) {
+          const descriptor = Object.getOwnPropertyDescriptor(currentProto, name);
+          const fn = descriptor?.get;
+
+          // Delete the subclass descriptor to unshadow the base class
+          // descriptor.
+          if (fn && isExtending.has(fn)) delete currentProto[name];
+          currentProto = currentProto.__proto__;
+        }
       }
+      Reflect.set(proto ?? this, name, initialValue, this);
+    });
+    function newGet() {
+      getSignal__(this, signalStorage, initialValue)();
+      return get.call(this);
+    }
+    if (options.extend) isExtending.add(newGet);
+    function newSet(newValue) {
+      // batch, for example in case setter calls super setter, to
+      // avoid multiple effect runs on a single property set.
+      batch(() => {
+        set.call(this, newValue);
+        trackPropSetAtLeastOnce__(this, name); // TODO still needed? test it. I think it is still needed for @lume/element.
+
+        const s = getSignal__(this, signalStorage, initialValue);
+        s(typeof newValue === 'function' ? () => newValue : newValue);
+      });
+    }
+    const newValue = {
+      init,
+      get: newGet,
+      set: newSet
     };
     isSignalGetter.add(newValue.get);
     return newValue;
@@ -136,5 +211,16 @@ class InvalidSignalDecoratorError extends Error {
   constructor() {
     super('The @signal decorator is only for use on fields, getters, setters, and auto accessors.');
   }
+}
+
+// TODO move this to lowclass
+function getPrototypeOfMethodOrAccessor(obj, name, fn) {
+  let proto = Object.getPrototypeOf(obj);
+  while (proto) {
+    const descriptor = Object.getOwnPropertyDescriptor(proto, name);
+    if (descriptor && (descriptor.get === fn || descriptor.set === fn || descriptor.value === fn)) return proto;
+    proto = Object.getPrototypeOf(proto);
+  }
+  return null;
 }
 //# sourceMappingURL=signal.js.map

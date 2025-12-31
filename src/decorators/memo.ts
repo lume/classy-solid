@@ -1,4 +1,6 @@
-import type {AnyObject, ClassySolidMetadata} from './types.js'
+import {createMemo, createRoot, type Setter, type Signal} from 'solid-js'
+import {createWritableMemo} from '@solid-primitives/memo'
+import type {AnyObject, ClassySolidMetadata, PropKey} from './types.js'
 import {finalizeMembersIfLast, getMemberStat, getMembers, memoifyIfNeeded} from '../_state.js'
 import './metadata-shim.js'
 
@@ -101,8 +103,8 @@ import './metadata-shim.js'
  */
 export function memo(
 	value:
-		| ((val?: any) => any) // writable memo via field or method
-		| (() => any) // readonly memo via field or method
+		| ((val?: any) => any) // writable memo via method
+		| (() => any) // readonly memo via method
 		| ((val?: any) => void) // memo setter
 		| (() => void) // memo getter
 		| ClassAccessorDecoratorTarget<unknown, () => any> // today's auto-accessors, readonly memo
@@ -117,29 +119,127 @@ export function memo(
 
 	const {kind, name} = context
 	const metadata = context.metadata as ClassySolidMetadata
-	const signalsAndMemos = getMembers(metadata)
+	const members = getMembers(metadata)
 
 	// Apply finalization logic to all except setters (setters are finalized
 	// together with their getters).
 	// By skipping setters we also avoid double-counting the getter+setter pair
 	// in the finalizeMembersIfLast logic.
-	if (kind === 'setter') return
+	if (kind === 'setter') {
+		if (context.private) {
+			const getterSetterMemos = getGetterSetterMemos(metadata, name)
+
+			return function (this: unknown, val: unknown) {
+				let memo = getterSetterMemos.get(this as AnyObject)
+				if (!memo)
+					throw new Error('Memo not initialized yet. Access the getter first (f.e. set up effects first), then write.')
+				memo![1](val)
+			} as any // unable to make TypeScript happy about the return type here at @memo application sites
+		}
+		return
+	}
+
+	// TODO move off of memoify() (memoifyIfNeeded()), and follow this pattern for
+	// public members like we do here with private members.
+	if (context.private) {
+		if (kind === 'getter') {
+			const memos = getGetterSetterMemos(metadata, name)
+			const memoFn = value as () => any
+
+			return function (this: unknown) {
+				const self = this as AnyObject
+				let memo = memos.get(self)
+				if (!memo) {
+					// Initialize memo on first usage.
+					// Use createRoot to detach the from any current effect or
+					// the memo will be cleaned up when an outer effect re-runs,
+					// stopping any effects that depend on the memo from
+					// re-running.
+					// https://github.com/solidjs/solid/issues/2571
+					memos.set(self, (memo = createRoot(() => createWritableMemo(() => memoFn.call(this)))))
+				}
+				return memo[0]()
+			}
+		} else if (kind === 'accessor') {
+			const memos = new WeakMap<object, Signal<any>>()
+			const memoFn = (value as ClassAccessorDecoratorTarget<unknown, () => any>).get
+
+			const get = function (this: unknown) {
+				const memo = memos.get(this as AnyObject)!
+				return memo[0]()
+			}
+
+			const set = function (this: unknown, val: unknown) {
+				const memo = memos.get(this as AnyObject)!
+				memo[1](val)
+			}
+
+			const init = function (this: unknown, val: unknown) {
+				const self = this as AnyObject
+				memos.set(
+					self,
+					createWritableMemo(() => memoFn.call(self), val),
+				)
+				return val
+			}
+
+			return {get, set, init}
+		} else if (kind === 'method') {
+			const memos = new WeakMap<object, Signal<any>>()
+			const memoFn = value as (val?: any) => any
+			const Undefined = Symbol()
+
+			return function (this: unknown, val: unknown = Undefined) {
+				const self = this as AnyObject
+				let memo = memos.get(self)
+				if (!memo) {
+					// Initialize memo on first usage.
+					memos.set(
+						self,
+						// Use createRoot to detach the from any current effect or
+						// the memo will be cleaned up when an outer effect re-runs,
+						// stopping any effects that depend on the memo from
+						// re-running.
+						// https://github.com/solidjs/solid/issues/2571
+						(memo = createRoot(() =>
+							memoFn.length === 0
+								? [createMemo(() => memoFn.call(self)), (() => {}) as Setter<any>]
+								: createWritableMemo(() => {
+										debugger
+										return memoFn.call(self)
+								  }),
+						)),
+					)
+				}
+				return val === Undefined ? memo[0]() : memo[1](val)
+			}
+		}
+	}
 
 	// @ts-expect-error skip type checking in case of invalid kind in plain JS
 	if (kind === 'field') throw new Error('@memo is not supported on class fields.')
 
 	const memberType = kind === 'accessor' ? 'memo-auto-accessor' : kind === 'method' ? 'memo-method' : 'memo-accessor'
 
-	const stat = getMemberStat(name, memberType, signalsAndMemos)
+	const stat = getMemberStat(name, memberType, members, context)
 
-	stat.finalize = function (this: unknown) {
-		memoifyIfNeeded(this as AnyObject, name, stat)
+	stat.finalize = function () {
+		memoifyIfNeeded(this as AnyObject, stat)
 	}
 
 	context.addInitializer(function () {
-		finalizeMembersIfLast(this as AnyObject, signalsAndMemos)
+		finalizeMembersIfLast(this as AnyObject, members)
 	})
 
 	if (kind === 'method' || kind === 'getter') stat.value = value
 	else if (kind === 'accessor') stat.value = (value as ClassAccessorDecoratorTarget<unknown, () => void>).get
+}
+
+function getGetterSetterMemos(metadata: ClassySolidMetadata, name: PropKey) {
+	if (!Object.hasOwn(metadata, 'classySolid_getterSetterMemos')) metadata.classySolid_getterSetterMemos = {}
+	const getterSetterMemoStorage = metadata.classySolid_getterSetterMemos!
+	let getterSetterMemos = getterSetterMemoStorage[name]
+	if (!getterSetterMemos)
+		metadata.classySolid_getterSetterMemos![name] = getterSetterMemos = new WeakMap<object, Signal<any>>()
+	return getterSetterMemos
 }

@@ -4,14 +4,17 @@ import type {
 	MetadataMembers,
 	PropKey,
 	ClassySolidMetadata,
-	SignalOrMemoType,
+	MemberType,
 } from './decorators/types.js'
 import {memoify, setMemoifyMemberStat} from './signals/memoify.js'
 import {getInheritedDescriptor} from 'lowclass/dist/getInheritedDescriptor.js'
 import {signalify} from './signals/signalify.js'
 import {Effects} from './mixins/Effectful.js'
+import {untrack} from 'solid-js'
 
+/** Libraries that wrap classy-solid signal accessors should add their overriding getters to this set. */
 export const isSignalGetter = new WeakSet<Function>()
+/** Libraries that wrap classy-solid memo accessors should add their overriding getters to this set. */
 export const isMemoGetter = new WeakSet<Function>()
 
 export function getMembers(metadata: ClassySolidMetadata) {
@@ -19,10 +22,15 @@ export function getMembers(metadata: ClassySolidMetadata) {
 	return metadata.classySolid_members!
 }
 
-export function getMemberStat(name: PropKey, type: SignalOrMemoType, members: MetadataMembers) {
+export function getMemberStat(
+	name: PropKey,
+	type: MemberType,
+	members: MetadataMembers,
+	context: ClassMemberDecoratorContext,
+) {
 	const index = members.findIndex(member => member.name === name)
 	const existingStat = members[index]
-	const newStat: MemberStat = {type, name, applied: new WeakMap(), finalize: () => {}}
+	const newStat: MemberStat = {type, name, applied: new WeakMap(), finalize: () => {}, context}
 
 	// replace stat in the array with the latest (f.e. duplicate class members, last one wins)
 	if (existingStat) members[index] = newStat
@@ -34,7 +42,7 @@ export function getMemberStat(name: PropKey, type: SignalOrMemoType, members: Me
 const isSortedCustom = new WeakSet<MetadataMembers>()
 
 // This is the order we want for initializing supported types of members.
-const customSortOrder: Record<SignalOrMemoType, number> = {
+const customSortOrder: Record<MemberType, number> = {
 	'signal-field': 0,
 	'memo-auto-accessor': 1,
 	'memo-accessor': 1,
@@ -77,7 +85,9 @@ function sortMetadataMembersCustomOrder(members: MetadataMembers) {
 	members.sort((a, b) => customSortOrder[a.type] - customSortOrder[b.type])
 }
 
-export function signalifyIfNeeded(obj: AnyObject, name: PropKey, stat: MemberStat) {
+export function signalifyIfNeeded(obj: AnyObject, stat: MemberStat) {
+	const {name} = stat
+
 	if (stat.applied.get(obj))
 		throw new Error(
 			`@signal decorated member "${String(
@@ -85,12 +95,14 @@ export function signalifyIfNeeded(obj: AnyObject, name: PropKey, stat: MemberSta
 			)}" has already been signalified. This can happen if there are duplicated class members.`,
 		)
 
-	signalify(obj, [name, /*untrack*/ () => obj[name]]) // untrack in case obj[name] is already a signal (f.e. from a Solid Proxy)
+	if (!stat.reuseExistingSignal) signalify(obj, [name, untrack(() => obj[name])])
 
 	stat.applied.set(obj, true)
 }
 
-export function memoifyIfNeeded(obj: AnyObject, name: PropKey, stat: MemberStat) {
+export function memoifyIfNeeded(obj: AnyObject, stat: MemberStat) {
+	const {name, context} = stat
+
 	if (stat.applied.get(obj))
 		throw new Error(
 			`@memo decorated member "${String(
@@ -98,8 +110,12 @@ export function memoifyIfNeeded(obj: AnyObject, name: PropKey, stat: MemberStat)
 			)}" has already been memoified. This can happen if there are duplicated class members.`,
 		)
 
-	setMemoifyMemberStat(stat)
-	memoify(obj, name as keyof typeof obj)
+	if (context.private && context.kind === 'getter') {
+		// stat.memoGet
+	} else {
+		setMemoifyMemberStat(stat)
+		memoify(obj, name as keyof typeof obj)
+	}
 
 	stat.applied.set(obj, true)
 }
@@ -107,7 +123,9 @@ export function memoifyIfNeeded(obj: AnyObject, name: PropKey, stat: MemberStat)
 /** @private internal state */
 export const effects__ = new WeakMap<AnyObject, Effects>()
 
-export function effectifyIfNeeded(obj: AnyObject, name: PropKey, stat: MemberStat) {
+export function effectifyIfNeeded(obj: AnyObject, stat: MemberStat) {
+	const {name, context} = stat
+
 	if (stat.applied.get(obj))
 		throw new Error(
 			`@effect decorated member "${String(
@@ -115,17 +133,28 @@ export function effectifyIfNeeded(obj: AnyObject, name: PropKey, stat: MemberSta
 			)}" has already been effectified. This can happen if there are duplicated class members.`,
 		)
 
-	const decoratorValue = stat.value as Function
-	if (!decoratorValue) throw new Error('not possible')
+	if (context.kind !== 'method' && context.kind !== 'accessor') throw new Error('not possible')
 
-	const descriptor = getInheritedDescriptor(obj, name)!
-	const leafmostMemberValue = stat.type === 'effect-auto-accessor' ? descriptor.get : obj[name]
+	const decoratedMember = stat.value as Function
+	if (!decoratedMember) throw new Error('not possible')
+
+	// In case of private members, there is no inheritance, so the decorated value is the member itself.
+	const privateMember = context.private && decoratedMember
+
+	// Get any overriding/extending member from the prototype chain.
+	const leafmostMember = privateMember
+		? privateMember
+		: stat.type === 'effect-auto-accessor'
+		? getInheritedDescriptor(obj, name)!.get // auto-accessor getter is the member (not the value)
+		: obj[name] // method is both value and member
 
 	// Skip base class effectify if a subclass is overriding an effect.
-	if (leafmostMemberValue !== decoratorValue) return
+	if (leafmostMember !== decoratedMember) return
 
-	const fn = obj[name]
-	if (typeof fn !== 'function') throw new Error(`@effect decorated member "${String(name)}" is not a function: ${fn}`)
+	const effectFn = context.access.get(obj)
+
+	if (typeof effectFn !== 'function')
+		throw new Error(`@effect decorated member "${String(name)}" is not a function: ${effectFn}`)
 
 	let effects = effects__.get(obj)
 	if (!effects) {
@@ -135,7 +164,7 @@ export function effectifyIfNeeded(obj: AnyObject, name: PropKey, stat: MemberSta
 		else effects__.set(obj, (effects = new Effects()))
 	}
 
-	effects.createEffect(() => fn.call(obj))
+	effects.createEffect(() => effectFn.call(obj))
 
 	stat.applied.set(obj, true)
 }

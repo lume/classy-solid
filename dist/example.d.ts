@@ -1,7 +1,2 @@
-declare class Foo {
-    foo: number;
-    get lorem(): number;
-    set lorem(v: number);
-}
-export { Foo };
+export {};
 //# sourceMappingURL=example.d.ts.map

@@ -96,6 +96,7 @@ stopEffects(counter)
 @component
 class MyComp {
 	@signal message = 'Hello, World!'
+	@signal name = 'Asa'
 
 	template() {
 		setTimeout(() => (this.message = 'Hello after 3 seconds!'), 3000)
@@ -114,6 +115,8 @@ class MyComp {
 
 render(() => <MyComp name="Joe" />, document.body)
 ```
+
+See the [live example](https://rawcdn.githack.com/lume/classy-solid/84a66ba70924f7a534792910aaeace3f594ff1db/example/index.html) and its [source code](https://github.com/lume/classy-solid/blob/84a66ba70924f7a534792910aaeace3f594ff1db/src/example.ts).
 
 # Install
 

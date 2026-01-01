@@ -43,8 +43,8 @@ signals, and for using `class`es as Solid.js components.
 # At a glance
 
 ```jsx
-import {createEffect, render, batch} from 'solid-js'
-import {component, signal, memo} from 'classy-solid'
+import {render, batch} from 'solid-js'
+import {component, signal, memo, effect, stopEffects} from 'classy-solid'
 
 //////////////////////////////////////////////////
 // Make plain classes reactive with Solid signals.
@@ -53,8 +53,18 @@ class Counter {
 	@signal count = 0
 	@signal num = 10
 
-	@memo get sum() {
+	@memo get #sum() {
 		return this.count + this.num
+	}
+
+	@effect #logCount() {
+		// Log the count whenever it changes.
+		console.log(`Count is: ${this.count}`)
+	}
+
+	@effect #logSum() {
+		// Log the sum whenever it changes.
+		console.log(`Sum is: ${this.#sum}`)
 	}
 
 	increment() {
@@ -65,16 +75,6 @@ class Counter {
 const counter = new Counter()
 
 setInterval(() => counter.increment(), 1000)
-
-createEffect(() => {
-	// Log the count whenever it changes.
-	console.log(`Count is: ${counter.count}`)
-})
-
-createEffect(() => {
-	// Log the sum whenever it changes.
-	console.log(`Sum is: ${counter.sum}`)
-})
 
 counter.count = 5 // Logs "Count is: 5" and "Sum is: 15"
 counter.num = 20 // Logs "Sum is: 25"
@@ -87,6 +87,9 @@ batch(() => {
 	counter.num = 15
 })
 
+// ...later, clean up when done...
+stopEffects(counter)
+
 //////////////////////////////////////////////////
 // Optionally use classes as Solid components.
 
@@ -94,16 +97,14 @@ batch(() => {
 class MyComp {
 	@signal message = 'Hello, World!'
 
-	template(props) {
-		setTimeout(() => {
-			this.message = 'Hello after 3 seconds!'
-		}, 3000)
+	template() {
+		setTimeout(() => (this.message = 'Hello after 3 seconds!'), 3000)
 
 		return (
 			<div>
 				<h1>{this.message}</h1>
 
-				<p>My name is {props.name}.</p>
+				<p>My name is {this.name}.</p>
 
 				<p>The count is: {counter.count}</p>
 			</div>

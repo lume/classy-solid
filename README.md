@@ -8,7 +8,7 @@ signals, and for using `class`es as Solid.js components.
 # Table of Contents <!-- omit in toc -->
 
 - [At a glance](#at-a-glance)
-- [Install](#install) - [`npm install classy-solid`](#npm-install-classy-solid)
+- [Install](#install)
   - [Vite Setup](#vite-setup)
   - [Babel Setup](#babel-setup)
 - [API and Usage](#api-and-usage)
@@ -120,7 +120,7 @@ See the [live example](https://rawcdn.githack.com/lume/classy-solid/84a66ba70924
 
 # Install
 
-#### `npm install classy-solid`
+#### `npm install classy-solid` <!-- omit in toc -->
 
 > **Note** If you do not have or do not wish to use a build tool, see the
 > [Without compiler support](#without-compiler-support) section for plain
@@ -512,6 +512,65 @@ class MyElement extends HTMLElement {
 }
 
 customElements.define('my-element', MyElement)
+```
+
+**Preventing auto-start with `static autoStartEffects`:**
+
+By default, effects created with the `@effect` decorator start immediately when
+an instance is constructed. You can prevent this by setting a static
+`autoStartEffects` property to `false` on your class. This is useful when you
+want to manually control when effects begin running, such as when deferring
+effect startup until a component is mounted or an element is connected to the
+DOM.
+
+```ts
+import {effect, signal, Effects, startEffects} from 'classy-solid'
+
+class Counter extends Effects {
+	@signal count = 0
+
+	// Prevent effects from auto-starting on construction
+	static autoStartEffects = false
+
+	@effect #logCount() {
+		console.log('Count:', this.count)
+	}
+}
+
+const counter = new Counter()
+// Effects haven't run yet, so nothing is logged
+
+// Later, when you want effects to start:
+startEffects(counter)
+// Now logs "Count: 0"
+
+counter.count = 5 // logs "Count: 5"
+```
+
+This pattern is particularly useful with custom elements:
+
+```ts
+import {effect, signal, Effectful, startEffects, stopEffects} from 'classy-solid'
+
+class MyElement extends HTMLElement {
+	static autoStartEffects = false
+
+	@signal data = null
+
+	@effect #renderData() {
+		console.log('Rendering:', this.data)
+	}
+
+	connectedCallback() {
+		// Start effects only when element is in the DOM
+		startEffects(this)
+	}
+
+	disconnectedCallback() {
+		// Stop effects when element is removed
+		stopEffects(this)
+	}
+}
 ```
 
 ### `@untracked`
@@ -1518,6 +1577,85 @@ counterEl.remove() // effects stop
 > `createEffect()` creates a single owner root for all effects for the current
 > instance, unless it is called inside another root in which case it'll use that
 > root.
+
+**Deferred effect startup with `addEffectFn()`:**
+
+By default, `createEffect()` immediately starts effects. In some cases, you may
+want to add effect functions without starting them, and then start them all at
+once later using `startEffects()`. The `addEffectFn()` method allows you to do
+this:
+
+- `this.addEffectFn(fn)` - Adds an effect function to the instance without starting it.
+
+```js
+import {onCleanup} from 'solid-js'
+import {signal, Effectful, startEffects, stopEffects} from 'classy-solid'
+
+class DeferredEffects extends Effectful(Object) {
+	@signal count = 0
+
+	constructor() {
+		super()
+
+		// Add effects without starting them
+		this.addEffectFn(() => {
+			console.log('count is', this.count)
+		})
+
+		this.addEffectFn(() => {
+			const inter = setInterval(() => this.count++, 1000)
+			onCleanup(() => clearInterval(inter))
+		})
+	}
+}
+
+const deferred = new DeferredEffects()
+// No effects run yet
+
+deferred.startEffects()
+// Now logs "count is 0" and starts interval incrementing count
+
+deferred.count = 5
+// Logs "count is 5" and continues interval incrementing count
+
+deferred.stopEffects()
+// Effects stop
+```
+
+This is particularly useful when combined with `static autoStartEffects = false`
+and the `@effect` decorator. The above example can be rewritten like this:
+
+```js
+import {onCleanup} from 'solid-js'
+import {signal, Effectful, startEffects, stopEffects} from 'classy-solid'
+
+class DeferredEffects extends Effectful(Object) {
+	static autoStartEffects = false
+
+	@signal count = 0
+
+	@effect logCount() {
+		console.log('count is', this.count)
+	}
+
+	@effect interval() {
+		const inter = setInterval(() => this.count++, 1000)
+		onCleanup(() => clearInterval(inter))
+	}
+}
+
+const deferred = new DeferredEffects()
+// No effects run yet
+
+deferred.startEffects()
+// Now logs "count is 0" and starts interval incrementing count
+
+deferred.count = 5
+// Logs "count is 5" and continues interval incrementing count
+
+deferred.stopEffects()
+// Effects stop
+```
 
 ### `Effects`
 

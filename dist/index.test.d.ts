@@ -10,6 +10,7 @@ declare const MyElement_base: {
         "__#1@#effectFunctions": (() => void)[];
         "__#1@#started": boolean;
         createEffect(fn: () => void): void;
+        addEffectFn(fn: () => void): void;
         "__#1@#isRestarting": boolean;
         startEffects(): void;
         stopEffects(): void;
@@ -35,6 +36,7 @@ declare const MyElement2_base: {
         "__#1@#effectFunctions": (() => void)[];
         "__#1@#started": boolean;
         createEffect(fn: () => void): void;
+        addEffectFn(fn: () => void): void;
         "__#1@#isRestarting": boolean;
         startEffects(): void;
         stopEffects(): void;
@@ -61,6 +63,7 @@ declare const MyElement3_base: {
         "__#1@#effectFunctions": (() => void)[];
         "__#1@#started": boolean;
         createEffect(fn: () => void): void;
+        addEffectFn(fn: () => void): void;
         "__#1@#isRestarting": boolean;
         startEffects(): void;
         stopEffects(): void;

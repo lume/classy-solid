@@ -1,7 +1,7 @@
 import {createMemo, createRoot, type Setter, type Signal} from 'solid-js'
 import {createWritableMemo} from '@solid-primitives/memo'
 import type {AnyObject, ClassySolidMetadata, PropKey} from './types.js'
-import {finalizeMembersIfLast, getMemberStat, getMembers, memoifyIfNeeded} from '../_state.js'
+import {finalizeMembersIfLast__, getMemberStat__, getMembers__, memoifyIfNeeded__} from '../_state.js'
 import './metadata-shim.js'
 
 /**
@@ -119,7 +119,7 @@ export function memo(
 
 	const {kind, name} = context
 	const metadata = context.metadata as ClassySolidMetadata
-	const members = getMembers(metadata)
+	const members = getMembers__(metadata)
 
 	// Apply finalization logic to all except setters (setters are finalized
 	// together with their getters).
@@ -221,14 +221,14 @@ export function memo(
 
 	const memberType = kind === 'accessor' ? 'memo-auto-accessor' : kind === 'method' ? 'memo-method' : 'memo-accessor'
 
-	const stat = getMemberStat(name, memberType, members, context)
+	const stat = getMemberStat__(name, memberType, members, context)
 
 	stat.finalize = function () {
-		memoifyIfNeeded(this as AnyObject, stat)
+		memoifyIfNeeded__(this as AnyObject, stat)
 	}
 
 	context.addInitializer(function () {
-		finalizeMembersIfLast(this as AnyObject, members)
+		finalizeMembersIfLast__(this as AnyObject, members)
 	})
 
 	if (kind === 'method' || kind === 'getter') stat.value = value

@@ -1,6 +1,6 @@
 import { createMemo, createRoot } from 'solid-js';
 import { createWritableMemo } from '@solid-primitives/memo';
-import { finalizeMembersIfLast, getMemberStat, getMembers, memoifyIfNeeded } from '../_state.js';
+import { finalizeMembersIfLast__, getMemberStat__, getMembers__, memoifyIfNeeded__ } from '../_state.js';
 import './metadata-shim.js';
 
 /**
@@ -109,7 +109,7 @@ context) {
     name
   } = context;
   const metadata = context.metadata;
-  const members = getMembers(metadata);
+  const members = getMembers__(metadata);
 
   // Apply finalization logic to all except setters (setters are finalized
   // together with their getters).
@@ -196,12 +196,12 @@ context) {
   // @ts-expect-error skip type checking in case of invalid kind in plain JS
   if (kind === 'field') throw new Error('@memo is not supported on class fields.');
   const memberType = kind === 'accessor' ? 'memo-auto-accessor' : kind === 'method' ? 'memo-method' : 'memo-accessor';
-  const stat = getMemberStat(name, memberType, members, context);
+  const stat = getMemberStat__(name, memberType, members, context);
   stat.finalize = function () {
-    memoifyIfNeeded(this, stat);
+    memoifyIfNeeded__(this, stat);
   };
   context.addInitializer(function () {
-    finalizeMembersIfLast(this, members);
+    finalizeMembersIfLast__(this, members);
   });
   if (kind === 'method' || kind === 'getter') stat.value = value;else if (kind === 'accessor') stat.value = value.get;
 }

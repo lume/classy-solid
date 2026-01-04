@@ -1,4 +1,4 @@
-import {effectifyIfNeeded, finalizeMembersIfLast, getMemberStat, getMembers, effects__} from '../_state.js'
+import {effectifyIfNeeded__, finalizeMembersIfLast__, getMemberStat__, getMembers__, effects__} from '../_state.js'
 import type {AnyObject, ClassySolidMetadata} from './types.js'
 import './metadata-shim.js'
 
@@ -69,7 +69,6 @@ import './metadata-shim.js'
  * fun.stopEffects()
  * ```
  */
-
 export function effect(
 	value: Function | ClassAccessorDecoratorTarget<unknown, () => void>,
 	context: ClassMethodDecoratorContext | ClassAccessorDecoratorContext,
@@ -78,22 +77,22 @@ export function effect(
 
 	const {kind, name} = context
 	const metadata = context.metadata as ClassySolidMetadata
-	const members = getMembers(metadata)
+	const members = getMembers__(metadata)
 
 	if (!(kind === 'method' || kind === 'accessor'))
 		throw new Error('@effect can only be used on methods or function-valued auto accessors')
 
 	const stat =
 		kind === 'accessor'
-			? getMemberStat(name, 'effect-auto-accessor', members, context)
-			: getMemberStat(name, 'effect-method', members, context)
+			? getMemberStat__(name, 'effect-auto-accessor', members, context)
+			: getMemberStat__(name, 'effect-method', members, context)
 
 	stat.finalize = function () {
-		effectifyIfNeeded(this as AnyObject, stat)
+		effectifyIfNeeded__(this as AnyObject, stat)
 	}
 
 	context.addInitializer(function () {
-		finalizeMembersIfLast(this as AnyObject, members)
+		finalizeMembersIfLast__(this as AnyObject, members)
 	})
 
 	if (kind === 'method') stat.value = value

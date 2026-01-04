@@ -26,6 +26,62 @@ describe('classy-solid', () => {
 			basicTest(fun, setA)
 		})
 
+		it('runs a basic public method effect, using stopEffects, with autoStart false', () => {
+			const [a, setA] = createSignal(1)
+
+			class Funkalicious {
+				last: number | null = null
+				runs = 0
+
+				@signal b = 2
+
+				static autoStartEffects = false
+
+				@effect logSum() {
+					this.runs++
+					this.last = a() + this.b
+				}
+			}
+
+			const fun = new Funkalicious()
+
+			// Ensure effects didn't start yet.
+			expect(fun.last === null).toBe(true)
+			expect(fun.runs).toBe(0)
+
+			startEffects(fun) // manually start first
+
+			basicTest(fun, setA)
+		})
+
+		it('works with both static autoStartEffects = false and Effects class without calling start/stopEffects methods', () => {
+			const [a, setA] = createSignal(1)
+
+			class Funkalicious extends Effects {
+				last: number | null = null
+				runs = 0
+
+				@signal b = 2
+
+				static autoStartEffects = false
+
+				@effect logSum() {
+					this.runs++
+					this.last = a() + this.b
+				}
+			}
+
+			const fun = new Funkalicious()
+
+			// Ensure effects didn't start yet.
+			expect(fun.last === null).toBe(true)
+			expect(fun.runs).toBe(0)
+
+			startEffects(fun) // manually start first
+
+			basicTest(fun, setA, true)
+		})
+
 		it('runs a basic private method effect, using stopEffects', () => {
 			const [a, setA] = createSignal(1)
 
@@ -125,7 +181,11 @@ describe('classy-solid', () => {
 			basicTest(fun, setA)
 		})
 
-		function basicTest(fun: {b: number; last: number | null; runs: number}, setA: (v: number) => void) {
+		function basicTest(
+			fun: {b: number; last: number | null; runs: number},
+			setA: (v: number) => void,
+			useFunctions = false,
+		) {
 			expect(fun.last).toBe(1 + 2)
 			expect(fun.runs).toBe(1)
 
@@ -136,18 +196,18 @@ describe('classy-solid', () => {
 			fun.b = 10
 			expect(fun.last).toBe(5 + 10)
 			expect(fun.runs).toBe(3)
-			fun instanceof Effects ? fun.stopEffects() : stopEffects(fun)
+			fun instanceof Effects && !useFunctions ? fun.stopEffects() : stopEffects(fun)
 			setA(1)
 			fun.b = 1
 			expect(fun.last).toBe(5 + 10)
 			expect(fun.runs).toBe(3)
 
-			fun instanceof Effects ? fun.startEffects() : startEffects(fun)
+			fun instanceof Effects && !useFunctions ? fun.startEffects() : startEffects(fun)
 			expect(fun.last).toBe(1 + 1)
 			expect(fun.runs).toBe(4)
 
 			// Ensure no duplicate effects
-			fun instanceof Effects ? fun.startEffects() : startEffects(fun)
+			fun instanceof Effects && !useFunctions ? fun.startEffects() : startEffects(fun)
 			expect(fun.last).toBe(1 + 1)
 			expect(fun.runs).toBe(4)
 
@@ -155,7 +215,7 @@ describe('classy-solid', () => {
 			expect(fun.last).toBe(3 + 1)
 			expect(fun.runs).toBe(5)
 
-			fun instanceof Effects ? fun.stopEffects() : stopEffects(fun)
+			fun instanceof Effects && !useFunctions ? fun.stopEffects() : stopEffects(fun)
 			setA(10)
 			fun.b = 20
 			expect(fun.last).toBe(3 + 1)

@@ -63,20 +63,17 @@ export function untracked(value, context) {
   // context may be undefined when unsing untracked() without decorators
   if (typeof value !== 'function' || context && context.kind !== 'class') throw new TypeError('The @untracked decorator is only for use on classes.');
   const Class = value;
-  class ReactiveDecorator extends Class {
+  class UntrackedDecorator extends Class {
     constructor(...args) {
-      let instance;
-
       // Ensure that if we're in an effect that `new`ing a class does not
       // track signal reads, otherwise we'll get into an infinite loop. If
       // someone want to trigger an effect based on properties of the
       // `new`ed instance, they can explicitly read the properties
       // themselves in the effect, making their intent clear.
-      if (getListener()) untrack(() => instance = Reflect.construct(Class, args, new.target)); // super()
-      else super(...args), instance = this;
-      return instance;
+      if (getListener()) return untrack(() => Reflect.construct(Class, args, new.target)); // super()
+      else super(...args);
     }
   }
-  return ReactiveDecorator;
+  return UntrackedDecorator;
 }
 //# sourceMappingURL=untracked.js.map

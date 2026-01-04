@@ -1,7 +1,7 @@
 import { getInheritedDescriptor } from 'lowclass/dist/getInheritedDescriptor.js';
 import { $PROXY, batch, untrack } from 'solid-js';
 import { createSignalFunction } from './createSignalFunction.js';
-import { isMemoGetter, isSignalGetter } from '../_state.js';
+import { isMemoGetter__, isSignalGetter__ } from '../_state.js';
 
 /**
  * Convert properties on an object into Solid signal-backed properties.
@@ -107,10 +107,10 @@ export function createSignalAccessor__(obj, prop, initialVal = Undefined, skipFu
     originalSet = descriptor.set;
 
     // If the original getter is already a signal getter, skip re-signalifying.
-    if (originalGet && isSignalGetter.has(originalGet)) return;
+    if (originalGet && isSignalGetter__.has(originalGet)) return;
 
     // If the original getter is already a memo getter, skip signalifying.
-    if (originalGet && isMemoGetter.has(originalGet)) return;
+    if (originalGet && isMemoGetter__.has(originalGet)) return;
 
     // Signals require both getter and setter to work properly.
     if (isAccessor && !(originalGet && originalSet)) return;
@@ -150,7 +150,7 @@ export function createSignalAccessor__(obj, prop, initialVal = Undefined, skipFu
       s(typeof newValue === 'function' ? () => newValue : newValue);
     }
   };
-  isSignalGetter.add(newDescriptor.get);
+  isSignalGetter__.add(newDescriptor.get);
   Object.defineProperty(obj, prop, newDescriptor);
 }
 export function getSignal__(obj, storage, initialVal) {

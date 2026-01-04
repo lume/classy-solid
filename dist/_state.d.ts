@@ -1,16 +1,19 @@
 import type { AnyObject, MemberStat, MetadataMembers, PropKey, ClassySolidMetadata, MemberType } from './decorators/types.js';
 import { Effects } from './mixins/Effectful.js';
 /** Libraries that wrap classy-solid signal accessors should add their overriding getters to this set. */
-export declare const isSignalGetter: WeakSet<Function>;
+export declare const isSignalGetter__: WeakSet<Function>;
 /** Libraries that wrap classy-solid memo accessors should add their overriding getters to this set. */
-export declare const isMemoGetter: WeakSet<Function>;
-export declare function getMembers(metadata: ClassySolidMetadata): MetadataMembers;
-export declare function getMemberStat(name: PropKey, type: MemberType, members: MetadataMembers, context: ClassMemberDecoratorContext): MemberStat;
-export declare function signalifyIfNeeded(obj: AnyObject, stat: MemberStat): void;
-export declare function memoifyIfNeeded(obj: AnyObject, stat: MemberStat): void;
+export declare const isMemoGetter__: WeakSet<Function>;
+export declare function getMembers__(metadata: ClassySolidMetadata): MetadataMembers;
+export declare function getMemberStat__(name: PropKey, type: MemberType, members: MetadataMembers, context: ClassMemberDecoratorContext): MemberStat;
+export declare function signalifyIfNeeded__(obj: AnyObject, stat: MemberStat): void;
+export declare function memoifyIfNeeded__(obj: AnyObject, stat: MemberStat): void;
 /** @private internal state */
 export declare const effects__: WeakMap<AnyObject, Effects>;
-export declare function effectifyIfNeeded(obj: AnyObject, stat: MemberStat): void;
+export type AutoStartable = {
+    autoStartEffects?: boolean;
+};
+export declare function effectifyIfNeeded__(obj: AnyObject, stat: MemberStat): void;
 /**
  * This finalizes memo initialization for the members tracked, in our custom
  * ordering.
@@ -23,5 +26,5 @@ export declare function effectifyIfNeeded(obj: AnyObject, stat: MemberStat): voi
  *
  * See: https://github.com/tc39/proposal-decorators/issues/566
  */
-export declare function finalizeMembersIfLast(obj: AnyObject, members: MetadataMembers): void;
+export declare function finalizeMembersIfLast__(obj: AnyObject, members: MetadataMembers): void;
 //# sourceMappingURL=_state.d.ts.map

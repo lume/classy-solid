@@ -653,9 +653,6 @@ describe('classy-solid', () => {
 			expect(lastSum).toBe(7)
 			expect(count).toBe(2) // should not run because sum didn't change
 
-			// CONTINUE writing not working yet for private method memos
-			// Uncomment when fixed
-			debugger
 			ex.sum = 20
 			console.log('sum?', ex.sum)
 			expect(lastSum).toBe(20)

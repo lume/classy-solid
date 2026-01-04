@@ -75,6 +75,15 @@ export declare function Effectful<T extends AnyConstructor>(Base: T): {
          * they can all be stopped with `this.stopEffects()`.
          */
         createEffect(fn: () => void): void;
+        /**
+         * Adds an effect function to the list of tracked effects without
+         * starting it. This is useful for adding an effect, then using
+         * `startEffects()` later to start all effects at once.
+         *
+         * The `@effect` decorator uses this internally when its `autoStart`
+         * option is set to `false`.
+         */
+        addEffectFn(fn: () => void): void;
         "__#1@#isRestarting": boolean;
         /**
          * Start all effects again. This will recreate all effects that were
@@ -150,6 +159,15 @@ declare const Effects_base: {
          * they can all be stopped with `this.stopEffects()`.
          */
         createEffect(fn: () => void): void;
+        /**
+         * Adds an effect function to the list of tracked effects without
+         * starting it. This is useful for adding an effect, then using
+         * `startEffects()` later to start all effects at once.
+         *
+         * The `@effect` decorator uses this internally when its `autoStart`
+         * option is set to `false`.
+         */
+        addEffectFn(fn: () => void): void;
         "__#1@#isRestarting": boolean;
         /**
          * Start all effects again. This will recreate all effects that were

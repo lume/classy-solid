@@ -5,14 +5,14 @@ import { Effects } from './mixins/Effectful.js';
 import { untrack } from 'solid-js';
 
 /** Libraries that wrap classy-solid signal accessors should add their overriding getters to this set. */
-export const isSignalGetter = new WeakSet();
+export const isSignalGetter__ = new WeakSet();
 /** Libraries that wrap classy-solid memo accessors should add their overriding getters to this set. */
-export const isMemoGetter = new WeakSet();
-export function getMembers(metadata) {
+export const isMemoGetter__ = new WeakSet();
+export function getMembers__(metadata) {
   if (!Object.hasOwn(metadata, 'classySolid_members')) metadata.classySolid_members = []; // we don't extend the array from parent classes
   return metadata.classySolid_members;
 }
-export function getMemberStat(name, type, members, context) {
+export function getMemberStat__(name, type, members, context) {
   const index = members.findIndex(member => member.name === name);
   const existingStat = members[index];
   const newStat = {
@@ -72,7 +72,7 @@ function sortMetadataMembersCustomOrder(members) {
   // auto-accessors, finally memo accessors and methods.
   members.sort((a, b) => customSortOrder[a.type] - customSortOrder[b.type]);
 }
-export function signalifyIfNeeded(obj, stat) {
+export function signalifyIfNeeded__(obj, stat) {
   const {
     name
   } = stat;
@@ -80,7 +80,7 @@ export function signalifyIfNeeded(obj, stat) {
   if (!stat.reuseExistingSignal) signalify(obj, [name, untrack(() => obj[name])]);
   stat.applied.set(obj, true);
 }
-export function memoifyIfNeeded(obj, stat) {
+export function memoifyIfNeeded__(obj, stat) {
   const {
     name,
     context
@@ -97,7 +97,7 @@ export function memoifyIfNeeded(obj, stat) {
 
 /** @private internal state */
 export const effects__ = new WeakMap();
-export function effectifyIfNeeded(obj, stat) {
+export function effectifyIfNeeded__(obj, stat) {
   const {
     name,
     context
@@ -125,7 +125,13 @@ export function effectifyIfNeeded(obj, stat) {
     // Otherwise, create a new Effects instance to manage the effects.
     else effects__.set(obj, effects = new Effects());
   }
-  effects.createEffect(() => effectFn.call(obj));
+  const ctor = obj.constructor;
+  const autoStart = ctor.autoStartEffects === undefined || ctor.autoStartEffects;
+  if (autoStart) effects.createEffect(() => effectFn.call(obj));else {
+    // start stopped; effects will be added but not started yet if autoStart is false
+    effects.stopEffects();
+    effects.addEffectFn(() => effectFn.call(obj));
+  }
   stat.applied.set(obj, true);
 }
 
@@ -148,7 +154,7 @@ const extraInitializersCount = new WeakMap();
  *
  * See: https://github.com/tc39/proposal-decorators/issues/566
  */
-export function finalizeMembersIfLast(obj, members) {
+export function finalizeMembersIfLast__(obj, members) {
   let count = extraInitializersCount.get(obj) ?? 0;
   extraInitializersCount.set(obj, ++count);
 

@@ -4,4 +4,4 @@ export * from './mixins/index.js'
 export * from './signals/index.js'
 export * from './_state.js'
 
-export const version = '0.5.1'
+export const version = '0.5.2'

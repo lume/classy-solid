@@ -1,6 +1,6 @@
 import { batch } from 'solid-js';
 import { getSignal__, trackPropSetAtLeastOnce__ } from '../signals/signalify.js';
-import { isSignalGetter, getMemberStat, finalizeMembersIfLast, getMembers, signalifyIfNeeded } from '../_state.js';
+import { isSignalGetter__, getMemberStat__, finalizeMembersIfLast__, getMembers__, signalifyIfNeeded__ } from '../_state.js';
 import './metadata-shim.js';
 const Undefined = Symbol();
 const isExtending = new WeakSet();
@@ -61,13 +61,13 @@ function signalImplementation(value, context, options = {
     name
   } = context;
   const metadata = context.metadata;
-  const members = getMembers(metadata);
+  const members = getMembers__(metadata);
   if (!(kind === 'field' || kind === 'accessor' || kind === 'getter' || kind === 'setter')) throw new InvalidSignalDecoratorError();
   if (kind === 'field') {
     if (context.private) throw new Error('@signal cannot signalify #private fields. Use a #private getter/setter or auto accessor instead. F.e. convert `@signal #foo = 0` to `@signal accessor #foo = 0`.');
-    const stat = getMemberStat(name, 'signal-field', members, context);
+    const stat = getMemberStat__(name, 'signal-field', members, context);
     stat.finalize = function () {
-      signalifyIfNeeded(this, stat);
+      signalifyIfNeeded__(this, stat);
     };
     context.addInitializer(function () {
       if (stat.reuseExistingSignal) {
@@ -78,7 +78,7 @@ function signalImplementation(value, context, options = {
         Object.defineProperty(this, name, stat.existingSignalDescriptor);
         this[name] = stat.newInitialValue;
       }
-      finalizeMembersIfLast(this, members);
+      finalizeMembersIfLast__(this, members);
     });
     return function (initialVal) {
       // Detect if we already have a signal for this instance, and if so
@@ -89,7 +89,7 @@ function signalImplementation(value, context, options = {
 
       // If we already have a signal descriptor, we will re-use it, so
       // that any effects depending on it will continue to work.
-      if (isSignalGetter.has(descriptor?.get)) {
+      if (isSignalGetter__.has(descriptor?.get)) {
         stat.reuseExistingSignal = true;
         stat.newInitialValue = initialVal;
         stat.existingSignalDescriptor = descriptor;
@@ -113,10 +113,7 @@ function signalImplementation(value, context, options = {
     } = value;
     const signalStorage = new WeakMap();
     let initialValue = Undefined;
-    function init(initialVal) {
-      initialValue = initialVal;
-      return initialVal;
-    }
+    const init = initialVal => initialValue = initialVal;
     context.addInitializer(function () {
       // Locate the prototype of this auto accessor.
       const proto = getPrototypeOfMethodOrAccessor(this, name, newGet);
@@ -158,7 +155,7 @@ function signalImplementation(value, context, options = {
       get: newGet,
       set: newSet
     };
-    isSignalGetter.add(newValue.get);
+    isSignalGetter__.add(newValue.get);
     return newValue;
   } else if (kind === 'getter' || kind === 'setter') {
     const getOrSet = value;
@@ -183,7 +180,7 @@ function signalImplementation(value, context, options = {
         getSignal__(this, signalStorage, initialValue)();
         return getOrSet.call(this);
       };
-      isSignalGetter.add(newGetter);
+      isSignalGetter__.add(newGetter);
       return newGetter;
     } else {
       pairs[name] ??= 0;

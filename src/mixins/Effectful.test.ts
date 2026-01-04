@@ -1,21 +1,76 @@
-import {createSignal} from 'solid-js'
+import {createSignal, type Accessor, type Setter} from 'solid-js'
 import {Effectful, Effects} from './Effectful.js'
 import {signal} from '../decorators/signal.js'
 import {MyElement, MyElement2, MyElement3, testElementEffects} from '../index.test.js'
+import {effect} from '../decorators/effect.js'
 
 describe('classy-solid', () => {
 	describe('Effectful mixin / Effects', () => {
+		let last: number | null = null
+		let runs = 0
+
 		it('createEffect runs immediately, stopEffects stops further runs, startEffects runs effects again', () => {
+			last = null
+			runs = 0
+
 			const [s, setS] = createSignal(1)
 			const e = new Effects()
 
-			let last = null
-			let runs = 0
 			e.createEffect(() => {
 				runs++
 				last = s()
 			})
 
+			testEffects(e, s, setS)
+		})
+
+		it('effects stopped initially with .stopEffects()', () => {
+			last = null
+			runs = 0
+
+			const [s, setS] = createSignal(1)
+			const e = new Effects()
+			e.stopEffects() // stop immediately after creation
+
+			// does not auto start
+			e.addEffectFn(() => {
+				runs++
+				last = s()
+			})
+
+			expect(last).toBe(null)
+			expect(runs).toBe(0)
+
+			e.startEffects() // now start effects
+
+			testEffects(e, s, setS)
+		})
+
+		it('effects stopped initially with static autoStartEffects = false', () => {
+			last = null
+			runs = 0
+
+			class TestEffects extends Effects {
+				static autoStartEffects = false
+
+				@effect testEffect() {
+					runs++
+					last = s()
+				}
+			}
+
+			const [s, setS] = createSignal(1)
+			const e = new TestEffects() // effects stopped initially
+
+			expect(last).toBe(null)
+			expect(runs).toBe(0)
+
+			e.startEffects() // now start effects
+
+			testEffects(e, s, setS)
+		})
+
+		function testEffects(e: Effects, s: Accessor<number>, setS: Setter<number>) {
 			expect(last).toBe(1)
 			expect(runs).toBe(1)
 
@@ -55,6 +110,7 @@ describe('classy-solid', () => {
 
 			// Add a new effect after clearing previous ones
 
+			// auto starts
 			e.createEffect(() => {
 				runs++
 				last = s()
@@ -65,7 +121,7 @@ describe('classy-solid', () => {
 			setS(7)
 			expect(last).toBe(7)
 			expect(runs).toBe(6)
-		})
+		}
 
 		it('startEffects does not duplicate effects', () => {
 			const [s, setS] = createSignal(1)

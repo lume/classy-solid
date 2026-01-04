@@ -1,4 +1,4 @@
-import { effectifyIfNeeded, finalizeMembersIfLast, getMemberStat, getMembers, effects__ } from '../_state.js';
+import { effectifyIfNeeded__, finalizeMembersIfLast__, getMemberStat__, getMembers__, effects__ } from '../_state.js';
 import './metadata-shim.js';
 
 /**
@@ -68,7 +68,6 @@ import './metadata-shim.js';
  * fun.stopEffects()
  * ```
  */
-
 export function effect(value, context) {
   if (context.static) throw new Error('@effect is not supported on static members.');
   const {
@@ -76,14 +75,14 @@ export function effect(value, context) {
     name
   } = context;
   const metadata = context.metadata;
-  const members = getMembers(metadata);
+  const members = getMembers__(metadata);
   if (!(kind === 'method' || kind === 'accessor')) throw new Error('@effect can only be used on methods or function-valued auto accessors');
-  const stat = kind === 'accessor' ? getMemberStat(name, 'effect-auto-accessor', members, context) : getMemberStat(name, 'effect-method', members, context);
+  const stat = kind === 'accessor' ? getMemberStat__(name, 'effect-auto-accessor', members, context) : getMemberStat__(name, 'effect-method', members, context);
   stat.finalize = function () {
-    effectifyIfNeeded(this, stat);
+    effectifyIfNeeded__(this, stat);
   };
   context.addInitializer(function () {
-    finalizeMembersIfLast(this, members);
+    finalizeMembersIfLast__(this, members);
   });
   if (kind === 'method') stat.value = value;else if (kind === 'accessor') stat.value = value.get;
 }

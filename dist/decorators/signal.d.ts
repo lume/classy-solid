@@ -1,5 +1,5 @@
 import './metadata-shim.js';
-interface SignalOptions {
+export interface SignalOptions {
     /**
      * Whether to extend an existing base class signal instead of creating a new
      * one. When true, the existing signal is reused, otherwise a new signal

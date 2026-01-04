@@ -4,7 +4,7 @@ import {testButterflyProps} from '../index.test.js'
 import {signal} from './signal.js'
 import {signalify} from '../signals/signalify.js'
 import type {ClassySolidMetadata} from './types.js'
-import {isSignalGetter} from '../_state.js'
+import {isSignalGetter__} from '../_state.js'
 import {memo} from './memo.js'
 
 describe('classy-solid', () => {
@@ -355,7 +355,7 @@ describe('classy-solid', () => {
 			// implementation goes).
 			const descriptor = Object.getOwnPropertyDescriptor(kid, 'age')
 			const getter = descriptor!.get!
-			expect(isSignalGetter.has(getter)).toBe(false)
+			expect(isSignalGetter__.has(getter)).toBe(false)
 
 			let count = 0
 			createEffect(() => {

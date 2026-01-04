@@ -86,6 +86,18 @@ export function Effectful<T extends AnyConstructor>(Base: T) {
 			this.#createEffect(fn)
 		}
 
+		/**
+		 * Adds an effect function to the list of tracked effects without
+		 * starting it. This is useful for adding an effect, then using
+		 * `startEffects()` later to start all effects at once.
+		 *
+		 * The `@effect` decorator uses this internally when its `autoStart`
+		 * option is set to `false`.
+		 */
+		addEffectFn(fn: () => void) {
+			this.#effectFunctions.push(fn)
+		}
+
 		#isRestarting = false
 
 		/**

@@ -1,7 +1,7 @@
 import {createMemo} from 'solid-js'
 import {createWritableMemo} from '@solid-primitives/memo'
 import {getInheritedDescriptor} from 'lowclass/dist/getInheritedDescriptor.js'
-import {isMemoGetter, isSignalGetter} from '../_state.js'
+import {isMemoGetter__, isSignalGetter__} from '../_state.js'
 import type {AnyObject, MemberStat} from '../decorators/types.js'
 
 const Undefined = Symbol()
@@ -98,7 +98,7 @@ export function memoify(obj: AnyObject, ...props: PropertyKey[]) {
 		}
 
 		// Skip if already memoified or signalified
-		if (descriptor.get && (isMemoGetter.has(descriptor.get) || isSignalGetter.has(descriptor.get))) {
+		if (descriptor.get && (isMemoGetter__.has(descriptor.get) || isSignalGetter__.has(descriptor.get))) {
 			memberStat = null
 			continue
 		}
@@ -148,7 +148,7 @@ export function memoify(obj: AnyObject, ...props: PropertyKey[]) {
 
 			Object.defineProperty(value, 'name', {value: name, configurable: true})
 			Object.defineProperty(obj, key, {value, configurable: true, enumerable: descriptor.enumerable})
-			isMemoGetter.add(value)
+			isMemoGetter__.add(value)
 		}
 
 		// Handle accessors
@@ -173,7 +173,7 @@ export function memoify(obj: AnyObject, ...props: PropertyKey[]) {
 				configurable: true,
 				enumerable: descriptor.enumerable,
 			})
-			isMemoGetter.add(get)
+			isMemoGetter__.add(get)
 		} else {
 			// Throw in decorator mode only.
 			if (memberStat) {

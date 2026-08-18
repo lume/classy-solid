@@ -1,4 +1,4 @@
-function _applyDecs(e, t, n, r, o, i) { var a, c, u, s, f, l, p, d = Symbol.metadata || Symbol.for("Symbol.metadata"), m = Object.defineProperty, h = Object.create, y = [h(null), h(null)], v = t.length; function g(t, n, r) { return function (o, i) { n && (i = o, o = e); for (var a = 0; a < t.length; a++) i = t[a].apply(o, r ? [i] : []); return r ? i : o; }; } function b(e, t, n, r) { if ("function" != typeof e && (r || void 0 !== e)) throw new TypeError(t + " must " + (n || "be") + " a function" + (r ? "" : " or undefined")); return e; } function applyDec(e, t, n, r, o, i, u, s, f, l, p) { function d(e) { if (!p(e)) throw new TypeError("Attempted to access private element on non-instance"); } var h = [].concat(t[0]), v = t[3], w = !u, D = 1 === o, S = 3 === o, j = 4 === o, E = 2 === o; function I(t, n, r) { return function (o, i) { return n && (i = o, o = e), r && r(o), P[t].call(o, i); }; } if (!w) { var P = {}, k = [], F = S ? "get" : j || D ? "set" : "value"; if (f ? (l || D ? P = { get: _setFunctionName(function () { return v(this); }, r, "get"), set: function (e) { t[4](this, e); } } : P[F] = v, l || _setFunctionName(P[F], r, E ? "" : F)) : l || (P = Object.getOwnPropertyDescriptor(e, r)), !l && !f) { if ((c = y[+s][r]) && 7 !== (c ^ o)) throw Error("Decorating two elements with the same name (" + P[F].name + ") is not supported yet"); y[+s][r] = o < 3 ? 1 : o; } } for (var N = e, O = h.length - 1; O >= 0; O -= n ? 2 : 1) { var T = b(h[O], "A decorator", "be", !0), z = n ? h[O - 1] : void 0, A = {}, H = { kind: ["field", "accessor", "method", "getter", "setter", "class"][o], name: r, metadata: a, addInitializer: function (e, t) { if (e.v) throw new TypeError("attempted to call addInitializer after decoration was finished"); b(t, "An initializer", "be", !0), i.push(t); }.bind(null, A) }; if (w) c = T.call(z, N, H), A.v = 1, b(c, "class decorators", "return") && (N = c);else if (H.static = s, H.private = f, c = H.access = { has: f ? p.bind() : function (e) { return r in e; } }, j || (c.get = f ? E ? function (e) { return d(e), P.value; } : I("get", 0, d) : function (e) { return e[r]; }), E || S || (c.set = f ? I("set", 0, d) : function (e, t) { e[r] = t; }), N = T.call(z, D ? { get: P.get, set: P.set } : P[F], H), A.v = 1, D) { if ("object" == typeof N && N) (c = b(N.get, "accessor.get")) && (P.get = c), (c = b(N.set, "accessor.set")) && (P.set = c), (c = b(N.init, "accessor.init")) && k.unshift(c);else if (void 0 !== N) throw new TypeError("accessor decorators must return an object with get, set, or init properties or undefined"); } else b(N, (l ? "field" : "method") + " decorators", "return") && (l ? k.unshift(N) : P[F] = N); } return o < 2 && u.push(g(k, s, 1), g(i, s, 0)), l || w || (f ? D ? u.splice(-1, 0, I("get", s), I("set", s)) : u.push(E ? P[F] : b.call.bind(P[F])) : m(e, r, P)), N; } function w(e) { return m(e, d, { configurable: !0, enumerable: !0, value: a }); } return void 0 !== i && (a = i[d]), a = h(null == a ? null : a), f = [], l = function (e) { e && f.push(g(e)); }, p = function (t, r) { for (var i = 0; i < n.length; i++) { var a = n[i], c = a[1], l = 7 & c; if ((8 & c) == t && !l == r) { var p = a[2], d = !!a[3], m = 16 & c; applyDec(t ? e : e.prototype, a, m, d ? "#" + p : _toPropertyKey(p), l, l < 2 ? [] : t ? s = s || [] : u = u || [], f, !!t, d, r, t && d ? function (t) { return _checkInRHS(t) === e; } : o); } } }, p(8, 0), p(0, 0), p(8, 1), p(0, 1), l(u), l(s), c = f, v || w(e), { e: c, get c() { var n = []; return v && [w(e = applyDec(e, [t], r, e.name, 5, n)), g(n, 1)]; } }; }
+function _applyDecs(e, t, n, r, o, i) { var a, c, u, s, f, l, p, d = Symbol.metadata || Symbol.for("Symbol.metadata"), m = Object.defineProperty, h = Object.create, y = [h(null), h(null)], v = t.length; function g(t, n, r) { return function (o, i) { n && (i = o, o = e); for (var a = 0; a < t.length; a++) i = t[a].apply(o, r ? [i] : []); return r ? i : o; }; } function b(e, t, n, r) { if ("function" != typeof e && (r || void 0 !== e)) throw new TypeError(t + " must " + (n || "be") + " a function" + (r ? "" : " or undefined")); return e; } function applyDec(e, t, n, r, o, i, u, s, f, l, p) { function d(e) { if (!p(e)) throw new TypeError("Attempted to access private element on non-instance"); } var h = [].concat(t[0]), v = t[3], w = !u, D = 1 === o, S = 3 === o, j = 4 === o, E = 2 === o; function I(t, n, r) { return function (o, i) { return n && (i = o, o = e), r && r(o), P[t].call(o, i); }; } if (!w) { var P = {}, k = [], F = S ? "get" : j || D ? "set" : "value"; if (f ? (l || D ? P = { get: _setFunctionName(function () { return v(this); }, r, "get"), set: function (e) { t[4](this, e); } } : P[F] = v, l || _setFunctionName(P[F], r, E ? "" : F)) : l || (P = Object.getOwnPropertyDescriptor(e, r)), !l && !f) { if ((c = y[+s][r]) && 7 != (c ^ o)) throw Error("Decorating two elements with the same name (" + P[F].name + ") is not supported yet"); y[+s][r] = o < 3 ? 1 : o; } } for (var N = e, O = h.length - 1; O >= 0; O -= n ? 2 : 1) { var T = b(h[O], "A decorator", "be", !0), z = n ? h[O - 1] : void 0, A = {}, H = { kind: ["field", "accessor", "method", "getter", "setter", "class"][o], name: r, metadata: a, addInitializer: function (e, t) { if (e.v) throw new TypeError("attempted to call addInitializer after decoration was finished"); b(t, "An initializer", "be", !0), i.push(t); }.bind(null, A) }; if (w) c = T.call(z, N, H), A.v = 1, b(c, "class decorators", "return") && (N = c);else if (H.static = s, H.private = f, c = H.access = { has: f ? p.bind() : function (e) { return r in e; } }, j || (c.get = f ? E ? function (e) { return d(e), P.value; } : I("get", 0, d) : function (e) { return e[r]; }), E || S || (c.set = f ? I("set", 0, d) : function (e, t) { e[r] = t; }), N = T.call(z, D ? { get: P.get, set: P.set } : P[F], H), A.v = 1, D) { if ("object" == typeof N && N) (c = b(N.get, "accessor.get")) && (P.get = c), (c = b(N.set, "accessor.set")) && (P.set = c), (c = b(N.init, "accessor.init")) && k.unshift(c);else if (void 0 !== N) throw new TypeError("accessor decorators must return an object with get, set, or init properties or undefined"); } else b(N, (l ? "field" : "method") + " decorators", "return") && (l ? k.unshift(N) : P[F] = N); } return o < 2 && u.push(g(k, s, 1), g(i, s, 0)), l || w || (f ? D ? u.splice(-1, 0, I("get", s), I("set", s)) : u.push(E ? P[F] : b.call.bind(P[F])) : m(e, r, P)), N; } function w(e) { return m(e, d, { configurable: !0, enumerable: !0, value: a }); } return void 0 !== i && (a = i[d]), a = h(null == a ? null : a), f = [], l = function (e) { e && f.push(g(e)); }, p = function (t, r) { for (var i = 0; i < n.length; i++) { var a = n[i], c = a[1], l = 7 & c; if ((8 & c) == t && !l == r) { var p = a[2], d = !!a[3], m = 16 & c; applyDec(t ? e : e.prototype, a, m, d ? "#" + p : _toPropertyKey(p), l, l < 2 ? [] : t ? s = s || [] : u = u || [], f, !!t, d, r, t && d ? function (t) { return _checkInRHS(t) === e; } : o); } } }, p(8, 0), p(0, 0), p(8, 1), p(0, 1), l(u), l(s), c = f, v || w(e), { e: c, get c() { var n = []; return v && [w(e = applyDec(e, [t], r, e.name, 5, n)), g(n, 1)]; } }; }
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == typeof i ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != typeof i) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
 function _setFunctionName(e, t, n) { "symbol" == typeof t && (t = (t = t.description) ? "[" + t + "]" : ""); try { Object.defineProperty(e, "name", { configurable: !0, value: n ? n + " " + t : t }); } catch (e) {} return e; }
@@ -298,24 +298,24 @@ describe('classy-solid', () => {
       expect(runs).toBe(6);
     });
     it('runs multiple effects independently, using stopEffects', () => {
-      let _initProto8, _init_b0, _init_extra_b0, _init_eff2, _init_extra_eff2;
+      let _initProto8, _init_b10, _init_extra_b10, _init_eff2, _init_extra_eff2;
       const [a, setA] = createSignal(1);
       let sum1 = 0;
       let sum2 = 0;
       let runs = 0;
       class Doubler {
         static {
-          [_init_eff2, _init_extra_eff2, _init_b0, _init_extra_b0, _initProto8] = _applyDecs(this, [], [[signal, 0, "b"], [effect, 2, "eff1"], [effect, 1, "eff2"]]).e;
+          [_init_eff2, _init_extra_eff2, _init_b10, _init_extra_b10, _initProto8] = _applyDecs(this, [], [[signal, 0, "b"], [effect, 2, "eff1"], [effect, 1, "eff2"]]).e;
         }
         constructor() {
           _init_extra_eff2(this);
         }
-        b = (_initProto8(this), _init_b0(this, 3));
+        b = (_initProto8(this), _init_b10(this, 3));
         eff1() {
           runs++;
           sum1 = a() + this.b;
         }
-        #A = (_init_extra_b0(this), _init_eff2(this, () => {
+        #A = (_init_extra_b10(this), _init_eff2(this, () => {
           runs++;
           sum2 = (a() + this.b) * 2;
         }));
@@ -388,17 +388,17 @@ describe('classy-solid', () => {
       expect(effectRuns).toBe(3);
     });
     it('reruns effect when memos change inside effect, using stopEffects', () => {
-      let _initProto0;
+      let _initProto10;
       const [a, setA] = createSignal(1);
       const [b, setB] = createSignal(2);
       let memoVal = 0;
       let effectRuns = 0;
       class MemoUser {
         static {
-          [_initProto0] = _applyDecs(this, [], [[memo, 3, "sum"], [effect, 2, "report"]]).e;
+          [_initProto10] = _applyDecs(this, [], [[memo, 3, "sum"], [effect, 2, "report"]]).e;
         }
         constructor() {
-          _initProto0(this);
+          _initProto10(this);
         }
         get sum() {
           return a() + b();
@@ -428,22 +428,22 @@ describe('classy-solid', () => {
       expect(memoVal).toBe(11);
     });
     it('runs an effect on auto accessor, using Effects', () => {
-      let _init_b1, _init_extra_b1, _init_compute, _init_extra_compute;
+      let _init_b11, _init_extra_b11, _init_compute, _init_extra_compute;
       const [a, setA] = createSignal(1);
       class AccessorClass extends Effects {
         static {
-          [_init_compute, _init_extra_compute, _init_b1, _init_extra_b1] = _applyDecs(this, [], [[signal, 0, "b"], [effect, 1, "compute"]], 0, void 0, Effects).e;
+          [_init_compute, _init_extra_compute, _init_b11, _init_extra_b11] = _applyDecs(this, [], [[signal, 0, "b"], [effect, 1, "compute"]], 0, void 0, Effects).e;
         }
         constructor(...args) {
           super(...args);
           _init_extra_compute(this);
         }
-        b = _init_b1(this, 2);
+        b = _init_b11(this, 2);
 
         // Stick this here to ensure that nested constructor doesn't
         // interfere with decorator behavior mid-way through initialization
         // of the wrapper parent class (tested with a subclass)
-        child = (_init_extra_b1(this), this.constructor !== AccessorClass ? new AccessorClass() : null);
+        child = (_init_extra_b11(this), this.constructor !== AccessorClass ? new AccessorClass() : null);
         result = 0;
         runs = 0;
         #A = _init_compute(this, () => {
@@ -474,21 +474,21 @@ describe('classy-solid', () => {
       expect(o.runs).toBe(3);
     });
     it('runs an effect on auto accessor, using stopEffects', () => {
-      let _init_b10, _init_extra_b10, _init_compute2, _init_extra_compute2;
+      let _init_b12, _init_extra_b12, _init_compute2, _init_extra_compute2;
       const [a, setA] = createSignal(1);
       class AccessorClass {
         static {
-          [_init_compute2, _init_extra_compute2, _init_b10, _init_extra_b10] = _applyDecs(this, [], [[signal, 0, "b"], [effect, 1, "compute"]]).e;
+          [_init_compute2, _init_extra_compute2, _init_b12, _init_extra_b12] = _applyDecs(this, [], [[signal, 0, "b"], [effect, 1, "compute"]]).e;
         }
         constructor() {
           _init_extra_compute2(this);
         }
-        b = _init_b10(this, 2);
+        b = _init_b12(this, 2);
 
         // Stick this here to ensure that nested constructor doesn't
         // interfere with decorator behavior mid-way through initialization
         // of the wrapper parent class (tested with a subclass)
-        child = (_init_extra_b10(this), this.constructor !== AccessorClass ? new AccessorClass() : null);
+        child = (_init_extra_b12(this), this.constructor !== AccessorClass ? new AccessorClass() : null);
         result = 0;
         runs = 0;
         #A = _init_compute2(this, () => {
@@ -519,18 +519,18 @@ describe('classy-solid', () => {
       expect(o.runs).toBe(3);
     });
     it('managed within an existing root, without Effects, without stopEffects', () => {
-      let _initProto1, _init_b11, _init_extra_b11;
+      let _initProto11, _init_b13, _init_extra_b13;
       const [a, setA] = createSignal(1);
       let observed = 0;
       let runs = 0;
       class PlainYogurt {
         static {
-          [_init_b11, _init_extra_b11, _initProto1] = _applyDecs(this, [], [[signal, 0, "b"], [effect, 2, "sum"]]).e;
+          [_init_b13, _init_extra_b13, _initProto11] = _applyDecs(this, [], [[signal, 0, "b"], [effect, 2, "sum"]]).e;
         }
         constructor() {
-          _init_extra_b11(this);
+          _init_extra_b13(this);
         }
-        b = (_initProto1(this), _init_b11(this, 2));
+        b = (_initProto11(this), _init_b13(this, 2));
         sum() {
           runs++;
           observed = a() + this.b;
@@ -562,21 +562,21 @@ describe('classy-solid', () => {
     });
     describe('subclass effect overriding/extending', () => {
       it('runs subclass effect auto accessor extending base effect auto accessor with super', () => {
-        let _init_b12, _init_extra_b12, _init_eff3, _init_extra_eff3, _init_eff4, _init_extra_eff4;
+        let _init_b14, _init_extra_b14, _init_eff3, _init_extra_eff3, _init_eff4, _init_extra_eff4;
         const [a, setA] = createSignal(1);
         let baseRuns = 0;
         let subRuns = 0;
         let observed = 0;
         class Base extends Effects {
           static {
-            [_init_eff3, _init_extra_eff3, _init_b12, _init_extra_b12] = _applyDecs(this, [], [[signal, 0, "b"], [effect, 1, "eff"]], 0, void 0, Effects).e;
+            [_init_eff3, _init_extra_eff3, _init_b14, _init_extra_b14] = _applyDecs(this, [], [[signal, 0, "b"], [effect, 1, "eff"]], 0, void 0, Effects).e;
           }
           constructor(...args) {
             super(...args);
             _init_extra_eff3(this);
           }
-          b = _init_b12(this, 2);
-          #A = (_init_extra_b12(this), _init_eff3(this, () => {
+          b = _init_b14(this, 2);
+          #A = (_init_extra_b14(this), _init_eff3(this, () => {
             baseRuns++;
             observed = a() + this.b;
           }));
@@ -626,21 +626,21 @@ describe('classy-solid', () => {
         expect(observed).toBe(10 + 5 + 10);
       });
       it('runs subclass effect auto accessor overriding base effect auto accessor without super', () => {
-        let _init_b13, _init_extra_b13, _init_eff5, _init_extra_eff5, _init_eff6, _init_extra_eff6;
+        let _init_b15, _init_extra_b15, _init_eff5, _init_extra_eff5, _init_eff6, _init_extra_eff6;
         const [a, setA] = createSignal(1);
         let baseRuns = 0;
         let subRuns = 0;
         let observed = 0;
         class Base extends Effects {
           static {
-            [_init_eff5, _init_extra_eff5, _init_b13, _init_extra_b13] = _applyDecs(this, [], [[signal, 0, "b"], [effect, 1, "eff"]], 0, void 0, Effects).e;
+            [_init_eff5, _init_extra_eff5, _init_b15, _init_extra_b15] = _applyDecs(this, [], [[signal, 0, "b"], [effect, 1, "eff"]], 0, void 0, Effects).e;
           }
           constructor(...args) {
             super(...args);
             _init_extra_eff5(this);
           }
-          b = _init_b13(this, 2);
-          #A = (_init_extra_b13(this), _init_eff5(this, () => {
+          b = _init_b15(this, 2);
+          #A = (_init_extra_b15(this), _init_eff5(this, () => {
             baseRuns++;
             observed = a() + this.b;
           }));
@@ -689,20 +689,20 @@ describe('classy-solid', () => {
         expect(observed).toBe((10 + 5) * 2);
       });
       it('runs subclass effect method extending base effect method with super', () => {
-        let _initProto10, _init_b14, _init_extra_b14, _initProto11, _init_c, _init_extra_c;
+        let _initProto12, _init_b16, _init_extra_b16, _initProto13, _init_c, _init_extra_c;
         const [a, setA] = createSignal(1);
         let superRuns = 0;
         let subRuns = 0;
         let observed = 0;
         class Base extends Effects {
           static {
-            [_init_b14, _init_extra_b14, _initProto10] = _applyDecs(this, [], [[signal, 0, "b"], [effect, 2, "compute"]], 0, void 0, Effects).e;
+            [_init_b16, _init_extra_b16, _initProto12] = _applyDecs(this, [], [[signal, 0, "b"], [effect, 2, "compute"]], 0, void 0, Effects).e;
           }
           constructor(...args) {
             super(...args);
-            _init_extra_b14(this);
+            _init_extra_b16(this);
           }
-          b = (_initProto10(this), _init_b14(this, 2));
+          b = (_initProto12(this), _init_b16(this, 2));
           compute() {
             superRuns++;
             observed = a() + this.b;
@@ -710,13 +710,13 @@ describe('classy-solid', () => {
         }
         class Sub extends Base {
           static {
-            [_init_c, _init_extra_c, _initProto11] = _applyDecs(this, [], [[signal, 0, "c"], [effect, 2, "compute"]], 0, void 0, Base).e;
+            [_init_c, _init_extra_c, _initProto13] = _applyDecs(this, [], [[signal, 0, "c"], [effect, 2, "compute"]], 0, void 0, Base).e;
           }
           constructor(...args) {
             super(...args);
             _init_extra_c(this);
           }
-          c = (_initProto11(this), _init_c(this, 3));
+          c = (_initProto13(this), _init_c(this, 3));
           compute() {
             subRuns++;
             super.compute();
@@ -749,7 +749,7 @@ describe('classy-solid', () => {
         expect(observed).toBe(5 + 10 + 5);
       });
       it('supports multi-level effect method extending base effect method with super', () => {
-        let _initProto12, _init_b15, _init_extra_b15, _initProto13, _init_c2, _init_extra_c2, _initProto14, _init_d, _init_extra_d;
+        let _initProto14, _init_b17, _init_extra_b17, _initProto15, _init_c2, _init_extra_c2, _initProto16, _init_d, _init_extra_d;
         const [a, setA] = createSignal(1);
         let baseRuns = 0;
         let midRuns = 0;
@@ -757,13 +757,13 @@ describe('classy-solid', () => {
         let observed = 0;
         class Base extends Effects {
           static {
-            [_init_b15, _init_extra_b15, _initProto12] = _applyDecs(this, [], [[signal, 0, "b"], [effect, 2, "compute"]], 0, void 0, Effects).e;
+            [_init_b17, _init_extra_b17, _initProto14] = _applyDecs(this, [], [[signal, 0, "b"], [effect, 2, "compute"]], 0, void 0, Effects).e;
           }
           constructor(...args) {
             super(...args);
-            _init_extra_b15(this);
+            _init_extra_b17(this);
           }
-          b = (_initProto12(this), _init_b15(this, 2));
+          b = (_initProto14(this), _init_b17(this, 2));
           compute() {
             baseRuns++;
             observed = a() + this.b;
@@ -771,13 +771,13 @@ describe('classy-solid', () => {
         }
         class Mid extends Base {
           static {
-            [_init_c2, _init_extra_c2, _initProto13] = _applyDecs(this, [], [[signal, 0, "c"], [effect, 2, "compute"]], 0, void 0, Base).e;
+            [_init_c2, _init_extra_c2, _initProto15] = _applyDecs(this, [], [[signal, 0, "c"], [effect, 2, "compute"]], 0, void 0, Base).e;
           }
           constructor(...args) {
             super(...args);
             _init_extra_c2(this);
           }
-          c = (_initProto13(this), _init_c2(this, 3));
+          c = (_initProto15(this), _init_c2(this, 3));
           compute() {
             midRuns++;
             super.compute();
@@ -786,13 +786,13 @@ describe('classy-solid', () => {
         }
         class Sub extends Mid {
           static {
-            [_init_d, _init_extra_d, _initProto14] = _applyDecs(this, [], [[signal, 0, "d"], [effect, 2, "compute"]], 0, void 0, Mid).e;
+            [_init_d, _init_extra_d, _initProto16] = _applyDecs(this, [], [[signal, 0, "d"], [effect, 2, "compute"]], 0, void 0, Mid).e;
           }
           constructor(...args) {
             super(...args);
             _init_extra_d(this);
           }
-          d = (_initProto14(this), _init_d(this, 4));
+          d = (_initProto16(this), _init_d(this, 4));
           compute() {
             subRuns++;
             super.compute();
@@ -835,20 +835,20 @@ describe('classy-solid', () => {
         expect(observed).toBe(5 + 10 + 6 + 7);
       });
       it('runs subclass effect method overriding base effect method without super', () => {
-        let _initProto15, _init_b16, _init_extra_b16, _initProto16;
+        let _initProto17, _init_b18, _init_extra_b18, _initProto18;
         const [a, setA] = createSignal(1);
         let superRuns = 0;
         let subRuns = 0;
         let observed = 0;
         class Base extends Effects {
           static {
-            [_init_b16, _init_extra_b16, _initProto15] = _applyDecs(this, [], [[signal, 0, "b"], [effect, 2, "compute"]], 0, void 0, Effects).e;
+            [_init_b18, _init_extra_b18, _initProto17] = _applyDecs(this, [], [[signal, 0, "b"], [effect, 2, "compute"]], 0, void 0, Effects).e;
           }
           constructor(...args) {
             super(...args);
-            _init_extra_b16(this);
+            _init_extra_b18(this);
           }
-          b = (_initProto15(this), _init_b16(this, 2));
+          b = (_initProto17(this), _init_b18(this, 2));
           compute() {
             superRuns++;
             observed = a() + this.b;
@@ -856,11 +856,11 @@ describe('classy-solid', () => {
         }
         class Sub extends Base {
           static {
-            [_initProto16] = _applyDecs(this, [], [[effect, 2, "compute"]], 0, void 0, Base).e;
+            [_initProto18] = _applyDecs(this, [], [[effect, 2, "compute"]], 0, void 0, Base).e;
           }
           constructor(...args) {
             super(...args);
-            _initProto16(this);
+            _initProto18(this);
           }
           compute() {
             subRuns++;
@@ -886,18 +886,18 @@ describe('classy-solid', () => {
       });
     });
     it('works with nested effects', () => {
-      let _initProto17, _init_a, _init_extra_a, _init_b17, _init_extra_b17;
+      let _initProto19, _init_a, _init_extra_a, _init_b19, _init_extra_b19;
       let outerRuns = 0;
       let innerRuns = 0;
       class MyEffects {
         static {
-          [_init_a, _init_extra_a, _init_b17, _init_extra_b17, _initProto17] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [effect, 2, "outer"]]).e;
+          [_init_a, _init_extra_a, _init_b19, _init_extra_b19, _initProto19] = _applyDecs(this, [], [[signal, 0, "a"], [signal, 0, "b"], [effect, 2, "outer"]]).e;
         }
         constructor() {
-          _init_extra_b17(this);
+          _init_extra_b19(this);
         }
-        a = (_initProto17(this), _init_a(this, 0));
-        b = (_init_extra_a(this), _init_b17(this, 0));
+        a = (_initProto19(this), _init_a(this, 0));
+        b = (_init_extra_a(this), _init_b19(this, 0));
         outer() {
           outerRuns++;
           this.a;
@@ -952,15 +952,15 @@ describe('classy-solid', () => {
       });
       it('throws on invalid getter usage', () => {
         expect(() => {
-          let _initProto18, _init_a2, _init_extra_a2;
+          let _initProto20, _init_a2, _init_extra_a2;
           class BadGetter {
             static {
-              [_init_a2, _init_extra_a2, _initProto18] = _applyDecs(this, [], [[signal, 0, "a"], [effect, 3, "nope"]]).e;
+              [_init_a2, _init_extra_a2, _initProto20] = _applyDecs(this, [], [[signal, 0, "a"], [effect, 3, "nope"]]).e;
             }
             constructor() {
               _init_extra_a2(this);
             }
-            a = (_initProto18(this), _init_a2(this, 1));
+            a = (_initProto20(this), _init_a2(this, 1));
             // @ts-expect-error invalid decorator usage on getter
             get nope() {
               return this.a;
@@ -1007,13 +1007,13 @@ describe('classy-solid', () => {
       });
       it('throws on duplicate members', () => {
         const run = () => {
-          let _initProto19;
+          let _initProto21;
           class SuperDuper {
             static {
-              [_initProto19] = _applyDecs(this, [], [[effect, 2, "dupe"], [effect, 2, "dupe"]]).e;
+              [_initProto21] = _applyDecs(this, [], [[effect, 2, "dupe"], [effect, 2, "dupe"]]).e;
             }
             constructor() {
-              _initProto19(this);
+              _initProto21(this);
             }
             // @ts-expect-error duplicate member
             dupe() {

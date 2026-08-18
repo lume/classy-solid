@@ -149,6 +149,8 @@ export declare function Effectful<T extends AnyConstructor>(Base: T): {
         "__#1@#createEffect"(fn: () => void): void;
     };
 } & T;
+export type AnyEffectful = InstanceType<ReturnType<typeof Effectful>>;
+export declare function isAnyEffectful(o: any): o is AnyEffectful;
 declare const Effects_base: {
     new (...a: any[]): {
         "__#1@#effectFunctions": (() => void)[];

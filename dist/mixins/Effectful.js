@@ -69,6 +69,8 @@ const isInstance = Symbol();
 export function Effectful(Base) {
   if (Base.prototype instanceof Effectful) throw new Error('Class already extends Effectful, no need to apply the mixin again.');
   class EffectfulClass extends Base {
+    // @ts-expect-error, use `any` to prevent subclass "has or is using private name" errors.
+    [isInstance] = true;
     #effectFunctions = [];
     #started = true;
 
@@ -201,20 +203,14 @@ export function Effectful(Base) {
       }
     }
   }
-  ;
-  EffectfulClass.prototype[isInstance] = true;
-  Object.defineProperty(EffectfulClass, Symbol.hasInstance, {
-    value: instanceCheck
-  });
   return EffectfulClass;
 }
-Object.defineProperty(Effectful, Symbol.hasInstance, {
-  value: instanceCheck
-});
-function instanceCheck(obj) {
-  if (!obj || typeof obj !== 'object') return false;
-  return isInstance in obj;
+export function isAnyEffectful(o) {
+  return o[isInstance];
 }
+Object.defineProperty(Effectful, Symbol.hasInstance, {
+  value: isAnyEffectful
+});
 
 /**
  * Shortcut for instantiating or extending directly instead of using the mixin.

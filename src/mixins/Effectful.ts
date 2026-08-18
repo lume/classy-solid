@@ -73,6 +73,9 @@ export function Effectful<T extends AnyConstructor>(Base: T) {
 		throw new Error('Class already extends Effectful, no need to apply the mixin again.')
 
 	class EffectfulClass extends Base {
+		// @ts-expect-error, use `any` to prevent subclass "has or is using private name" errors.
+		[isInstance as any] = true
+
 		#effectFunctions: Array<() => void> = []
 		#started = true
 
@@ -211,19 +214,16 @@ export function Effectful<T extends AnyConstructor>(Base: T) {
 		}
 	}
 
-	;(EffectfulClass.prototype as any)[isInstance] = true
-
-	Object.defineProperty(EffectfulClass, Symbol.hasInstance, {value: instanceCheck})
-
 	return EffectfulClass
 }
 
-Object.defineProperty(Effectful, Symbol.hasInstance, {value: instanceCheck})
+export type AnyEffectful = InstanceType<ReturnType<typeof Effectful>>
 
-function instanceCheck(obj: any): boolean {
-	if (!obj || typeof obj !== 'object') return false
-	return isInstance in obj
+export function isAnyEffectful(o: any): o is AnyEffectful {
+	return o[isInstance]
 }
+
+Object.defineProperty(Effectful, Symbol.hasInstance, {value: isAnyEffectful})
 
 /**
  * Shortcut for instantiating or extending directly instead of using the mixin.

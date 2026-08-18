@@ -1,5 +1,4 @@
 import type { AnyObject, MemberStat, MetadataMembers, PropKey, ClassySolidMetadata, MemberType } from './decorators/types.js';
-import { Effects } from './mixins/Effectful.js';
 /** Libraries that wrap classy-solid signal accessors should add their overriding getters to this set. */
 export declare const isSignalGetter__: WeakSet<Function>;
 /** Libraries that wrap classy-solid memo accessors should add their overriding getters to this set. */
@@ -9,7 +8,19 @@ export declare function getMemberStat__(name: PropKey, type: MemberType, members
 export declare function signalifyIfNeeded__(obj: AnyObject, stat: MemberStat): void;
 export declare function memoifyIfNeeded__(obj: AnyObject, stat: MemberStat): void;
 /** @private internal state */
-export declare const effects__: WeakMap<AnyObject, Effects>;
+export declare const effects__: WeakMap<AnyObject, {
+    "__#1@#effectFunctions": (() => void)[];
+    "__#1@#started": boolean;
+    createEffect(fn: () => void): void;
+    addEffectFn(fn: () => void): void;
+    "__#1@#isRestarting": boolean;
+    startEffects(): void;
+    stopEffects(): void;
+    clearEffects(): void;
+    "__#1@#owner": import("solid-js").Owner | null;
+    "__#1@#dispose": (() => void) | null;
+    "__#1@#createEffect"(fn: () => void): void;
+} & object>;
 export type AutoStartable = {
     autoStartEffects?: boolean;
 };

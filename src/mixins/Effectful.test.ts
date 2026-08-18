@@ -1,5 +1,5 @@
 import {createSignal, type Accessor, type Setter} from 'solid-js'
-import {Effectful, Effects} from './Effectful.js'
+import {Effectful, Effects, isAnyEffectful} from './Effectful.js'
 import {signal} from '../decorators/signal.js'
 import {MyElement, MyElement2, MyElement3, testElementEffects} from '../index.test.js'
 import {effect} from '../decorators/effect.js'
@@ -242,12 +242,16 @@ describe('classy-solid', () => {
 			class MyEffectful extends Effectful(Object) {}
 
 			const me = new MyEffectful()
+			expect(isAnyEffectful(me)).toBe(true)
 			expect(me instanceof Effectful).toBe(true)
+			expect(me instanceof Effects).toBe(false)
 			expect(me instanceof MyEffectful).toBe(true)
 
 			const e = new Effects()
+			expect(isAnyEffectful(e)).toBe(true)
 			expect(e instanceof Effects).toBe(true)
 			expect(e instanceof Effectful).toBe(true)
+			expect(e instanceof MyEffectful).toBe(false)
 		})
 
 		it('allows nested createEffect calls', () => {
@@ -305,7 +309,7 @@ describe('classy-solid', () => {
 					class Base extends Effectful(Object) {}
 					class Derived extends Effectful(Base) {}
 					Derived
-				}).toThrow('Class already extends Effectful, no need to apply the mixin again.')
+				}).toThrow('Base class already extends Effectful, no need to apply the mixin again.')
 			})
 		})
 

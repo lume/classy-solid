@@ -70,11 +70,12 @@ const isInstance = Symbol()
  */
 export function Effectful<T extends AnyConstructor>(Base: T) {
 	if (Base.prototype instanceof Effectful)
-		throw new Error('Class already extends Effectful, no need to apply the mixin again.')
+		throw new Error('Base class already extends Effectful, no need to apply the mixin again.')
 
 	class EffectfulClass extends Base {
-		// @ts-expect-error, use `any` to prevent subclass "has or is using private name" errors.
-		[isInstance as any] = true
+		get [isInstance as any]() {
+			return true
+		}
 
 		#effectFunctions: Array<() => void> = []
 		#started = true

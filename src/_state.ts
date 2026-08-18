@@ -9,7 +9,7 @@ import type {
 import {memoify, setMemoifyMemberStat} from './signals/memoify.js'
 import {getInheritedDescriptor} from 'lowclass/dist/getInheritedDescriptor.js'
 import {signalify} from './signals/signalify.js'
-import {Effects} from './mixins/Effectful.js'
+import {Effects, isAnyEffectful, type AnyEffectful} from './mixins/Effectful.js'
 import {untrack} from 'solid-js'
 
 /** Libraries that wrap classy-solid signal accessors should add their overriding getters to this set. */
@@ -121,7 +121,7 @@ export function memoifyIfNeeded__(obj: AnyObject, stat: MemberStat) {
 }
 
 /** @private internal state */
-export const effects__ = new WeakMap<AnyObject, Effects>()
+export const effects__ = new WeakMap<AnyObject, AnyEffectful>()
 
 export type AutoStartable = {
 	autoStartEffects?: boolean
@@ -163,7 +163,7 @@ export function effectifyIfNeeded__(obj: AnyObject, stat: MemberStat) {
 	let effects = effects__.get(obj)
 	if (!effects) {
 		// If the object is already an Effects instance, use it directly.
-		if (obj instanceof Effects) effects__.set(obj, (effects = obj))
+		if (isAnyEffectful(obj)) effects__.set(obj, (effects = obj))
 		// Otherwise, create a new Effects instance to manage the effects.
 		else effects__.set(obj, (effects = new Effects()))
 	}

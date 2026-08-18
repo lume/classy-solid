@@ -2,7 +2,7 @@ import {createSignal, batch, createRoot, createEffect} from 'solid-js'
 import {signal} from './signal.js'
 import {memo} from './memo.js'
 import {effect, startEffects, stopEffects} from './effect.js'
-import {Effects} from '../mixins/Effectful.js'
+import {Effects, isAnyEffectful} from '../mixins/Effectful.js'
 import {testElementEffects, type MyElement4} from '../index.test.js'
 
 describe('classy-solid', () => {
@@ -196,18 +196,18 @@ describe('classy-solid', () => {
 			fun.b = 10
 			expect(fun.last).toBe(5 + 10)
 			expect(fun.runs).toBe(3)
-			fun instanceof Effects && !useFunctions ? fun.stopEffects() : stopEffects(fun)
+			isAnyEffectful(fun) && !useFunctions ? fun.stopEffects() : stopEffects(fun)
 			setA(1)
 			fun.b = 1
 			expect(fun.last).toBe(5 + 10)
 			expect(fun.runs).toBe(3)
 
-			fun instanceof Effects && !useFunctions ? fun.startEffects() : startEffects(fun)
+			isAnyEffectful(fun) && !useFunctions ? fun.startEffects() : startEffects(fun)
 			expect(fun.last).toBe(1 + 1)
 			expect(fun.runs).toBe(4)
 
 			// Ensure no duplicate effects
-			fun instanceof Effects && !useFunctions ? fun.startEffects() : startEffects(fun)
+			isAnyEffectful(fun) && !useFunctions ? fun.startEffects() : startEffects(fun)
 			expect(fun.last).toBe(1 + 1)
 			expect(fun.runs).toBe(4)
 
@@ -215,7 +215,7 @@ describe('classy-solid', () => {
 			expect(fun.last).toBe(3 + 1)
 			expect(fun.runs).toBe(5)
 
-			fun instanceof Effects && !useFunctions ? fun.stopEffects() : stopEffects(fun)
+			isAnyEffectful(fun) && !useFunctions ? fun.stopEffects() : stopEffects(fun)
 			setA(10)
 			fun.b = 20
 			expect(fun.last).toBe(3 + 1)

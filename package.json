@@ -46,6 +46,10 @@
 		"prettier": "3.0.3",
 		"typescript": "^5.0.0"
 	},
+	"// dev quick fix for yargs breakage in Node 25/26": "",
+	"overrides": {
+		"yargs": "^17.7.3 || ^18.0.0"
+	},
 	"repository": {
 		"type": "git",
 		"url": "git+ssh://git@github.com/lume/classy-solid.git"

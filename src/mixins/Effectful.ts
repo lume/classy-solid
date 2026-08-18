@@ -73,6 +73,7 @@ export function Effectful<T extends AnyConstructor>(Base: T) {
 		throw new Error('Base class already extends Effectful, no need to apply the mixin again.')
 
 	class EffectfulClass extends Base {
+		// Use `any` to prevent subclass "has or is using private name" errors.
 		get [isInstance as any]() {
 			return true
 		}

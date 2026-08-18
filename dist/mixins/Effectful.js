@@ -69,6 +69,7 @@ const isInstance = Symbol();
 export function Effectful(Base) {
   if (Base.prototype instanceof Effectful) throw new Error('Base class already extends Effectful, no need to apply the mixin again.');
   class EffectfulClass extends Base {
+    // Use `any` to prevent subclass "has or is using private name" errors.
     get [isInstance]() {
       return true;
     }

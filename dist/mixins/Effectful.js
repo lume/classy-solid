@@ -80,6 +80,10 @@ export function Effectful(Base) {
      * Create a Solid.js effect. The difference from regular
      * `createEffect()` is that `this` tracks the effects created, so that
      * they can all be stopped with `this.stopEffects()`.
+     *
+     * Note, if effects are stopped, this starts them again, before
+     * creating the new effect. All effects are always all started, or all
+     * stopped.
      */
     createEffect(fn) {
       this.startEffects();
@@ -208,7 +212,7 @@ export function Effectful(Base) {
   return EffectfulClass;
 }
 export function isAnyEffectful(o) {
-  return o[isInstance];
+  return Boolean(o && o[isInstance]);
 }
 Object.defineProperty(Effectful, Symbol.hasInstance, {
   value: isAnyEffectful

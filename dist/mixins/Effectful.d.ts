@@ -73,6 +73,10 @@ export declare function Effectful<T extends AnyConstructor>(Base: T): {
          * Create a Solid.js effect. The difference from regular
          * `createEffect()` is that `this` tracks the effects created, so that
          * they can all be stopped with `this.stopEffects()`.
+         *
+         * Note, if effects are stopped, this starts them again, before
+         * creating the new effect. All effects are always all started, or all
+         * stopped.
          */
         createEffect(fn: () => void): void;
         /**
@@ -159,6 +163,10 @@ declare const Effects_base: {
          * Create a Solid.js effect. The difference from regular
          * `createEffect()` is that `this` tracks the effects created, so that
          * they can all be stopped with `this.stopEffects()`.
+         *
+         * Note, if effects are stopped, this starts them again, before
+         * creating the new effect. All effects are always all started, or all
+         * stopped.
          */
         createEffect(fn: () => void): void;
         /**

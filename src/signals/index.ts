@@ -1,3 +1,4 @@
+export * from './createLazyMemo.js'
 export * from './createSignalFunction.js'
 export * from './createSignalObject.js'
 export * from './createSyncedSignals.js'

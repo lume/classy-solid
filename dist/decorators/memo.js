@@ -1,6 +1,5 @@
-import { createMemo, createRoot } from 'solid-js';
-import { createWritableMemo } from '@solid-primitives/memo';
-import { finalizeMembersIfLast__, getMemberStat__, getMembers__, memoifyIfNeeded__ } from '../_state.js';
+import { runWithOwner } from 'solid-js';
+import { finalizeMembersIfLast__, getEffects__, getMemberStat__, getMembers__, isFinalized__, isMemoGetter__ } from '../_state.js';
 import './metadata-shim.js';
 
 /**
@@ -104,112 +103,160 @@ export function memo(value,
 // today's auto-accessors, writable memo
 context) {
   if (context.static) throw new Error('@memo is not supported on static fields yet.');
+
+  // @ts-expect-error skip type checking in case of invalid kind in plain JS
+  if (context.kind === 'field') throw new Error('@memo is not supported on class fields.');
   const {
     kind,
     name
   } = context;
   const metadata = context.metadata;
   const members = getMembers__(metadata);
+  const record = getMemoRecord(metadata, name);
 
-  // Apply finalization logic to all except setters (setters are finalized
-  // together with their getters).
-  // By skipping setters we also avoid double-counting the getter+setter pair
-  // in the finalizeMembersIfLast logic.
+  // A setter only marks the pair writable and forwards writes. It does not
+  // count as a member for finalization (it is finalized with its getter).
   if (kind === 'setter') {
-    if (context.private) {
-      const getterSetterMemos = getGetterSetterMemos(metadata, name);
-      return function (val) {
-        let memo = getterSetterMemos.get(this);
-        if (!memo) throw new Error('Memo not initialized yet. Access the getter first (f.e. set up effects first), then write.');
-        memo[1](val);
-      }; // unable to make TypeScript happy about the return type here at @memo application sites
-    }
-    return;
+    record.writable = true;
+    return function (val) {
+      readMemo(this, members, record, name)[1](val);
+    }; // unable to make TypeScript happy about the return type here at @memo application sites
   }
 
-  // TODO move off of memoify() (memoifyIfNeeded()), and follow this pattern for
-  // public members like we do here with private members.
-  if (context.private) {
-    if (kind === 'getter') {
-      const memos = getGetterSetterMemos(metadata, name);
-      const memoFn = value;
-      return function () {
-        const self = this;
-        let memo = memos.get(self);
-        if (!memo) {
-          // Initialize memo on first usage.
-          // Use createRoot to detach the from any current effect or
-          // the memo will be cleaned up when an outer effect re-runs,
-          // stopping any effects that depend on the memo from
-          // re-running.
-          // https://github.com/solidjs/solid/issues/2571
-          memos.set(self, memo = createRoot(() => createWritableMemo(() => memoFn.call(this))));
-        }
-        return memo[0]();
-      };
-    } else if (kind === 'accessor') {
-      const memos = new WeakMap();
-      const memoFn = value.get;
-      const get = function () {
-        const memo = memos.get(this);
-        return memo[0]();
-      };
-      const set = function (val) {
-        const memo = memos.get(this);
-        memo[1](val);
-      };
-      const init = function (val) {
-        const self = this;
-        memos.set(self, createWritableMemo(() => memoFn.call(self), val));
-        return val;
-      };
-      return {
-        get,
-        set,
-        init
-      };
-    } else if (kind === 'method') {
-      const memos = new WeakMap();
-      const memoFn = value;
-      const Undefined = Symbol();
-      return function (val = Undefined) {
-        const self = this;
-        let memo = memos.get(self);
-        if (!memo) {
-          // Initialize memo on first usage.
-          memos.set(self,
-          // Use createRoot to detach the from any current effect or
-          // the memo will be cleaned up when an outer effect re-runs,
-          // stopping any effects that depend on the memo from
-          // re-running.
-          // https://github.com/solidjs/solid/issues/2571
-          memo = createRoot(() => memoFn.length === 0 ? [createMemo(() => memoFn.call(self)), () => {}] : createWritableMemo(() => {
-            debugger;
-            return memoFn.call(self);
-          })));
-        }
-        return val === Undefined ? memo[0]() : memo[1](val);
-      };
-    }
-  }
-
-  // @ts-expect-error skip type checking in case of invalid kind in plain JS
-  if (kind === 'field') throw new Error('@memo is not supported on class fields.');
+  // Register a member stat so finalizeMembersIfLast__ runs for this class
+  // even when it has no @signal fields or @effects. Finalization does not
+  // create the memo (that happens lazily on first read); it only makes sure
+  // the Effects instance that will own the memo exists, created with the
+  // construction-time owner.
   const memberType = kind === 'accessor' ? 'memo-auto-accessor' : kind === 'method' ? 'memo-method' : 'memo-accessor';
   const stat = getMemberStat__(name, memberType, members, context);
   stat.finalize = function () {
-    memoifyIfNeeded__(this, stat);
+    getEffects__(this);
   };
   context.addInitializer(function () {
     finalizeMembersIfLast__(this, members);
   });
-  if (kind === 'method' || kind === 'getter') stat.value = value;else if (kind === 'accessor') stat.value = value.get;
+  if (kind === 'getter') {
+    record.memoFn = value;
+    const get = function () {
+      return readMemo(this, members, record, name)[0]();
+    };
+    // Preserve the original getter's `name` (f.e. "get sum") so the
+    // replacement is indistinguishable in stack traces, error messages,
+    // and reflection.
+    Object.defineProperty(get, 'name', {
+      value: value.name,
+      configurable: true
+    });
+    isMemoGetter__.add(get);
+    return get;
+  }
+  if (kind === 'method') {
+    const memoFn = value;
+    // Arity > 0 marks the method as a writable memo (the param is only a marker).
+    if (memoFn.length > 0) record.writable = true;
+    record.memoFn = memoFn;
+    const method = function (val = Undefined) {
+      const [get, set] = readMemo(this, members, record, name);
+      if (val === Undefined) return get();
+      if (!set) throw new Error(`Cannot set readonly memoized method "${String(name)}".`);
+      return set(val);
+    };
+    Object.defineProperty(method, 'name', {
+      value: memoFn.name,
+      configurable: true
+    });
+    isMemoGetter__.add(method);
+    return method;
+  }
+  if (kind === 'accessor') {
+    // The auto-accessor's initial value is the memo function. Store it per
+    // instance in `init`; the getter hands out a stable call-style
+    // function (`obj.x()` reads, `obj.x(v)` writes if arity > 0).
+    record.accessorFns ??= new WeakMap();
+    const accessorFns = record.accessorFns;
+    const callables = new WeakMap();
+    const init = function (fn) {
+      if (typeof fn !== 'function') throw new Error(`memo value for "${String(name)}" is not a function: ${fn}`);
+      accessorFns.set(this, fn);
+      return fn;
+    };
+    const get = function () {
+      const self = this;
+      let callable = callables.get(self);
+      if (!callable) {
+        const memoFn = accessorFns.get(self);
+        const writable = memoFn.length > 0;
+        callables.set(self, callable = (val = Undefined) => {
+          const [get, set] = readMemo(self, members, record, name, memoFn, writable);
+          if (val === Undefined) return get();
+          if (!set) throw new Error(`Cannot set readonly memoized method "${String(name)}".`);
+          return set(val);
+        });
+      }
+      return callable;
+    };
+    const set = function () {
+      throw new Error(`Cannot assign to memo accessor "${String(name)}". Call it to write instead: obj.${String(name)}(value)`);
+    };
+    isMemoGetter__.add(get);
+    return {
+      get,
+      set,
+      init
+    };
+  }
+  throw new Error(`@memo cannot be used on a ${String(kind)}.`);
 }
-function getGetterSetterMemos(metadata, name) {
-  if (!Object.hasOwn(metadata, 'classySolid_getterSetterMemos')) metadata.classySolid_getterSetterMemos = {};
-  const getterSetterMemoStorage = metadata.classySolid_getterSetterMemos;
-  let getterSetterMemos = getterSetterMemoStorage[name];
-  if (!getterSetterMemos) metadata.classySolid_getterSetterMemos[name] = getterSetterMemos = new WeakMap();
-  return getterSetterMemos;
+const Undefined = Symbol();
+
+/**
+ * Get (creating on first read) the stable memo accessors for `obj`'s `name`
+ * member. The memo is created via the instance's `Effects` (so it is lazy,
+ * owned by the instance, and stopped/started with its effects).
+ */
+function readMemo(obj, members, record, name,
+// Getters/methods store these on the record at decoration time.
+// Auto-accessors pass them per instance (the fn is the instance's initial value).
+memoFn = record.memoFn, writable = record.writable) {
+  // Before this class's members are finalized (signals not yet signalified)
+  // there is no memo to read. Computing the body directly is NOT a
+  // substitute: if the read happens inside an effect, that effect would
+  // track the body's raw dependencies (not signals yet, so effectively
+  // nothing) instead of the memo, and would never re-run when the memo
+  // changes. Typical cause: a field initializer or constructor reading a
+  // memo before the last @signal field of the class — see README "Field
+  // Initialization Order".
+  if (!isFinalized__(obj, members)) throw new Error(`@memo "${String(name)}" on ${obj.constructor.name} was read before its class finished initializing (before the last @signal field). ` + `No memo exists yet, so an effect reading it here would never re-run. ` + `Move the read after construction, or declare non-signal fields before @signal fields.`);
+  let accessors = record.storage.get(obj);
+  if (accessors) return accessors;
+  if (!memoFn) throw new Error(`@memo setter "${String(name)}" has no matching @memo getter.`);
+  const effects = getEffects__(obj); // exists: created at finalization
+  const compute = () => memoFn.call(obj);
+
+  // The first read typically happens INSIDE some effect. Calling
+  // effects.createMemo() from there would classify as "nested in an
+  // effect" and hand the memo to that effect — wrong for a class member,
+  // which must live as long as the instance. Decorated members are declared
+  // at construction time, so create them as if called there: with no owner,
+  // which routes to the Effectful-owned lazy path. runWithOwner(null) also
+  // nulls Listener, so the creation itself is not tracked by the reader.
+  accessors = runWithOwner(null, () => writable ? effects.createWritableMemo(compute) : [effects.createMemo(compute)]);
+  record.storage.set(obj, accessors);
+  return accessors;
+}
+
+/**
+ * Per-class, per-member memo record (see MemoRecord). Own storage per class
+ * so a subclass override gets its own record and base + sub memos coexist per
+ * instance for `super.x` extension.
+ */
+function getMemoRecord(metadata, name) {
+  if (!Object.hasOwn(metadata, 'classySolid_memos')) metadata.classySolid_memos = {};
+  const memos = metadata.classySolid_memos;
+  return memos[name] ??= {
+    writable: false,
+    storage: new WeakMap()
+  };
 }
 //# sourceMappingURL=memo.js.map

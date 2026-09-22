@@ -1,4 +1,4 @@
-import {createSignal, type Accessor, type Setter} from 'solid-js'
+import {createEffect, createRoot, createSignal, type Accessor, type Setter} from 'solid-js'
 import {Effectful, Effects, isAnyEffectful} from './Effectful.js'
 import {signal} from '../decorators/signal.js'
 import {MyElement, MyElement2, MyElement3, testElementEffects} from '../index.test.js'
@@ -301,6 +301,351 @@ describe('classy-solid', () => {
 			setB(2)
 			expect(outerRuns).toBe(3)
 			expect(innerRuns).toBe(5) // inner effect runs independently
+		})
+
+		describe('createMemo / createWritableMemo (Effectful-owned path)', () => {
+			it('is lazy, cached, and recomputes on dependency change', () => {
+				const [s, setS] = createSignal(2)
+				const e = new Effects()
+				let runs = 0
+
+				const double = e.createMemo(() => {
+					runs++
+					return s() * 2
+				})
+
+				expect(runs).toBe(0)
+				expect(double()).toBe(4)
+				expect(runs).toBe(1)
+				expect(double()).toBe(4)
+				expect(runs).toBe(1)
+
+				setS(3)
+				expect(double()).toBe(6)
+				expect(runs).toBe(2)
+			})
+
+			it('stops with stopEffects and restarts with startEffects, keeping the same accessor', () => {
+				const [s, setS] = createSignal(1)
+				const e = new Effects()
+				let memoRuns = 0
+				let effectRuns = 0
+				let last = 0
+
+				const double = e.createMemo(() => {
+					memoRuns++
+					return s() * 2
+				})
+
+				// External dependent (not one of e's effects).
+				createRoot(() => {
+					createEffect(() => {
+						effectRuns++
+						last = double()
+					})
+				})
+
+				expect(memoRuns).toBe(1)
+				expect(effectRuns).toBe(1)
+				expect(last).toBe(2)
+
+				setS(2)
+				expect(memoRuns).toBe(2)
+				expect(effectRuns).toBe(2)
+				expect(last).toBe(4)
+
+				e.stopEffects()
+
+				// Stopped: the memo is disposed, so a dependency change neither
+				// recomputes it nor notifies the external effect (whose only
+				// dependency was the memo)...
+				setS(3)
+				expect(memoRuns).toBe(2)
+				expect(effectRuns).toBe(2)
+				expect(last).toBe(4)
+				// ...but a read still returns a fresh value, computed directly.
+				expect(double()).toBe(6)
+				expect(memoRuns).toBe(3) // direct fn() call, not a memo
+
+				e.startEffects()
+
+				// The restart bump re-runs dependents exactly once; they pick up
+				// a fresh memo.
+				expect(effectRuns).toBe(3)
+				expect(memoRuns).toBe(4)
+				expect(last).toBe(6)
+
+				setS(4)
+				expect(effectRuns).toBe(4)
+				expect(last).toBe(8)
+			})
+
+			it('a stopped read is tracked (behaves like a plain getter)', () => {
+				const [s, setS] = createSignal(1)
+				const e = new Effects()
+				const double = e.createMemo(() => s() * 2)
+				let effectRuns = 0
+				let last = 0
+
+				e.stopEffects()
+
+				createRoot(() => {
+					createEffect(() => {
+						effectRuns++
+						last = double()
+					})
+				})
+
+				expect(effectRuns).toBe(1)
+				expect(last).toBe(2)
+
+				// The reader tracked s() directly through the fallback compute.
+				setS(5)
+				expect(effectRuns).toBe(2)
+				expect(last).toBe(10)
+			})
+
+			it('a stopped read passes the initial value as prev', () => {
+				const e = new Effects()
+				const prevs: (number | undefined)[] = []
+				const m = e.createMemo(prev => {
+					prevs.push(prev)
+					return (prev ?? 0) + 1
+				}, 41)
+
+				e.stopEffects()
+				expect(m()).toBe(42)
+				expect(prevs).toEqual([41])
+			})
+
+			it('writable: override, then dependency change resumes; writing while stopped throws', () => {
+				const [s, setS] = createSignal(1)
+				const e = new Effects()
+				const [val, setVal] = e.createWritableMemo(() => s() * 10)
+				let last = 0
+
+				createRoot(() => {
+					createEffect(() => {
+						last = val()
+					})
+				})
+
+				expect(last).toBe(10)
+				setVal(99)
+				expect(last).toBe(99)
+				setS(2)
+				expect(last).toBe(20)
+
+				e.stopEffects()
+				expect(() => setVal(5)).toThrow('Cannot write to a memo while effects are stopped.')
+			})
+
+			it('survives re-runs of the external effect that first read it', () => {
+				const [s, setS] = createSignal(1)
+				const [trigger, setTrigger] = createSignal(0)
+				const e = new Effects()
+				let memoRuns = 0
+				let effectRuns = 0
+
+				const double = e.createMemo(() => {
+					memoRuns++
+					return s() * 2
+				})
+
+				createRoot(() => {
+					createEffect(() => {
+						trigger()
+						effectRuns++
+						double() // first read inside this effect
+					})
+				})
+
+				expect(memoRuns).toBe(1)
+				setTrigger(1) // effect re-runs; must not dispose the memo
+				expect(effectRuns).toBe(2)
+				expect(memoRuns).toBe(1)
+				setS(2) // memo still alive and still notifies
+				expect(memoRuns).toBe(2)
+				expect(effectRuns).toBe(3)
+			})
+
+			it('memo created in the constructor is owned by the instance', () => {
+				const [s, setS] = createSignal(1)
+				let memoRuns = 0
+
+				class Foo extends Effects {
+					double = this.createMemo(() => {
+						memoRuns++
+						return s() * 2
+					})
+				}
+
+				const f = new Foo()
+				let last = 0
+				createRoot(() => {
+					createEffect(() => {
+						last = f.double()
+					})
+				})
+
+				expect(last).toBe(2)
+				setS(2)
+				expect(last).toBe(4)
+				expect(memoRuns).toBe(2)
+
+				f.stopEffects()
+				setS(3)
+				expect(memoRuns).toBe(2) // disposed
+			})
+
+			it('README example: memo in a field initializer, effect in the constructor', () => {
+				const logs: string[] = []
+
+				class Box extends Effects {
+					@signal width = 1
+					@signal height = 2
+
+					// Owned by the instance root (created in the constructor scope).
+					area = this.createMemo(() => this.width * this.height)
+
+					constructor() {
+						super()
+						this.createEffect(() => logs.push('area: ' + this.area()))
+					}
+				}
+
+				const box = new Box()
+				expect(logs).toEqual(['area: 2'])
+
+				box.width = 3
+				expect(logs).toEqual(['area: 2', 'area: 6'])
+
+				box.stopEffects()
+				box.width = 4
+				expect(logs).toEqual(['area: 2', 'area: 6']) // nothing logged
+				expect(box.area()).toBe(8) // computed directly
+
+				box.startEffects()
+				expect(logs).toEqual(['area: 2', 'area: 6', 'area: 8'])
+
+				box.stopEffects()
+			})
+
+			it('parent-owner disposal stops the instance; startEffects revives it', () => {
+				const [s, setS] = createSignal(1)
+				let memoRuns = 0
+				let effectRuns = 0
+				let e!: Effects
+				let dispose!: () => void
+				let double!: () => number
+
+				createRoot(d => {
+					dispose = d
+					e = new Effects()
+					double = e.createMemo(() => {
+						memoRuns++
+						return s() * 2
+					})
+					e.createEffect(() => {
+						effectRuns++
+						double()
+					})
+				})
+
+				expect(memoRuns).toBe(1)
+				expect(effectRuns).toBe(1)
+
+				dispose() // parent cleanup → e.stopEffects()
+
+				setS(2)
+				expect(memoRuns).toBe(1) // memo disposed
+				expect(effectRuns).toBe(1) // effect disposed
+
+				// The instance knows it is stopped, so startEffects is not a no-op.
+				e.startEffects()
+				expect(effectRuns).toBe(2)
+				expect(memoRuns).toBe(2)
+
+				setS(3)
+				expect(effectRuns).toBe(3)
+				expect(memoRuns).toBe(3)
+
+				e.stopEffects()
+			})
+		})
+
+		describe('createMemo / createWritableMemo (nested in own effect)', () => {
+			it('is a lazy memo owned by the enclosing effect, disposed and recreated with it', () => {
+				const [a, setA] = createSignal(2)
+				const [b, setB] = createSignal(3)
+				const e = new Effects()
+				let outerRuns = 0
+				let innerRuns = 0
+				let memoRuns = 0
+				let last = 0
+
+				e.createEffect(() => {
+					outerRuns++
+					a()
+					const memoRunsAtOuterStart = memoRuns
+					const prod = e.createMemo(() => {
+						memoRuns++
+						return a() * b()
+					})
+					expect(memoRuns).toBe(memoRunsAtOuterStart) // lazy: not run yet in this outer run
+
+					createEffect(() => {
+						innerRuns++
+						last = prod() // deeper child reads it → memo created here, owned by outer
+					})
+				})
+
+				expect(outerRuns).toBe(1)
+				expect(innerRuns).toBe(1)
+				expect(memoRuns).toBe(1)
+				expect(last).toBe(6)
+
+				setB(4) // memo recomputes, inner re-runs, outer does not
+				expect(memoRuns).toBe(2)
+				expect(innerRuns).toBe(2)
+				expect(outerRuns).toBe(1)
+				expect(last).toBe(8)
+
+				setA(3) // outer re-runs → disposes old memo, creates a new lazy one
+				expect(outerRuns).toBe(2)
+				expect(innerRuns).toBe(3)
+				expect(memoRuns).toBe(3)
+				expect(last).toBe(12)
+
+				e.stopEffects()
+				setB(5)
+				expect(memoRuns).toBe(3) // gone with the effect tree
+			})
+
+			it('throws when called from an ancestor reactive context other than the direct parent', () => {
+				let e!: Effects
+				let dispose!: () => void
+
+				createRoot(d => {
+					dispose = d
+					// Nested root: e's #parentOwner is the inner root; the outer
+					// root is its grandparent. (Roots run synchronously, unlike
+					// effects, so `e` is assigned before we return.) The inner
+					// root must be OWNED — Solid treats a zero-arity createRoot
+					// callback as unowned, with no `.owner` link to the outer root.
+					createRoot(_innerDispose => {
+						e = new Effects()
+					})
+
+					// The outer root's owner is an ancestor of e.#owner but not its
+					// direct parent → parent-context misuse, same rule as createEffect.
+					expect(() => e.createMemo(() => 1)).toThrow(
+						'Do not call .createMemo or .createWritableMemo methods in parent reactive contexts.',
+					)
+				})
+
+				dispose()
+			})
 		})
 
 		describe('invalid usages', () => {

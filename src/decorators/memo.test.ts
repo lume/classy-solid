@@ -1,7 +1,7 @@
 import {createEffect, batch, createSignal} from 'solid-js'
 import {signal} from './signal.js'
 import {memo} from './memo.js'
-import {effect} from './effect.js'
+import {effect, startEffects, stopEffects} from './effect.js'
 
 describe('classy-solid', () => {
 	describe('@memo decorator', () => {
@@ -553,33 +553,22 @@ describe('classy-solid', () => {
 			expect(count).toBe(3)
 		})
 
-		function accessorGetSet(value: ClassAccessorDecoratorTarget<unknown, any>) {
-			return function (_: ClassAccessorDecoratorTarget<unknown, any>, __: ClassAccessorDecoratorContext) {
-				return value
-			}
-		}
-
 		// This is undocumented, but helps us get set up for concise accessors once that syntax lands.
 		it('supports private auto accessors', () => {
 			class Example {
 				@signal a = 1
 				@signal b = 2
 
-				// @ts-ignore
-				@memo
-				@accessorGetSet({
-					get(this: any) {
-						return this.a + this.b
-					},
-					set() {},
-				})
-				accessor #sumPrivate = 0 // initial value won't matter, memo will override initially
+				// Private auto-accessor whose value is the (writable, arity > 0)
+				// memo function. Read via `this.#sumPrivate()`, write via
+				// `this.#sumPrivate(val)`.
+				@memo accessor #sumPrivate = (_val?: number) => this.a + this.b
 
 				get sum() {
-					return this.#sumPrivate
+					return this.#sumPrivate()
 				}
 				set sum(val) {
-					this.#sumPrivate = val
+					this.#sumPrivate(val)
 				}
 			}
 
@@ -654,9 +643,280 @@ describe('classy-solid', () => {
 			expect(count).toBe(2) // should not run because sum didn't change
 
 			ex.sum = 20
-			console.log('sum?', ex.sum)
 			expect(lastSum).toBe(20)
 			expect(count).toBe(3)
+		})
+
+		describe('laziness and lifecycle', () => {
+			it('reads a regular field declared after the last @signal field (field-order case)', () => {
+				class Foo {
+					@signal a = 1
+					runs = 0 // declared AFTER the last @signal; was `undefined` under eager memos
+
+					@memo get doubled() {
+						this.runs++
+						return this.a * 2
+					}
+				}
+
+				const f = new Foo()
+				expect(f.runs).toBe(0) // not computed at construction
+				expect(f.doubled).toBe(2)
+				expect(f.runs).toBe(1)
+				expect(f.doubled).toBe(2)
+				expect(f.runs).toBe(1) // cached
+			})
+
+			it('does not run the memo body until first read (all forms)', () => {
+				let g = 0
+				let m = 0
+				let acc = 0
+
+				class Foo {
+					@signal a = 1
+
+					@memo get getter() {
+						g++
+						return this.a
+					}
+					@memo method() {
+						m++
+						return this.a
+					}
+					@memo accessor accessorMemo = () => {
+						acc++
+						return this.a
+					}
+				}
+
+				const f = new Foo()
+				expect([g, m, acc]).toEqual([0, 0, 0])
+				f.getter
+				f.method()
+				f.accessorMemo()
+				expect([g, m, acc]).toEqual([1, 1, 1])
+			})
+
+			it('is owned by the instance, not by the external effect that first reads it', () => {
+				const [trigger, setTrigger] = createSignal(0)
+				let memoRuns = 0
+				let effectRuns = 0
+
+				class Foo {
+					@signal a = 1
+					@memo get doubled() {
+						memoRuns++
+						return this.a * 2
+					}
+				}
+
+				const f = new Foo()
+
+				createEffect(() => {
+					trigger()
+					effectRuns++
+					f.doubled // first read is INSIDE this effect
+				})
+
+				expect(memoRuns).toBe(1)
+				setTrigger(1) // effect re-runs; must not dispose the memo
+				expect(effectRuns).toBe(2)
+				expect(memoRuns).toBe(1)
+				f.a = 2 // memo still alive and still notifies the effect
+				expect(memoRuns).toBe(2)
+				expect(effectRuns).toBe(3)
+			})
+
+			it('stops and restarts with stopEffects/startEffects, keeping dependents working', () => {
+				let memoRuns = 0
+				let last = 0
+
+				class Foo {
+					@signal a = 1
+					@memo get doubled() {
+						memoRuns++
+						return this.a * 2
+					}
+				}
+
+				const f = new Foo()
+				createEffect(() => {
+					last = f.doubled
+				})
+
+				expect(last).toBe(2)
+				expect(memoRuns).toBe(1)
+
+				stopEffects(f)
+				f.a = 2
+				// The memo is disposed and the dependent effect's only dependency
+				// was the memo, so it is not notified while stopped...
+				expect(last).toBe(2)
+				expect(memoRuns).toBe(1)
+				// ...but a direct read still computes a fresh value.
+				expect(f.doubled).toBe(4)
+				expect(memoRuns).toBe(2)
+
+				startEffects(f)
+				// Restart bump re-runs the dependent once with a fresh memo.
+				expect(last).toBe(4)
+				f.a = 3
+				expect(last).toBe(6)
+			})
+
+			it('writes to a writable memo before any read work', () => {
+				class Foo {
+					@signal a = 1
+					@memo get val() {
+						return this.a * 10
+					}
+					@memo set val(_v: number) {}
+				}
+
+				const f = new Foo()
+				f.val = 99 // no read yet
+				expect(f.val).toBe(99)
+				f.a = 2
+				expect(f.val).toBe(20)
+			})
+
+			it('README field-order gotcha: an eager @effect reading a memo before a later regular field sees it uninitialized', () => {
+				let seen: unknown = 'not-run'
+				class Example {
+					@signal a = 1
+					runs = 0
+					@memo get doubled() {
+						this.runs++
+						return this.a * 2
+					}
+					@effect log() {
+						seen = this.runs // captured at the effect's first run, at `a`'s initializer
+						this.doubled
+					}
+				}
+				const o = new Example()
+				expect(seen).toBe(undefined)
+				// `this.runs++` ran on undefined (NaN), then the `runs = 0`
+				// initializer overwrote it — the count is lost.
+				expect(o.runs).toBe(0)
+			})
+
+			it('README field-order fix, option 1: regular fields before @signal fields', () => {
+				let seen: unknown = 'not-run'
+				class Example {
+					runs = 0
+					@signal a = 1
+					@memo get doubled() {
+						this.runs++
+						return this.a * 2
+					}
+					@effect log() {
+						this.doubled
+						seen = this.runs
+					}
+				}
+				new Example()
+				expect(seen).toBe(1)
+			})
+
+			it('README field-order fix, option 2: trailing dummy @signal', () => {
+				let seen: unknown = 'not-run'
+				class Example {
+					@signal a = 1
+					runs = 0
+					@memo get doubled() {
+						this.runs++
+						return this.a * 2
+					}
+					@effect log() {
+						this.doubled
+						seen = this.runs
+					}
+					@signal __dummy__init__ = null
+				}
+				new Example()
+				expect(seen).toBe(1)
+			})
+
+			it('throws when read before its class finished initializing', () => {
+				class Foo {
+					// Field initializer reads the memo before the last @signal field
+					// (`a`, below) has initialized this class's members.
+					early = this.doubled
+
+					@signal a = 1
+
+					@memo get doubled() {
+						return this.a * 2
+					}
+				}
+
+				expect(() => new Foo()).toThrow(
+					'@memo "doubled" on Foo was read before its class finished initializing (before the last @signal field).',
+				)
+			})
+
+			it('does not throw when a constructor reads a memo after all @signal fields', () => {
+				class Foo {
+					@signal a = 1
+					fromCtor = 0
+
+					@memo get doubled() {
+						return this.a * 2
+					}
+
+					constructor() {
+						this.fromCtor = this.doubled
+					}
+				}
+
+				const f = new Foo()
+				expect(f.fromCtor).toBe(2)
+				f.a = 5
+				expect(f.doubled).toBe(10)
+			})
+
+			it('does not throw when a subclass field initializer reads a base class memo', () => {
+				class Base {
+					@signal a = 1
+					@memo get doubled() {
+						return this.a * 2
+					}
+				}
+
+				class Sub extends Base {
+					fromBase = this.doubled // Base already finalized before Sub's fields run
+					@signal b = 2
+				}
+
+				const s = new Sub()
+				expect(s.fromBase).toBe(2)
+			})
+
+			it('works in a class with only @memo and @signal getter/setters (no signal fields, no effects)', () => {
+				class Foo {
+					#a = 1
+					@signal get a() {
+						return this.#a
+					}
+					@signal set a(v) {
+						this.#a = v
+					}
+
+					@memo get doubled() {
+						return this.a * 2
+					}
+				}
+
+				const f = new Foo()
+				let last = 0
+				createEffect(() => {
+					last = f.doubled
+				})
+				expect(last).toBe(2)
+				f.a = 3
+				expect(last).toBe(6)
+			})
 		})
 
 		describe('subclass memo overriding/extending', () => {

@@ -29,6 +29,7 @@ signals, and for using `class`es as Solid.js components.
     - [`createSignalObject()`](#createsignalobject)
     - [`createSignalFunction()`](#createsignalfunction)
     - [`signalify()`](#signalify)
+    - [`createLazyMemo()`](#createlazymemo)
     - [`memoify()`](#memoify)
     - [`Effectful`](#effectful)
     - [`Effects`](#effects)
@@ -323,6 +324,40 @@ Gotchas:
 - Methods and fields that become memo functions need to be invoked (`ex.sum()`),
   whereas getters are accessed via property access (`ex.sum`).
 - Readonly memos should not be assigned; doing so throws.
+
+#### Laziness and lifecycle
+
+A `@memo`'s computation does **not** run when the instance is constructed. It
+runs on the first read of the member, and from then on behaves like a normal
+Solid memo: cached, recomputed when a dependency changes, notifying dependents
+only when the result changes. A memo that is never read never computes.
+
+Every `@memo` belongs to the same reactive root that owns the instance's
+`@effect` members (see [`Effectful`](#effectful) — for classes that do not
+extend it, an `Effects` instance is created for the object behind the scenes).
+That means the `stopEffects(obj)` / `startEffects(obj)` functions (or the
+`.stopEffects()` / `.startEffects()` methods of an `Effectful` class) manage
+memos and effects together:
+
+- **`stopEffects`** disposes every memo along with every effect. While stopped,
+  reading a memo member computes its body directly, like a plain getter — no
+  memo is created, nothing can leak. Dependents that were tracking the memo
+  are _not_ notified of dependency changes while stopped (the memo node they
+  depended on is gone). Writing to a writable memo while stopped throws.
+- **`startEffects`** re-runs each memo's dependents exactly once; the first
+  dependent to read a memo lazily recreates it, and everything tracks normally
+  again. The memo member itself (the getter, or the function returned for
+  methods/accessors) is stable across stop/start; only the underlying Solid
+  memo is recreated.
+
+The class with `@memo` members may have no `@signal` fields and no `@effect`
+members; the memo alone is enough for the object to get a managed root.
+
+A memo member **must not be read before the class that declares it has
+finished initializing its `@signal` fields** — doing so throws (see
+[Field Initialization Order](#field-initialization-order)). In particular, do
+not read a `@memo` from a field initializer that runs before the last
+`@signal` field of the same class.
 
 ### `@effect`
 
@@ -1361,6 +1396,41 @@ This pattern (signalify first, memoify second) mirrors the decorator approach
 (`@signal` then `@memo`) and is ideal for plain objects or when decorators are
 not available.
 
+### `createLazyMemo()`
+
+```ts
+createLazyMemo<T>(fn: (prev: T | undefined) => T, value?: T, options?: MemoOptions<T>): [Accessor<T>]
+createLazyMemo<T>(fn, value?, options: MemoOptions<T> & {writable: true}): [Accessor<T>, Setter<T>]
+```
+
+The primitive that `@memo`, `memoify()`, and `Effectful.createMemo()` are built
+on. It returns a memo accessor whose underlying Solid memo is **not created
+until the accessor is first read**. Same `(fn, value?, options?)` shape as
+Solid's `createMemo`; pass `{writable: true}` to get a `[get, set]` pair backed
+by `createWritableMemo` from `@solid-primitives/memo`.
+
+The memo is owned by the reactive owner at the **call site** of
+`createLazyMemo`, captured with `getOwner()` — not by whatever effect happens
+to perform the first read. This matters: if the first read happens inside an
+effect and the memo were owned by that effect, the effect's own re-run would
+dispose the memo and it would never update again. Wrap the call in
+`runWithOwner(owner, …)` to pin the owner explicitly.
+
+```js
+import {createLazyMemo} from 'classy-solid'
+import {createSignal, createEffect} from 'solid-js'
+
+const [a, setA] = createSignal(2)
+
+const [double] = createLazyMemo(() => a() * 2) // nothing computed yet
+
+createEffect(() => console.log(double())) // memo created here, owned by the call site above; logs 4
+setA(5) // logs 10
+```
+
+Most code should reach for `@memo`, `memoify()`, or `Effectful.createMemo()`
+instead, which add lifecycle management on top of this.
+
 ### `memoify()`
 
 Convert function-valued properties or accessors on an object or instance into
@@ -1450,21 +1520,63 @@ memos can depend on.
 
 ### `Effectful`
 
-`Effectful` is a class-factory mixin that adds reactive effect management to
-any class. It provides:
+`Effectful` is a class-factory mixin that adds reactive effect and memo
+management to any class. It provides:
 
 - `this.createEffect(fn)` - Creates a Solid effect tied to the instance.
-- `this.stopEffects()` - Stops all effects created via `createEffect()` on this instance.
+- `this.createMemo(fn, value?, options?)` - Creates a lazy Solid memo tied to the instance. Returns an accessor.
+- `this.createWritableMemo(fn, value?, options?)` - Like `createMemo`, returns `[get, set]` where `set` overrides the value until a dependency next changes.
+- `this.stopEffects()` - Stops all effects and memos created via the methods above on this instance.
+- `this.startEffects()` - Restarts them (re-creating effects; memos are re-created lazily on next read).
 
-**Purpose:** Useful for classes that need to manage multiple effects with a
-single cleanup call, especially in component-like patterns (custom elements,
-lifecycle-driven classes, etc.).
+**Purpose:** Useful for classes that need to manage multiple effects and
+derived values with a single cleanup call, especially in component-like
+patterns (custom elements, lifecycle-driven classes, etc.).
 
-**Cleanup semantics:** Effects are created within a shared Solid.js owner root
-for the instance. Calling `stopEffects()` disposes that root, stopping all
-effects. Subsequent `createEffect()` calls create a new root. Typically you
-create a class, then call `stopEffects()` when the instance is no longer needed
-(for example with Custom Elements, in `disconnectedCallback`).
+**Cleanup semantics:** Effects and memos are created within a shared Solid.js
+owner root for the instance. Calling `stopEffects()` disposes that root,
+stopping all effects and memos; `startEffects()` brings them back. Typically
+you create a class, then call `stopEffects()` when the instance is no longer
+needed (for example with Custom Elements, in `disconnectedCallback`).
+
+**Memos:** `createMemo` and `createWritableMemo` have the same `(fn, value?,
+options?)` shape as Solid's `createMemo`. The memo's computation does not run
+until the returned accessor is first read. The owner is decided by _where the
+method is called_, following the same rules as `createEffect`:
+
+- Called in the constructor, in the scope that instantiated the object, or
+  with no reactive owner → the memo is owned by the instance's root alongside
+  its effects. `stopEffects()` disposes it; `startEffects()` notifies its
+  dependents so they re-read and recreate it. The returned accessor is stable
+  across stop/start. While stopped, reading the accessor computes `fn`
+  directly, like a plain getter, and writing a writable memo throws.
+- Called inside one of the instance's own effects → a lazy memo owned by that
+  effect (standard Solid semantics: disposed and recreated when the effect
+  re-runs). Use this to derive a value inside an effect for deeper children to
+  read.
+- Called from an ancestor reactive context that is not the direct parent →
+  throws, same as `createEffect`.
+
+```js
+class Box extends Effects {
+	@signal width = 1
+	@signal height = 2
+
+	// Owned by the instance root (created in the constructor scope).
+	area = this.createMemo(() => this.width * this.height)
+
+	constructor() {
+		super()
+		this.createEffect(() => console.log('area:', this.area()))
+	}
+}
+
+const box = new Box()
+box.width = 3 // logs "area: 6"
+box.stopEffects() // effect and memo disposed
+box.width = 4 // nothing logged; box.area() still returns 8 (computed directly)
+box.startEffects() // logs "area: 8", memo recreated
+```
 
 **Use cases:**
 
@@ -1868,6 +1980,106 @@ state.
 ### Static Fields
 
 - **Static fields:** Not yet supported by `@signal` or `@memo`.
+
+### Field Initialization Order Caveats
+
+`@signal` fields, `@memo` members, and `@effect` members of a class are
+finalized together when that class's **last `@signal` field** initializer
+runs: signals are signalified first, then memos become readable, then effects
+are created and run for the first time. This means the **order of field
+declarations in the class body** matters for anything that runs at that
+moment — which, in practice, means `@effect` bodies and anything they read.
+
+**Example of a problem:**
+
+```ts
+class Example {
+	@signal a = 1
+	runs = 0 // ← declared AFTER the last @signal
+
+	@memo get doubled() {
+		this.runs++
+		return this.a * 2
+	}
+
+	@effect log() {
+		console.log(this.doubled) // runs at `a`'s initializer: this.runs is undefined here!
+	}
+}
+
+const o = new Example()
+
+console.log(o.runs) // 0 — expected 1. The memo ran once (inside the effect), but
+// `this.runs++` happened while `runs` was still undefined (→ NaN), and then the
+// `runs = 0` initializer ran afterwards and overwrote it. The count is lost.
+```
+
+Memos are lazy, so `doubled` on its own is fine: it computes on first read,
+after construction, when `runs` is `0`. The problem is the eager `@effect`,
+which reads `doubled` at the last `@signal` field, before `runs = 0` has run.
+
+**Fix:** place non-signal fields **before** the first `@signal`, or add a
+dummy `@signal` field after the non-signal fields to move finalization later:
+
+```ts
+// ✓ Option 1: regular fields before signals
+class Example {
+	runs = 0
+	@signal a = 1
+
+	@memo get doubled() {
+		return this.a * 2
+	}
+	@effect log() {
+		console.log(this.doubled)
+	}
+}
+
+// ✓ Option 2: dummy @signal forces finalization after `runs`
+class Example {
+	@signal a = 1
+	runs = 0
+
+	@memo get doubled() {
+		return this.a * 2
+	}
+	@effect log() {
+		console.log(this.doubled)
+	}
+
+	@signal __dummy__init__ = null // force memos/effects to init here
+}
+```
+
+**Reading a `@memo` too early throws.** A memo member cannot be read before
+the class that declares it has finalized (before its last `@signal` field),
+because the class's signals are not yet signalified and no memo can exist.
+Rather than silently returning a value that nothing will ever re-track, the
+read throws:
+
+```
+@memo "doubled" on Example was read before its class finished initializing
+(before the last @signal field). No memo exists yet, so an effect reading it
+here would never re-run. Move the read after construction, or declare
+non-signal fields before @signal fields.
+```
+
+The typical trigger is a field initializer that reads a memo of the _same_
+class before that class's last `@signal` field:
+
+```ts
+class Example {
+	early = this.doubled // ✗ throws: Example has not finalized yet
+	@signal a = 1
+	@memo get doubled() {
+		return this.a * 2
+	}
+}
+```
+
+Reading a memo in the constructor body (after `super()` and all fields), or
+reading a **base** class's memo from a **subclass** field initializer, is
+fine — the declaring class has already finalized in both cases.
 
 ### Memory Considerations
 

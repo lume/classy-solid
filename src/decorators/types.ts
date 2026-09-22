@@ -1,6 +1,6 @@
 import type {Constructor} from 'lowclass/dist/Constructor.js'
 import type {SignalFunction} from '../signals/createSignalFunction.js'
-import type {Signal} from 'solid-js'
+import type {Accessor, Setter} from 'solid-js'
 
 export type AnyObject = Record<PropertyKey, unknown>
 
@@ -58,5 +58,25 @@ export type ClassySolidMetadata = {
 	classySolid_members?: MetadataMembers
 	classySolid_getterSetterSignals?: Record<PropKey, WeakMap<object, SignalFunction<unknown>> | undefined>
 	classySolid_getterSetterPairCounts?: {[key: PropKey]: 0 | 1 | 2}
-	classySolid_getterSetterMemos?: Record<PropKey, WeakMap<object, Signal<any>> | undefined>
+	classySolid_memos?: Record<PropKey, MemoRecord | undefined>
+}
+
+/** The stable per-instance accessor pair produced for a `@memo` member. */
+export type MemoAccessors = readonly [get: Accessor<unknown>, set?: Setter<unknown>]
+
+/**
+ * Per-class, per-member state for `@memo`. Shared by a getter and its setter
+ * (the setter marks the record writable); owned per class via
+ * `Object.hasOwn(metadata, …)` so a subclass override gets its own record
+ * and base + sub memos coexist per instance for `super.x` extension.
+ */
+export type MemoRecord = {
+	/** Set by a `@memo` setter decorator; for methods/accessors decided by fn arity. */
+	writable: boolean
+	/** The stable accessors for each instance, created on first read. */
+	storage: WeakMap<object, MemoAccessors>
+	/** For getters and methods: the decorated function (stored at decoration time). */
+	memoFn?: (this: unknown) => unknown
+	/** For auto-accessors: the function value each instance was initialized with. */
+	accessorFns?: WeakMap<object, Function>
 }

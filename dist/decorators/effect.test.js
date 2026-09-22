@@ -518,7 +518,7 @@ describe('classy-solid', () => {
       expect(o.result).toBe(15);
       expect(o.runs).toBe(3);
     });
-    it('managed within an existing root, without Effects, without stopEffects', () => {
+    it('managed within an existing root, without Effects, with stopEffects', () => {
       let _initProto11, _init_b13, _init_extra_b13;
       const [a, setA] = createSignal(1);
       let observed = 0;
@@ -542,10 +542,6 @@ describe('classy-solid', () => {
         p = new PlainYogurt();
         dispose = d;
       });
-
-      // As p is created inside a root, it will be tied to that root's owner,
-      // so this stopEffects(p) will not dispose the effects.
-      stopEffects(p);
       expect(observed).toBe(3);
       expect(runs).toBe(1);
       setA(4);
@@ -553,12 +549,27 @@ describe('classy-solid', () => {
       expect(observed).toBe(9);
       expect(runs).toBe(3);
 
-      // Now dispose the root to clean up effects
+      // p's effects live in p's own root, nested under the enclosing root
+      // (the enclosing root is p's parent owner, not a substitute for it).
+      // So stopEffects(p) disposes them...
+      stopEffects(p);
+      setA(6);
+      p.b = 7;
+      expect(observed).toBe(9);
+      expect(runs).toBe(3);
+
+      // ...and startEffects(p) brings them back, re-running once.
+      startEffects(p);
+      expect(observed).toBe(13);
+      expect(runs).toBe(4);
+
+      // Disposing the enclosing root also stops p (parent cleanup routes
+      // through stopEffects), with no further updates.
       dispose();
       setA(10);
       p.b = 20;
-      expect(observed).toBe(9); // disposed root, no further updates
-      expect(runs).toBe(3);
+      expect(observed).toBe(13);
+      expect(runs).toBe(4);
     });
     describe('subclass effect overriding/extending', () => {
       it('runs subclass effect auto accessor extending base effect auto accessor with super', () => {

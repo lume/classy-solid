@@ -1,4 +1,3 @@
-import { memoify, setMemoifyMemberStat } from './signals/memoify.js';
 import { getInheritedDescriptor } from 'lowclass/dist/getInheritedDescriptor.js';
 import { signalify } from './signals/signalify.js';
 import { Effects, isAnyEffectful } from './mixins/Effectful.js';
@@ -80,23 +79,40 @@ export function signalifyIfNeeded__(obj, stat) {
   if (!stat.reuseExistingSignal) signalify(obj, [name, untrack(() => obj[name])]);
   stat.applied.set(obj, true);
 }
-export function memoifyIfNeeded__(obj, stat) {
-  const {
-    name,
-    context
-  } = stat;
-  if (stat.applied.get(obj)) throw new Error(`@memo decorated member "${String(name)}" has already been memoified. This can happen if there are duplicated class members.`);
-  if (context.private && context.kind === 'getter') {
-    // stat.memoGet
-  } else {
-    setMemoifyMemberStat(stat);
-    memoify(obj, name);
-  }
-  stat.applied.set(obj, true);
-}
 
 /** @private internal state */
 export const effects__ = new WeakMap();
+/**
+ * Get (creating on first call) the `Effects` instance that owns all `@effect`
+ * and `@memo` members of `obj`, as well as any `memoify()`'d members. If `obj`
+ * is itself `Effectful`, `obj` is used directly so that decorator members,
+ * `memoify()` members, and manual `this.createEffect()`/`this.createMemo()`
+ * calls all share one root and one `stopEffects()`/`startEffects()`.
+ *
+ * The instance is put in the class's initial start state (`static
+ * autoStartEffects`) on creation, regardless of which decorator reaches it
+ * first (memos finalize before effects in `customSortOrder`).
+ */
+export function getEffects__(obj) {
+  let effects = effects__.get(obj);
+  if (effects) return effects;
+  effects__.set(obj, effects = isAnyEffectful(obj) ? obj : new Effects());
+  const ctor = obj.constructor;
+  if (ctor.autoStartEffects === false) effects.stopEffects();
+  return effects;
+}
+
+/**
+ * Per-instance record of which classes' decorated members have been
+ * finalized (all `finalize()` callbacks run). `@memo` reads check this so a
+ * memo is never created before its class's signals are signalified.
+ */
+const finalized__ = new WeakMap();
+
+/** @private internal */
+export function isFinalized__(obj, members) {
+  return !!finalized__.get(obj)?.has(members);
+}
 export function effectifyIfNeeded__(obj, stat) {
   const {
     name,
@@ -118,20 +134,13 @@ export function effectifyIfNeeded__(obj, stat) {
   if (leafmostMember !== decoratedMember) return;
   const effectFn = context.access.get(obj);
   if (typeof effectFn !== 'function') throw new Error(`@effect decorated member "${String(name)}" is not a function: ${effectFn}`);
-  let effects = effects__.get(obj);
-  if (!effects) {
-    // If the object is already an Effects instance, use it directly.
-    if (isAnyEffectful(obj)) effects__.set(obj, effects = obj);
-    // Otherwise, create a new Effects instance to manage the effects.
-    else effects__.set(obj, effects = new Effects());
-  }
+  const effects = getEffects__(obj);
   const ctor = obj.constructor;
   const autoStart = ctor.autoStartEffects === undefined || ctor.autoStartEffects;
-  if (autoStart) effects.createEffect(() => effectFn.call(obj));else {
-    // start stopped; effects will be added but not started yet if autoStart is false
-    effects.stopEffects();
-    effects.addEffectFn(() => effectFn.call(obj));
-  }
+
+  // getEffects__ already put the instance in the stopped state when
+  // autoStart is false; here we only add the effect fn without starting it.
+  if (autoStart) effects.createEffect(() => effectFn.call(obj));else effects.addEffectFn(() => effectFn.call(obj));
   stat.applied.set(obj, true);
 }
 
@@ -164,12 +173,18 @@ export function finalizeMembersIfLast__(obj, members) {
 
   // The last member in EcmaScript decorator extra initializer application
   // order has been initialized, so we can now initialize all the members we
-  // track in our custom order.
+  // track in our custom order: signal fields first, then memos, then effects.
   sortMetadataMembersCustomOrder(members);
+  let i = 0;
+  for (; i < members.length && members[i].type === 'signal-field'; i++) members[i].finalize?.call(obj);
 
-  // All signal-fields, memo-fields, and memo-auto-accessors have been
-  // initialized. Now initialize memo fields that were waiting for
-  // those to be ready.
-  for (const stat of members) stat.finalize?.call(obj);
+  // All @signal fields of this class are now signalified, which is what @memo
+  // reads require (a memo created before that would track nothing). Mark this
+  // class finalized for `obj` BEFORE running memo and effect finalizers:
+  // effects are eager and commonly read memos during their first run.
+  let finalizedMembers = finalized__.get(obj);
+  if (!finalizedMembers) finalized__.set(obj, finalizedMembers = new WeakSet());
+  finalizedMembers.add(members);
+  for (; i < members.length; i++) members[i].finalize?.call(obj);
 }
 //# sourceMappingURL=_state.js.map

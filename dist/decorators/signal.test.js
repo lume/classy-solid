@@ -396,15 +396,17 @@ describe('classy-solid', () => {
       });
       expect(count).toBe(1);
       expect(kid.age).toBe(3);
-      // check that @memo still works with the Proxy
-      expect(memoRuns).toBe(1);
+      // check that @memo still works with the Proxy (memos are lazy: the
+      // body runs on first read, not at construction)
+      expect(memoRuns).toBe(0);
       expect(kid.ageInDogYears).toBe(21);
+      expect(memoRuns).toBe(1);
       kid.age = 4;
       expect(count).toBe(2);
       expect(kid.age).toBe(4);
       // check that @memo still works with the Proxy
-      expect(memoRuns).toBe(2);
       expect(kid.ageInDogYears).toBe(28);
+      expect(memoRuns).toBe(2);
     });
     it('cannot support private fields', () => {
       expect(() => {

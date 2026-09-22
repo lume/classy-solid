@@ -1,5 +1,6 @@
-import { type Owner } from 'solid-js';
+import { type Owner, type Accessor, type Setter, type MemoOptions } from 'solid-js';
 import type { AnyConstructor } from 'lowclass/dist/Constructor.js';
+import { type LazyMemoOptions } from '../signals/createLazyMemo.js';
 /**
  * @class Effectful -
  *
@@ -64,6 +65,13 @@ import type { AnyConstructor } from 'lowclass/dist/Constructor.js';
  *   }
  * }
  * ```
+ *
+ * Memos are managed the same way. `this.createMemo(fn)` returns a lazy memo
+ * accessor owned by this instance's root, so `this.stopEffects()` disposes it
+ * along with the effects and `this.startEffects()` brings it back (dependents
+ * re-run and lazily recreate it). The `@memo` decorator uses this under the
+ * hood. Like `createEffect()`, calling `createMemo()` from inside one of this
+ * instance's own effects instead creates a memo owned by that effect.
  */
 export declare function Effectful<T extends AnyConstructor>(Base: T): {
     new (...a: any[]): {
@@ -148,9 +156,48 @@ export declare function Effectful<T extends AnyConstructor>(Base: T): {
          * ```
          */
         clearEffects(): void;
-        "__#1@#owner": Owner | null;
-        "__#1@#dispose": (() => void) | null;
+        "__#1@#parentOwner": Owner | null;
+        "__#1@#dispose": () => void;
+        "__#1@#owner": Owner;
         "__#1@#createEffect"(fn: () => void): void;
+        /**
+         * One restart signal per instance. Every Effectful-owned memo accessor
+         * reads it, so bumping it once in `startEffects()` re-runs every
+         * dependent of every memo, which then lazily recreates the memos.
+         */
+        "__#1@#memoVersion": import("solid-js").Signal<number>;
+        /**
+         * Create a lazy Solid.js memo whose lifecycle is managed by this
+         * instance, like `createEffect()` manages effects. Same `(fn, value,
+         * options)` shape as Solid's `createMemo`.
+         *
+         * The memo's computation does not run until the returned accessor is
+         * first read. The owner is decided by where `createMemo()` is
+         * *called*, following the same rules as `createEffect()`:
+         *
+         * - Called in the constructor, or in the same scope that instantiated
+         *   the object, or with no reactive owner: the memo is owned by this
+         *   instance's root, alongside its effects. `stopEffects()` disposes
+         *   it, and `startEffects()` notifies its dependents so they re-read
+         *   and recreate it. The returned accessor stays the same across
+         *   stop/start.
+         * - Called inside one of this instance's own effects: the memo is a
+         *   lazy memo owned by that effect (standard Solid semantics; disposed
+         *   and recreated when that effect re-runs).
+         *
+         * While effects are stopped, reading the accessor computes `fn`
+         * directly (like a plain getter) without creating anything.
+         */
+        createMemo<T_1>(fn: (prev: T_1 | undefined) => T_1, value?: T_1, options?: MemoOptions<T_1>): Accessor<T_1>;
+        /**
+         * Like `createMemo()`, but returns `[get, set]` where `set` overrides
+         * the memo's value until a dependency next changes (backed by
+         * `createWritableMemo` from `@solid-primitives/memo`). Writing while
+         * effects are stopped throws.
+         */
+        createWritableMemo<T_1>(fn: (prev: T_1 | undefined) => T_1, value?: T_1, options?: MemoOptions<T_1>): [get: Accessor<T_1>, set: Setter<T_1>];
+        "__#1@#memo"<T_1>(fn: (prev: T_1 | undefined) => T_1, value: T_1 | undefined, options: LazyMemoOptions<T_1>): readonly [get: Accessor<T_1>, set?: Setter<T_1>];
+        "__#1@#lazyMemo"<T_1>(fn: (prev: T_1 | undefined) => T_1, value: T_1 | undefined, options: LazyMemoOptions<T_1>): readonly [get: Accessor<T_1>, set?: Setter<T_1>];
     };
 } & T;
 export type AnyEffectful = InstanceType<ReturnType<typeof Effectful>>;
@@ -238,9 +285,48 @@ declare const Effects_base: {
          * ```
          */
         clearEffects(): void;
-        "__#1@#owner": Owner | null;
-        "__#1@#dispose": (() => void) | null;
+        "__#1@#parentOwner": Owner | null;
+        "__#1@#dispose": () => void;
+        "__#1@#owner": Owner;
         "__#1@#createEffect"(fn: () => void): void;
+        /**
+         * One restart signal per instance. Every Effectful-owned memo accessor
+         * reads it, so bumping it once in `startEffects()` re-runs every
+         * dependent of every memo, which then lazily recreates the memos.
+         */
+        "__#1@#memoVersion": import("solid-js").Signal<number>;
+        /**
+         * Create a lazy Solid.js memo whose lifecycle is managed by this
+         * instance, like `createEffect()` manages effects. Same `(fn, value,
+         * options)` shape as Solid's `createMemo`.
+         *
+         * The memo's computation does not run until the returned accessor is
+         * first read. The owner is decided by where `createMemo()` is
+         * *called*, following the same rules as `createEffect()`:
+         *
+         * - Called in the constructor, or in the same scope that instantiated
+         *   the object, or with no reactive owner: the memo is owned by this
+         *   instance's root, alongside its effects. `stopEffects()` disposes
+         *   it, and `startEffects()` notifies its dependents so they re-read
+         *   and recreate it. The returned accessor stays the same across
+         *   stop/start.
+         * - Called inside one of this instance's own effects: the memo is a
+         *   lazy memo owned by that effect (standard Solid semantics; disposed
+         *   and recreated when that effect re-runs).
+         *
+         * While effects are stopped, reading the accessor computes `fn`
+         * directly (like a plain getter) without creating anything.
+         */
+        createMemo<T>(fn: (prev: T | undefined) => T, value?: T | undefined, options?: MemoOptions<T> | undefined): Accessor<T>;
+        /**
+         * Like `createMemo()`, but returns `[get, set]` where `set` overrides
+         * the memo's value until a dependency next changes (backed by
+         * `createWritableMemo` from `@solid-primitives/memo`). Writing while
+         * effects are stopped throws.
+         */
+        createWritableMemo<T>(fn: (prev: T | undefined) => T, value?: T | undefined, options?: MemoOptions<T> | undefined): [get: Accessor<T>, set: Setter<T>];
+        "__#1@#memo"<T>(fn: (prev: T | undefined) => T, value: T | undefined, options: LazyMemoOptions<T>): readonly [get: Accessor<T>, set?: Setter<T> | undefined];
+        "__#1@#lazyMemo"<T>(fn: (prev: T | undefined) => T, value: T | undefined, options: LazyMemoOptions<T>): readonly [get: Accessor<T>, set?: Setter<T> | undefined];
     };
 } & {
     new (): {};

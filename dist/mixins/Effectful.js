@@ -1,4 +1,5 @@
-import { createEffect, createRoot, getOwner, runWithOwner } from 'solid-js';
+import { createEffect, createRoot, createSignal, getOwner, runWithOwner, onCleanup } from 'solid-js';
+import { createLazyMemo } from '../signals/createLazyMemo.js';
 const isInstance = Symbol();
 
 /**
@@ -65,6 +66,13 @@ const isInstance = Symbol();
  *   }
  * }
  * ```
+ *
+ * Memos are managed the same way. `this.createMemo(fn)` returns a lazy memo
+ * accessor owned by this instance's root, so `this.stopEffects()` disposes it
+ * along with the effects and `this.startEffects()` brings it back (dependents
+ * re-run and lazily recreate it). The `@memo` decorator uses this under the
+ * hood. Like `createEffect()`, calling `createMemo()` from inside one of this
+ * instance's own effects instead creates a memo owned by that effect.
  */
 export function Effectful(Base) {
   if (Base.prototype instanceof Effectful) throw new Error('Base class already extends Effectful, no need to apply the mixin again.');
@@ -135,6 +143,13 @@ export function Effectful(Base) {
       if (this.#started) return;
       this.#started = true;
 
+      // Notify memo dependents FIRST, while none of our effects exist yet:
+      // external dependents re-run, read the memo accessors, and lazily
+      // recreate the memos. Bumping after recreating our own effects
+      // would make every one of them run twice per start.
+      const [, setMemoVersion] = this.#memoVersion;
+      setMemoVersion(v => v + 1);
+
       // Restart all stored effect functions
       this.#isRestarting = true;
       try {
@@ -182,31 +197,127 @@ export function Effectful(Base) {
       this.stopEffects();
       this.#effectFunctions = [];
     }
-    #owner = null;
-    #dispose = null;
-    #createEffect(fn) {
-      const owner = getOwner();
+    #parentOwner = getOwner();
+    #dispose;
+    #owner = (() => {
+      let owner;
+      runWithOwner(this.#parentOwner, () => {
+        createRoot(dispose => {
+          owner = getOwner();
+          this.#dispose = dispose;
+        });
 
-      // If nested in an existing owner (f.e. nested effect), delegate to
-      // regular createEffect.
-      if (owner) return createEffect(fn);
+        // Route parent cleanup through stopEffects() so #started stays
+        // truthful: effects and memos are disposed AND the instance
+        // knows it is stopped, so memo reads fall back to a plain
+        // compute instead of reviving the root, and a later
+        // startEffects() can legitimately bring everything back.
+        if (this.#parentOwner) onCleanup(() => this.stopEffects());
+      });
+      return owner;
+    })();
+    #createEffect(fn) {
+      const callContext = getOwner();
+      const contextIsChild = ownerIsAncestor(this.#owner, callContext);
+      const contextIsParent = ownerIsAncestor(callContext, this.#owner);
+
+      // If nested in an effect under our effect tree, delegate to regular
+      // createEffect.
+      // I.e. Effects are hooked onto our root with runWithOwner, unless
+      // this.createEffect is called with an owner that is a descendant of
+      // our owner (f.e. a nested effect)
+      if (!this.#isRestarting) if (contextIsChild) return createEffect(fn);else if (contextIsParent && callContext !== this.#parentOwner) throw new Error('Do not call .startEffects or .createEffect methods in parent reactive contexts.');
 
       // Store top-level effect functions so they can be replayed when
       // startEffects() is called
       if (!this.#isRestarting) this.#effectFunctions.push(fn);
+      runWithOwner(this.#owner, () => createEffect(fn));
+    }
 
-      // If top-level call either attach to an existing root, or make a
-      // new one if we don't have one yet.
-      if (this.#owner) runWithOwner(this.#owner, () => createEffect(fn));else {
-        createRoot(dispose => {
-          this.#owner = getOwner();
-          this.#dispose = () => {
-            dispose();
-            this.#owner = null;
-          };
-          createEffect(fn);
-        });
-      }
+    /**
+     * One restart signal per instance. Every Effectful-owned memo accessor
+     * reads it, so bumping it once in `startEffects()` re-runs every
+     * dependent of every memo, which then lazily recreates the memos.
+     */
+    #memoVersion = createSignal(0);
+
+    /**
+     * Create a lazy Solid.js memo whose lifecycle is managed by this
+     * instance, like `createEffect()` manages effects. Same `(fn, value,
+     * options)` shape as Solid's `createMemo`.
+     *
+     * The memo's computation does not run until the returned accessor is
+     * first read. The owner is decided by where `createMemo()` is
+     * *called*, following the same rules as `createEffect()`:
+     *
+     * - Called in the constructor, or in the same scope that instantiated
+     *   the object, or with no reactive owner: the memo is owned by this
+     *   instance's root, alongside its effects. `stopEffects()` disposes
+     *   it, and `startEffects()` notifies its dependents so they re-read
+     *   and recreate it. The returned accessor stays the same across
+     *   stop/start.
+     * - Called inside one of this instance's own effects: the memo is a
+     *   lazy memo owned by that effect (standard Solid semantics; disposed
+     *   and recreated when that effect re-runs).
+     *
+     * While effects are stopped, reading the accessor computes `fn`
+     * directly (like a plain getter) without creating anything.
+     */
+    createMemo(fn, value, options) {
+      return this.#memo(fn, value, {
+        ...options,
+        writable: false
+      })[0];
+    }
+
+    /**
+     * Like `createMemo()`, but returns `[get, set]` where `set` overrides
+     * the memo's value until a dependency next changes (backed by
+     * `createWritableMemo` from `@solid-primitives/memo`). Writing while
+     * effects are stopped throws.
+     */
+    createWritableMemo(fn, value, options) {
+      return this.#memo(fn, value, {
+        ...options,
+        writable: true
+      });
+    }
+    #memo(fn, value, options) {
+      const callContext = getOwner();
+      const contextIsChild = ownerIsAncestor(this.#owner, callContext);
+      const contextIsParent = ownerIsAncestor(callContext, this.#owner);
+
+      // Same three-way classification as #createEffect.
+      if (contextIsChild) return createLazyMemo(fn, value, options); // owner = callContext (captured inside)
+      if (contextIsParent && callContext !== this.#parentOwner) throw new Error('Do not call .createMemo or .createWritableMemo methods in parent reactive contexts.');
+      return this.#lazyMemo(fn, value, options); // owner = #owner
+    }
+    #lazyMemo(fn, value, options) {
+      let memo;
+      const ensure = () => memo ??= runWithOwner(this.#owner, () => {
+        // Registered on the ROOT, so it fires whenever the root is
+        // cleaned — by stopEffects() or by #parentOwner's cleanup.
+        // Co-locating the reset with the creation means
+        // stopEffects() needs no memo bookkeeping. This
+        // runWithOwner is also the owner createLazyMemo captures.
+        onCleanup(() => memo = undefined);
+        return createLazyMemo(fn, value, options);
+      });
+      const get = () => {
+        const [memoVersion] = this.#memoVersion;
+        memoVersion(); // dependents re-run after startEffects()
+
+        // Stopped: behave like a plain derived getter. Nothing is
+        // created, nothing can leak. No memo exists, so there is no
+        // previous value; pass the initial value.
+        if (!this.#started) return fn(value);
+        return ensure()[0]();
+      };
+      const set = v => {
+        if (!this.#started) throw new Error('Cannot write to a memo while effects are stopped.');
+        return ensure()[1](v);
+      };
+      return options.writable ? [get, set] : [get];
     }
   }
   return EffectfulClass;
@@ -240,4 +351,13 @@ Object.defineProperty(Effectful, Symbol.hasInstance, {
  * ```
  */
 export class Effects extends Effectful(class {}) {}
+function ownerIsAncestor(maybeParent, maybeChild) {
+  if (!maybeParent) return false;
+  let current = maybeChild;
+  while (current) {
+    if (current.owner === maybeParent) return true;
+    current = current.owner;
+  }
+  return false;
+}
 //# sourceMappingURL=Effectful.js.map

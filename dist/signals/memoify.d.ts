@@ -1,6 +1,3 @@
-import type { MemberStat } from '../decorators/types.js';
-/** @private internal only */
-export declare function setMemoifyMemberStat(stat: MemberStat): void;
 /**
  * Convert properties on an object into Solid.js memoized properties.
  *

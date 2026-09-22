@@ -15,9 +15,15 @@ declare const MyElement_base: {
         startEffects(): void;
         stopEffects(): void;
         clearEffects(): void;
-        "__#1@#owner": import("solid-js").Owner | null;
-        "__#1@#dispose": (() => void) | null;
+        "__#1@#parentOwner": import("solid-js").Owner | null;
+        "__#1@#dispose": () => void;
+        "__#1@#owner": import("solid-js").Owner;
         "__#1@#createEffect"(fn: () => void): void;
+        "__#1@#memoVersion": import("solid-js").Signal<number>;
+        createMemo<T>(fn: (prev: T | undefined) => T, value?: T | undefined, options?: import("solid-js").MemoOptions<T> | undefined): import("solid-js").Accessor<T>;
+        createWritableMemo<T>(fn: (prev: T | undefined) => T, value?: T | undefined, options?: import("solid-js").MemoOptions<T> | undefined): [get: import("solid-js").Accessor<T>, set: import("solid-js").Setter<T>];
+        "__#1@#memo"<T>(fn: (prev: T | undefined) => T, value: T | undefined, options: import("./index.js").LazyMemoOptions<T>): readonly [get: import("solid-js").Accessor<T>, set?: import("solid-js").Setter<T> | undefined];
+        "__#1@#lazyMemo"<T>(fn: (prev: T | undefined) => T, value: T | undefined, options: import("./index.js").LazyMemoOptions<T>): readonly [get: import("solid-js").Accessor<T>, set?: import("solid-js").Setter<T> | undefined];
     };
 } & {
     new (): HTMLElement;
@@ -41,9 +47,15 @@ declare const MyElement2_base: {
         startEffects(): void;
         stopEffects(): void;
         clearEffects(): void;
-        "__#1@#owner": import("solid-js").Owner | null;
-        "__#1@#dispose": (() => void) | null;
+        "__#1@#parentOwner": import("solid-js").Owner | null;
+        "__#1@#dispose": () => void;
+        "__#1@#owner": import("solid-js").Owner;
         "__#1@#createEffect"(fn: () => void): void;
+        "__#1@#memoVersion": import("solid-js").Signal<number>;
+        createMemo<T>(fn: (prev: T | undefined) => T, value?: T | undefined, options?: import("solid-js").MemoOptions<T> | undefined): import("solid-js").Accessor<T>;
+        createWritableMemo<T>(fn: (prev: T | undefined) => T, value?: T | undefined, options?: import("solid-js").MemoOptions<T> | undefined): [get: import("solid-js").Accessor<T>, set: import("solid-js").Setter<T>];
+        "__#1@#memo"<T>(fn: (prev: T | undefined) => T, value: T | undefined, options: import("./index.js").LazyMemoOptions<T>): readonly [get: import("solid-js").Accessor<T>, set?: import("solid-js").Setter<T> | undefined];
+        "__#1@#lazyMemo"<T>(fn: (prev: T | undefined) => T, value: T | undefined, options: import("./index.js").LazyMemoOptions<T>): readonly [get: import("solid-js").Accessor<T>, set?: import("solid-js").Setter<T> | undefined];
     };
 } & {
     new (): HTMLElement;
@@ -68,9 +80,15 @@ declare const MyElement3_base: {
         startEffects(): void;
         stopEffects(): void;
         clearEffects(): void;
-        "__#1@#owner": import("solid-js").Owner | null;
-        "__#1@#dispose": (() => void) | null;
+        "__#1@#parentOwner": import("solid-js").Owner | null;
+        "__#1@#dispose": () => void;
+        "__#1@#owner": import("solid-js").Owner;
         "__#1@#createEffect"(fn: () => void): void;
+        "__#1@#memoVersion": import("solid-js").Signal<number>;
+        createMemo<T>(fn: (prev: T | undefined) => T, value?: T | undefined, options?: import("solid-js").MemoOptions<T> | undefined): import("solid-js").Accessor<T>;
+        createWritableMemo<T>(fn: (prev: T | undefined) => T, value?: T | undefined, options?: import("solid-js").MemoOptions<T> | undefined): [get: import("solid-js").Accessor<T>, set: import("solid-js").Setter<T>];
+        "__#1@#memo"<T>(fn: (prev: T | undefined) => T, value: T | undefined, options: import("./index.js").LazyMemoOptions<T>): readonly [get: import("solid-js").Accessor<T>, set?: import("solid-js").Setter<T> | undefined];
+        "__#1@#lazyMemo"<T>(fn: (prev: T | undefined) => T, value: T | undefined, options: import("./index.js").LazyMemoOptions<T>): readonly [get: import("solid-js").Accessor<T>, set?: import("solid-js").Setter<T> | undefined];
     };
 } & {
     new (): HTMLElement;

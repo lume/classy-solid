@@ -1,6 +1,10 @@
-import {batch, createEffect} from 'solid-js'
+import {batch, createEffect, createRoot, createSignal} from 'solid-js'
 import {signalify} from './signalify.js'
 import {memoify} from './memoify.js'
+import {startEffects, stopEffects} from '../decorators/effect.js'
+import {effect} from '../decorators/effect.js'
+import {Effects} from '../mixins/Effectful.js'
+import {effects__} from '../_state.js'
 
 describe('classy-solid', () => {
 	describe('memoify()', () => {
@@ -196,10 +200,12 @@ describe('classy-solid', () => {
 					sumWritable(_val?: number) {
 						return this.a + this.b
 					}
+					constructor() {
+						signalify(this, 'a', 'b')
+						memoify(this, 'sum', 'sumWritable')
+					}
 				}
 				const ex = new Example()
-				signalify(ex, 'a', 'b')
-				memoify(ex, 'sum', 'sumWritable')
 				let lastSum = 0
 				let lastSumWritable = 0
 				let count = 0
@@ -237,10 +243,12 @@ describe('classy-solid', () => {
 						return this.a + this.b
 					}
 					set sum(_val) {}
+					constructor() {
+						signalify(this, 'a', 'b')
+						memoify(this, 'sum')
+					}
 				}
 				const ex = new Example()
-				signalify(ex, 'a', 'b')
-				memoify(ex, 'sum')
 				let lastSum = 0
 				let count = 0
 				createEffect(() => {
@@ -344,6 +352,182 @@ describe('classy-solid', () => {
 			const obj = {a: 1}
 			// @ts-expect-error "foo" is not a property on obj
 			memoify(obj, 'foo')
+		})
+
+		describe('lazy, Effectful-owned lifecycle', () => {
+			it('is lazy: the memo body does not run until first read (method, getter, getter+setter)', () => {
+				let m = 0
+				let g = 0
+				let gs = 0
+				const obj = {
+					a: 1,
+					sum() {
+						m++
+						return this.a
+					},
+					get gsum() {
+						g++
+						return this.a
+					},
+					get wsum() {
+						gs++
+						return this.a
+					},
+					set wsum(_v) {},
+				}
+				signalify(obj, 'a')
+				memoify(obj, 'sum', 'gsum', 'wsum')
+				expect([m, g, gs]).toEqual([0, 0, 0])
+				obj.sum()
+				obj.gsum
+				obj.wsum
+				expect([m, g, gs]).toEqual([1, 1, 1])
+			})
+
+			it('is owned by an Effects instance shared with @effect / createEffect on the same object', () => {
+				const plain = {
+					a: 1,
+					sum() {
+						return this.a
+					},
+				}
+				signalify(plain, 'a')
+				memoify(plain, 'sum')
+				const plainEffects = effects__.get(plain)
+				expect(plainEffects instanceof Effects).toBe(true)
+
+				let effectRuns = 0
+				class Foo extends Effects {
+					// @effect members are finalized (and run) as part of the base
+					// class's field initialization, i.e. during super(), BEFORE this
+					// constructor body runs signalify()/memoify(). Defer so the
+					// effect first runs after the memo exists.
+					static autoStartEffects = false
+
+					a = 1
+					sum() {
+						return this.a
+					}
+					constructor() {
+						super()
+						signalify(this, 'a')
+						memoify(this, 'sum')
+						this.startEffects()
+					}
+					@effect log() {
+						effectRuns++
+						this.sum()
+					}
+				}
+				const f = new Foo()
+				// For an Effectful object, the object itself is the Effects instance.
+				expect(effects__.get(f as any)).toBe(f)
+				expect(effectRuns).toBe(1)
+				f.a = 2
+				expect(effectRuns).toBe(2)
+				// One root for memoify'd memos and @effect members alike.
+				f.stopEffects()
+				f.a = 3
+				expect(effectRuns).toBe(2)
+			})
+
+			it('is disposable with stopEffects(obj) and revivable with startEffects(obj)', () => {
+				let memoRuns = 0
+				let last = 0
+				const obj = {
+					a: 1,
+					sum() {
+						memoRuns++
+						return this.a * 2
+					},
+					get wsum() {
+						return this.a * 10
+					},
+					set wsum(_v) {},
+				}
+				signalify(obj, 'a')
+				memoify(obj, 'sum', 'wsum')
+
+				let effectRuns = 0
+				createEffect(() => {
+					effectRuns++
+					last = obj.sum()
+				})
+				expect(memoRuns).toBe(1)
+				expect(effectRuns).toBe(1)
+				expect(last).toBe(2)
+
+				stopEffects(obj)
+				obj.a = 2
+				// The memo is disposed and the dependent's only dependency was the
+				// memo, so it is not notified while stopped...
+				expect(last).toBe(2)
+				expect(memoRuns).toBe(1)
+				// ...but a direct read still computes a fresh value.
+				expect(obj.sum()).toBe(4)
+				expect(memoRuns).toBe(2)
+				expect(() => (obj.wsum = 5)).toThrow('Cannot write to a memo while effects are stopped.')
+
+				const before = effectRuns
+				startEffects(obj)
+				expect(effectRuns).toBe(before + 1) // restart bump, exactly once
+				expect(last).toBe(4)
+				obj.a = 3
+				expect(last).toBe(6)
+			})
+
+			it('does not leak: a disposed memo is removed from its external dependency', () => {
+				const [store, setStore] = createSignal(1)
+				let memoRuns = 0
+				const obj = {
+					sum() {
+						memoRuns++
+						return store() * 2
+					},
+				}
+				memoify(obj, 'sum')
+
+				createRoot(() => {
+					createEffect(() => obj.sum())
+				})
+				expect(memoRuns).toBe(1)
+				setStore(2)
+				expect(memoRuns).toBe(2)
+
+				stopEffects(obj)
+				setStore(3)
+				expect(memoRuns).toBe(2) // no longer observing `store`
+			})
+
+			it('is owned by obj, not by the external effect that first reads it', () => {
+				const [trigger, setTrigger] = createSignal(0)
+				let memoRuns = 0
+				let effectRuns = 0
+				const obj = {
+					a: 1,
+					sum() {
+						memoRuns++
+						return this.a
+					},
+				}
+				signalify(obj, 'a')
+				memoify(obj, 'sum')
+
+				createRoot(() => {
+					createEffect(() => {
+						trigger()
+						effectRuns++
+						obj.sum()
+					})
+				})
+				expect(memoRuns).toBe(1)
+				setTrigger(1)
+				expect(effectRuns).toBe(2)
+				expect(memoRuns).toBe(1)
+				obj.a = 2
+				expect(memoRuns).toBe(2)
+				expect(effectRuns).toBe(3)
+			})
 		})
 
 		it('memo with no dependencies', () => {
